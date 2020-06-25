@@ -1,0 +1,8 @@
+# Generated Files
+*.[oa]
+*.py[co]
+bazel-*
+
+# OS Files
+*~
+.DS_Store
