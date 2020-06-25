@@ -51,7 +51,7 @@ public:
   template <typename F, typename... Ts>
   Thread(F&& func, Ts&&... args) {
     pthread_attr_init(&attributes_);
-    pthread_create(&id_, &attributes_, start<Ts...>,
+    pthread_create(&id_, &attributes_, start<ThreadArg<Ts...>>,
                    new ThreadArg<Ts...>(std::forward<F>(func),
                                         std::forward<Ts>(args)...));
   }
@@ -64,9 +64,9 @@ public:
     pthread_join(id_, nullptr);
   }
 
-  template <typename... Ts>
+  template <typename Arg>
   static void* start(void* in) {
-    std::unique_ptr<ThreadArg<Ts...>> thread_arg((ThreadArg<Ts...>*)in);
+    std::unique_ptr<Arg> thread_arg((Arg*)in);
     CHECK(thread_arg);
 
     helper::invoker(thread_arg->f, thread_arg->args);
