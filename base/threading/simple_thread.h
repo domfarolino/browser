@@ -1,8 +1,6 @@
 #ifndef BASE_THREADING_SIMPLE_THREAD_H_
 #define BASE_THREADING_SIMPLE_THREAD_H_
 
-#include <memory>
-
 #include "base/threading/thread.h"
 
 namespace base {
