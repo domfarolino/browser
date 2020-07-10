@@ -5,7 +5,7 @@
 #include <queue>
 
 #include "base/check.h"
-#include "base/threading.h"
+#include "base/threading/simple_thread.h"
 #include "base/synchronization.h"
 
 // Returns a random wait period in ms, weighted to return lower milliesconds
@@ -78,7 +78,7 @@ int main() {
   base::ConditionVariable condition(base::ThreadMode::kUsingPthread);
 
   std::queue<std::string> message_queue;
-  base::Thread producer_thread(producer, std::ref(message_queue), std::ref(mutex), std::ref(condition));
+  base::SimpleThread producer_thread(producer, std::ref(message_queue), std::ref(mutex), std::ref(condition));
   consumer(message_queue, mutex, condition);
   producer_thread.join();
   return 0;
