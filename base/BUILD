@@ -12,9 +12,11 @@ cc_library(
     "synchronization/condition_variable.h",
     "synchronization/mutex.h",
     "synchronization/synchronization_helpers.h",
+    "scheduling/task_loop.h",
     "threading/thread.h",
     "threading/simple_thread.h",
   ],
+  srcs = ["threading/thread.cc"],
   deps = [],
   visibility = ["//visibility:public"],
 )

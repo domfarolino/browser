@@ -19,9 +19,11 @@ public:
         : f_(std::forward<F>(func)),
           args_(std::make_tuple(std::forward<Ts>(args)...)) {}
 
-    void Run() {
+    void Run() override {
       helper::invoker(f_, args_);
     }
+
+    void Quit() override {}
 
   private:
     std::function<void (Ts...)> f_;
