@@ -8,8 +8,9 @@ cc_library(
   name = "base",
   hdrs = [
     "check.h",
-    "threading.h",
-    "synchronization.h"
+    "synchronization.h",
+    "threading/thread.h",
+    "threading/simple_thread.h",
   ],
   deps = [],
   visibility = ["//visibility:public"],

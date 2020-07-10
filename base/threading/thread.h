@@ -1,11 +1,11 @@
-#ifndef BASE_THREADING_H_
-#define BASE_THREADING_H_
+#ifndef BASE_THREADING_THREAD_H_
+#define BASE_THREADING_THREAD_H_
 
 #include <memory>
 #include <pthread.h>
 #include <unistd.h>
 
-#include "check.h"
+#include "base/check.h"
 
 namespace base {
 
@@ -34,26 +34,32 @@ void invoker(const F& function, std::tuple<Args...>& tup) {
 
 } // namespace helper
 
-template <typename... Ts>
-class ThreadArg {
-public:
-  template <typename F>
-  ThreadArg(F&& func, Ts&&... args)
-      : f(std::forward<F>(func)),
-        args(std::make_tuple(std::forward<Ts>(args)...)) {}
-
-  std::function<void (Ts...)> f;
-  std::tuple<Ts...> args;
-};
-
+// This class is not directly usable until Thread::Delegate is implemented. Use
+// SimpleThread for now.
 class Thread {
 public:
-  template <typename F, typename... Ts>
-  Thread(F&& func, Ts&&... args) {
+  // This is what the thread uses to actually run.
+  class Delegate {
+  public:
+    virtual ~Delegate() {}
+    virtual void Run() = 0;
+  };
+
+  Thread() {
     pthread_attr_init(&attributes_);
-    pthread_create(&id_, &attributes_, start<ThreadArg<Ts...>>,
-                   new ThreadArg<Ts...>(std::forward<F>(func),
-                                        std::forward<Ts>(args)...));
+  }
+
+  void Start() {
+    // TODO(domfarolino): If |delegate_| is null here (i.e., hasn't been
+    // overridden by a subclass), create a new default Thread::Delegate.
+    pthread_create(&id_, &attributes_, ThreadFunc, this);
+  }
+
+  // This method is run for the duration of the physical thread's lifetime. When
+  // it exits, the thread is terminated.
+  void ThreadMain() {
+    CHECK(delegate_);
+    delegate_->Run();
   }
 
   static void sleep_for(std::chrono::milliseconds ms) {
@@ -64,14 +70,17 @@ public:
     pthread_join(id_, nullptr);
   }
 
-  template <typename Arg>
-  static void* start(void* in) {
-    std::unique_ptr<Arg> thread_arg((Arg*)in);
-    CHECK(thread_arg);
+protected:
+  template <typename... Ts>
+  static void* ThreadFunc(void* in) {
+    Thread* thread = (Thread*)(in);
+    CHECK(thread);
 
-    helper::invoker(thread_arg->f, thread_arg->args);
+    thread->ThreadMain();
     pthread_exit(0);
   }
+
+  std::unique_ptr<Delegate> delegate_;
 
 private:
   pthread_t id_;
@@ -80,4 +89,4 @@ private:
 
 } // namespace base
 
-#endif // BASE_THREADING_H_
+#endif // BASE_THREADING_THREAD_H_
