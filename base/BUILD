@@ -9,7 +9,9 @@ cc_library(
   hdrs = [
     "check.h",
     "helper.h",
-    "synchronization.h",
+    "synchronization/condition_variable.h",
+    "synchronization/mutex.h",
+    "synchronization/synchronization_helpers.h",
     "threading/thread.h",
     "threading/simple_thread.h",
   ],

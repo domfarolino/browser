@@ -26,6 +26,6 @@ void invoker(const F& function, std::tuple<Args...>& tup) {
   invoker(function, tup, helper::gen_seq<sizeof...(Args)>{});
 }
 
-} // namespace helper
+}  // namespace helper
 
-#endif // BASE_HELPER_H_
+#endif  // BASE_HELPER_H_
