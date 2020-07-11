@@ -2,6 +2,8 @@
 #define BASE_SYNCHRONIZATION_H_
 
 #include <pthread.h>
+
+#include <condition_variable>
 #include <mutex> // std::unique_lock.
 
 #include "check.h"

@@ -1,9 +1,11 @@
 #ifndef BASE_THREADING_THREAD_H_
 #define BASE_THREADING_THREAD_H_
 
-#include <memory>
 #include <pthread.h>
 #include <unistd.h>
+
+#include <chrono>
+#include <memory>
 
 #include "base/check.h"
 
