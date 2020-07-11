@@ -9,4 +9,5 @@ bazel-*
 
 # CLion directory
 .idea
+.idea/*
 
