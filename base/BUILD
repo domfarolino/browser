@@ -8,6 +8,7 @@ cc_library(
   name = "base",
   hdrs = [
     "check.h",
+    "helper.h",
     "synchronization.h",
     "threading/thread.h",
     "threading/simple_thread.h",
