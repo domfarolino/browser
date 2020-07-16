@@ -2,16 +2,16 @@
 #define BASE_SYNCHRONIZATION_MUTEX_H_
 
 #include <pthread.h>
-#include <mutex> // std::unique_lock.
+#include <mutex>  // std::unique_lock.
 
-#include "check.h"
+#include "base/check.h"
 #include "base/synchronization/condition_variable.h"
 
 namespace base {
-  class Mutex {
-    public:
+class Mutex {
+ public:
         Mutex(): Mutex(ThreadMode::kUsingCpp) {}
-        Mutex(ThreadMode mode): mode_(mode) {
+        explicit Mutex(ThreadMode mode): mode_(mode) {
             CHECK(!pthread_mutex_init(&pthread_mutex_, nullptr));
         }
 
@@ -23,6 +23,7 @@ namespace base {
             CHECK_EQ(mode_, ThreadMode::kUsingCpp);
             return cpp_mutex_;
         }
+
         pthread_mutex_t& GetAsPthreadMutex() {
             CHECK_EQ(mode_, ThreadMode::kUsingPthread);
             return pthread_mutex_;
@@ -66,12 +67,11 @@ namespace base {
             pthread_mutex_destroy(&pthread_mutex_);
         }
 
-    private:
+  private:
         ThreadMode mode_;
         std::mutex cpp_mutex_;
         pthread_mutex_t pthread_mutex_;
-    };
+};
+}  // namespace base
 
-} // namespace base
-
-#endif // BASE_SYNCHRONIZATION_MUTEX_H_
+#endif  // BASE_SYNCHRONIZATION_MUTEX_H_
