@@ -3,8 +3,8 @@
 
 namespace base {
 enum class ThreadMode {
-    kUsingCpp,
-    kUsingPthread,
+  kUsingCpp,
+  kUsingPthread,
 };
 }
 

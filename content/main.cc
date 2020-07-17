@@ -6,7 +6,8 @@
 
 #include "base/check.h"
 #include "base/threading/simple_thread.h"
-#include "base/synchronization.h"
+#include "base/synchronization/condition_variable.h"
+#include "base/synchronization/mutex.h"
 
 // Returns a random wait period in ms, weighted to return lower milliesconds
 // more frequently.
@@ -57,10 +58,10 @@ void consumer(std::queue<std::string>& q, base::Mutex& mutex,
   while (data != "quit") {
     // Optionally wait, if the predicate function returns false.
     condition.wait(mutex, [&]() -> bool{
-      bool can_skip_waiting = (q.empty() == false);
-      if (can_skip_waiting == false)
-        std::cout << "\x1B[34m   Consumer waiting for more input\x1B[00m" << std::endl;
-      return can_skip_waiting;
+        bool can_skip_waiting = (q.empty() == false);
+        if (can_skip_waiting == false)
+          std::cout << "\x1B[34m   Consumer waiting for more input\x1B[00m" << std::endl;
+        return can_skip_waiting;
     });
 
     CHECK(mutex.is_locked());
