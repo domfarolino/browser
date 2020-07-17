@@ -9,6 +9,6 @@ namespace base {
 #define CHECK_EQ(actual, expected) CHECK(actual == expected)
 #define NOT_REACHED() CHECK(false)
 
-}  // namespace base
+} // namespace base
 
-#endif  // BASE_CHECK_H_
+#endif // BASE_CHECK_H_

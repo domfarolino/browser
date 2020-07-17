@@ -7,7 +7,6 @@ bazel-*
 *~
 .DS_Store
 
-# CLion directory
+# IDE directories
 .idea
 .idea/*
-

@@ -2,6 +2,7 @@
 #define BASE_SYNCHRONIZATION_MUTEX_H_
 
 #include <pthread.h>
+
 #include <mutex>  // std::unique_lock.
 
 #include "base/check.h"
@@ -9,6 +10,7 @@
 #include "base/synchronization/synchronization_helpers.h"
 
 namespace base {
+
 class Mutex {
  public:
   Mutex(): Mutex(ThreadMode::kUsingCpp) {}
@@ -73,6 +75,7 @@ class Mutex {
     std::mutex cpp_mutex_;
     pthread_mutex_t pthread_mutex_;
 };
-}  // namespace base
 
-#endif  // BASE_SYNCHRONIZATION_MUTEX_H_
+} // namespace base
+
+#endif // BASE_SYNCHRONIZATION_MUTEX_H_

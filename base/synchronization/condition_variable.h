@@ -6,6 +6,7 @@
 #include "base/synchronization/synchronization_helpers.h"
 
 namespace base {
+
 // It might be good to consider making a Lock class, that takes a lock over a
 // Mutex. That way the behavior and ownership is simpler, and more consistent
 // between the ThreadModes. The current way is fine for now though, just a
@@ -31,8 +32,7 @@ class ConditionVariable {
       mutex.lock();
       mutex_ = &mutex;
       while (!predicate()) {
-        pthread_cond_wait(&pthread_condition_,
-              &mutex.GetAsPthreadMutex());
+        pthread_cond_wait(&pthread_condition_, &mutex.GetAsPthreadMutex());
       }
     }
   }
@@ -71,6 +71,7 @@ class ConditionVariable {
   base::Mutex* mutex_ = nullptr;
   pthread_cond_t pthread_condition_;
 };
-}  // namespace base
 
-#endif  // BASE_SYNCHRONIZATION_CONDITION_VARIABLE_H_
+} // namespace base
+
+#endif // BASE_SYNCHRONIZATION_CONDITION_VARIABLE_H_
