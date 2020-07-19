@@ -12,9 +12,6 @@
 
 namespace base {
 
-// This class is not directly usable until Thread::Delegate is implemented. Use
-// SimpleThread for now.
-
 class Thread {
 public:
   // This is what the thread uses to actually run.
