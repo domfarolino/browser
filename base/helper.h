@@ -1,9 +1,16 @@
 #ifndef BASE_HELPER_H_
 #define BASE_HELPER_H_
 
+#include <functional>
 #include <tuple>
 
 // Source: https://stackoverflow.com/questions/16868129
+
+namespace base {
+
+using Callback = std::function<void()>;
+using Predicate = std::function<bool()>;
+
 namespace helper {
 
 template <std::size_t... Ts>
@@ -27,5 +34,7 @@ void invoker(const F& function, std::tuple<Args...>& tup) {
 }
 
 } // namespace helper
+
+} // namespace base
 
 #endif // BASE_HELPER_H_

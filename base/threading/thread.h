@@ -12,8 +12,6 @@
 
 namespace base {
 
-// This class is not directly usable until Thread::Delegate is implemented. Use
-// SimpleThread for now.
 class Thread {
 public:
   // This is what the thread uses to actually run.
@@ -21,42 +19,27 @@ public:
   public:
     virtual ~Delegate() {}
     virtual void Run() = 0;
+    virtual void PostTask(Callback) = 0;
+    virtual void Quit() = 0;
   };
 
-  Thread() {
-    pthread_attr_init(&attributes_);
+  Thread();
+  void Start();
+  void PostTask(Callback task) {
+    delegate_->PostTask(std::move(task));
   }
-
-  void Start() {
-    // TODO(domfarolino): If |delegate_| is null here (i.e., hasn't been
-    // overridden by a subclass), create a new default Thread::Delegate.
-    pthread_create(&id_, &attributes_, ThreadFunc, this);
-  }
+  void Quit() { delegate_->Quit(); }
 
   // This method is run for the duration of the physical thread's lifetime. When
   // it exits, the thread is terminated.
-  void ThreadMain() {
-    CHECK(delegate_);
-    delegate_->Run();
-  }
+  void ThreadMain();
 
-  static void sleep_for(std::chrono::milliseconds ms) {
-    usleep(ms.count() * 1000);
-  }
-
-  void join() {
-    pthread_join(id_, nullptr);
-  }
+  // C++ thread similar methods.
+  static void sleep_for(std::chrono::milliseconds ms);
+  void join();
 
 protected:
-  template <typename... Ts>
-  static void* ThreadFunc(void* in) {
-    Thread* thread = (Thread*)(in);
-    CHECK(thread);
-
-    thread->ThreadMain();
-    pthread_exit(0);
-  }
+  static void* ThreadFunc(void* in);
 
   std::unique_ptr<Delegate> delegate_;
 
