@@ -37,7 +37,6 @@ public:
   void join();
 
 protected:
-  // TODO(domfarolino): Remove the template param pack here.
   template <typename... Ts>
   static void* ThreadFunc(void* in);
 
