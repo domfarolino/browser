@@ -37,7 +37,6 @@ public:
   void join();
 
 protected:
-  template <typename... Ts>
   static void* ThreadFunc(void* in);
 
   std::unique_ptr<Delegate> delegate_;

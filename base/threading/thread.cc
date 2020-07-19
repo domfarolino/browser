@@ -33,7 +33,6 @@ void Thread::join() {
   pthread_join(id_, nullptr);
 }
 
-template <typename... Ts>
 // static
 void* Thread::ThreadFunc(void* in) {
   Thread* thread = (Thread*)(in);
