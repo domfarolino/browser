@@ -1,7 +1,6 @@
 #ifndef BASE_THREADING_SIMPLE_THREAD_H_
 #define BASE_THREADING_SIMPLE_THREAD_H_
 
-#include <functional>
 #include <tuple>
 #include <utility>
 
@@ -20,10 +19,11 @@ public:
         : f_(std::forward<F>(func)),
           args_(std::make_tuple(std::forward<Ts>(args)...)) {}
 
+    // Thread::Delegate implementation.
     void Run() override {
       helper::invoker(f_, args_);
     }
-
+    void PostTask(Callback) override { NOTREACHED(); }
     void Quit() override {}
 
   private:

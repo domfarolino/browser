@@ -11,6 +11,14 @@ cc_binary(
   ],
 )
 
+cc_binary(
+  name = "task_posting",
+  srcs = ["task_posting.cc"],
+  deps = [
+    "//base:base",
+  ],
+)
+
 # Workaround for debugging symbols. See
 # https://github.com/bazelbuild/bazel/issues/2537#issuecomment-281497449.
 genrule(

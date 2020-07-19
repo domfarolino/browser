@@ -3,6 +3,7 @@
 
 #include <queue>
 
+#include "base/helper.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/mutex.h"
 #include "base/threading/thread.h"
@@ -11,7 +12,6 @@ namespace base {
 
 class TaskLoop : public Thread::Delegate {
 public:
-  using Callback = std::function<void()>;
   TaskLoop() {}
   ~TaskLoop() {}
 
@@ -19,16 +19,7 @@ public:
   TaskLoop(TaskLoop&&) = delete;
   TaskLoop& operator=(const TaskLoop&) = delete;
 
-  // Can be called from any thread.
-  void PostTask(Callback cb) {
-    mutex_.lock();
-
-    q_.push(std::move(cb));
-
-    mutex_.unlock();
-    cv_.notify_one();
-  }
-
+  // Thread::Delegate implementation.
   void Run() override {
     while (1) {
       cv_.wait(mutex_, [&]() -> bool{
@@ -49,15 +40,26 @@ public:
     }
   }
 
-  // Should this be thread-safe?
+  // Can be called from any thread.
+  void PostTask(Callback cb) override {
+    mutex_.lock();
+
+    q_.push(std::move(cb));
+
+    mutex_.unlock();
+    cv_.notify_one();
+  }
+
+  // Can be called from any thread.
   void Quit() override {
     quit_ = true;
     cv_.notify_one();
   }
 
 private:
-  // TODO(domfarolino): Should this arg be a rvalue reference?
-  void ExecuteTask(Callback cb) { NOTREACHED(); }
+  void ExecuteTask(Callback cb) {
+    cb();
+  }
 
   // The mutex and condition variable are used to lock |q_|, and notify TaskLoop
   // when a task is ready to be executed.

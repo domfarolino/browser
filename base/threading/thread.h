@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "base/check.h"
+#include "base/helper.h"
 
 namespace base {
 
@@ -21,11 +22,15 @@ public:
   public:
     virtual ~Delegate() {}
     virtual void Run() = 0;
+    virtual void PostTask(Callback) = 0;
     virtual void Quit() = 0;
   };
 
   Thread();
   void Start();
+  void PostTask(Callback task) {
+    delegate_->PostTask(std::move(task));
+  }
   void Quit() { delegate_->Quit(); }
 
   // This method is run for the duration of the physical thread's lifetime. When

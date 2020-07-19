@@ -2,6 +2,7 @@
 #define BASE_SYNCHRONIZATION_CONDITION_VARIABLE_H_
 
 #include "base/check.h"
+#include "base/helper.h"
 #include "base/synchronization/mutex.h"
 #include "base/synchronization/synchronization_helpers.h"
 
@@ -24,7 +25,7 @@ class ConditionVariable {
   ConditionVariable (ConditionVariable&&) = delete;
   ConditionVariable& operator=(const ConditionVariable&) = delete;
 
-  void wait(Mutex& mutex, std::function<bool()> predicate) {
+  void wait(Mutex& mutex, Predicate predicate) {
     if (mode_ == ThreadMode::kUsingCpp) {
       lock_ = std::unique_lock<std::mutex>(mutex);
       cpp_condition_.wait(lock_, predicate);
