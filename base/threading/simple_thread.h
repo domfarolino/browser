@@ -5,6 +5,7 @@
 #include <tuple>
 #include <utility>
 
+#include "base/helper.h"
 #include "base/threading/thread.h"
 
 namespace base {

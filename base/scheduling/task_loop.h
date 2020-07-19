@@ -3,6 +3,8 @@
 
 #include <queue>
 
+#include "base/synchronization/condition_variable.h"
+#include "base/synchronization/mutex.h"
 #include "base/threading/thread.h"
 
 namespace base {
