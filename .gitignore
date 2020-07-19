@@ -6,3 +6,7 @@ bazel-*
 # OS Files
 *~
 .DS_Store
+
+# IDE directories
+.idea
+.idea/*

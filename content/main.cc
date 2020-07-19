@@ -6,7 +6,8 @@
 
 #include "base/check.h"
 #include "base/threading/simple_thread.h"
-#include "base/synchronization.h"
+#include "base/synchronization/condition_variable.h"
+#include "base/synchronization/mutex.h"
 
 // Returns a random wait period in ms, weighted to return lower milliesconds
 // more frequently.
