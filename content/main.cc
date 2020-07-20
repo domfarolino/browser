@@ -74,6 +74,7 @@ void consumer(std::queue<std::string>& q, base::Mutex& mutex,
 }
 
 int main() {
+
   srand(time(NULL));
   base::Mutex mutex(base::ThreadMode::kUsingPthread);
   base::ConditionVariable condition(base::ThreadMode::kUsingPthread);
