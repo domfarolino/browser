@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include <chrono>
+#include <condition_variable>
 #include <memory>
 
 #include "base/check.h"

@@ -1,3 +1,12 @@
+#ifdef __APPLE__
+#include "base/window/window_mac.h"
+#elif __linux__
+#include "base/window/window_x11.h"
+#elif _WIN32
+#include "base/window/window_win32.h"
+#endif
+
+
 #include <assert.h>
 
 #include <iostream>
@@ -82,5 +91,8 @@ int main() {
   base::SimpleThread producer_thread(producer, std::ref(message_queue), std::ref(mutex), std::ref(condition));
   consumer(message_queue, mutex, condition);
   producer_thread.join();
+
+  base::MainWindow win;
+  win.show();
   return 0;
 }

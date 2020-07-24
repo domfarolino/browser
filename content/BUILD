@@ -9,6 +9,7 @@ cc_binary(
     "@gtest//:gtest",
     "@gtest//:gtest_main",
   ],
+  linkopts = ["-lX11"],
 )
 
 cc_binary(

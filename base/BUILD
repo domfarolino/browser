@@ -15,8 +15,12 @@ cc_library(
     "scheduling/task_loop.h",
     "threading/thread.h",
     "threading/simple_thread.h",
+    "window/window_x11.h",
   ],
-  srcs = ["threading/thread.cc"],
+  srcs = [
+    "threading/thread.cc",
+    "window/window_x11.cpp",
+  ],
   deps = [],
   visibility = ["//visibility:public"],
 )
