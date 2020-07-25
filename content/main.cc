@@ -1,12 +1,3 @@
-#ifdef __APPLE__
-#include "base/window/window_mac.h"
-#elif __linux__
-#include "base/window/window_x11.h"
-#elif _WIN32
-#include "base/window/window_win32.h"
-#endif
-
-
 #include <assert.h>
 
 #include <iostream>
@@ -14,6 +5,7 @@
 #include <queue>
 
 #include "base/check.h"
+#include "base/mainwindow/mainwindow.h"
 #include "base/threading/simple_thread.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/mutex.h"
