@@ -1,15 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
-config_setting(
-  name = "linux",
-  constraint_values = ["@bazel_tools//platforms:linux"],
-)
-
-config_setting(
-  name = "darwin",
-  constraint_values = ["@bazel_tools//platforms:osx"],
-)
-
 cc_binary(
   name = "main",
   srcs = ["main.cc"],
@@ -19,10 +9,6 @@ cc_binary(
     "@gtest//:gtest",
     "@gtest//:gtest_main",
   ],
-  linkopts = select({
-    ":darwin": [],
-    ":linux": ["-lX11"],
-  })
 )
 
 cc_binary(
