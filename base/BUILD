@@ -28,20 +28,18 @@ cc_library(
     "threading/simple_thread.h",
     "window/window.h",
     "window/window_impl.h",
-  ] + select({
-      ":mac": [
-        "window/window_macos.h"
-      ],
-      ":linux": [
-        "window/window_linux.h",
-      ],
+  ] +
+  select({
+    ":mac": ["window/window_macos.h"],
+    ":linux": ["window/window_linux.h"],
   }),
   srcs = [
     "threading/thread.cc",
     "window/window_impl.cc",
-  ] + select({
-      ":mac": [],
-      ":linux": ["window/window_linux.cc"],
+  ] +
+  select({
+    ":mac": [],
+    ":linux": ["window/window_linux.cc"],
   }),
   deps = [],
   linkopts = select({
