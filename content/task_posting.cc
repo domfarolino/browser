@@ -55,8 +55,12 @@ void PostTasks(base::Thread& thread) {
       std::cout << "Enter TaskThree's input: ";
       std::cin >> input;
       TaskParam param(input);
-      auto task  = std::bind(&TaskThree, param);
-      thread.PostTask(std::move(task));
+      auto pdata = std::make_shared<TaskParam>(param);
+      std::function<void()> callback;
+      callback = [pdata]{ return TaskThree(std::move(*pdata)); };
+      thread.PostTask(callback);
+      // auto task  = std::bind(&TaskThree, param);
+      // thread.PostTask(std::move(task));
     }
   }
 

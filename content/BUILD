@@ -17,6 +17,7 @@ cc_binary(
   deps = [
     "//base:base",
   ],
+  linkopts = ["-lpthread"],
 )
 
 # Workaround for debugging symbols. See
