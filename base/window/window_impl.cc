@@ -11,7 +11,7 @@ namespace base {
 
 
 #ifdef OS_MACOS
-WindowImpl::WindowImpl() : platform_window_(new WindowLinux()) {}
+WindowImpl::WindowImpl() : platform_window_() {}
 #elif OS_LINUX
 WindowImpl::WindowImpl() : platform_window_(new WindowLinux()) {}
 #endif

@@ -1,5 +1,5 @@
-#ifndef MAINWINDOW_X11_H_
-#define MAINWINDOW_X11_H_
+#ifndef BASE_WINDOW_WINDOW_LINUX_H_
+#define BASE_WINDOW_WINDOW_LINUX_H_
 
 #include <assert.h>
 #include <stdio.h>
@@ -24,4 +24,4 @@ class WindowLinux : public base::Window {
 
 } // namespace base
 
-#endif // MAINWINDOW_X11_H_
+#endif // BASE_WINDOW_WINDOW_LINUX_H_
