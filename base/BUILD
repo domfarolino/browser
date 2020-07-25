@@ -7,6 +7,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 cc_library(
   name = "base",
   hdrs = [
+    "build_config.h",
     "check.h",
     "helper.h",
     "synchronization/condition_variable.h",
@@ -15,14 +16,14 @@ cc_library(
     "scheduling/task_loop.h",
     "threading/thread.h",
     "threading/simple_thread.h",
-    "mainwindow/iwindow.h",
-    "mainwindow/mainwindow.h",
-    "mainwindow/mainwindow_x11.h",
+    "window/window.h",
+    "window/window_impl.h",
+    "window/window_linux.h",
   ],
   srcs = [
     "threading/thread.cc",
-    "mainwindow/mainwindow.cc",
-    "mainwindow/mainwindow_x11.cc",
+    "window/window_impl.cc",
+    "window/window_linux.cc",
   ],
   deps = [],
   visibility = ["//visibility:public"],

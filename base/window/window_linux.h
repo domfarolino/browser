@@ -6,17 +6,19 @@
 #include <unistd.h>
 #include <X11/Xlib.h>
 
-#include "iwindow.h"
+#include <memory>
+
+#include "base/window/window.h"
 
 namespace base {
 
-class MainWindow_X11 : public base::IWindow {
-public:
-  MainWindow_X11();
-  ~MainWindow_X11();
+class WindowLinux : public base::Window {
+ public:
+  WindowLinux();
+  ~WindowLinux();
   void show();
 
-private:
+ private:
   Display* display_;
 };
 

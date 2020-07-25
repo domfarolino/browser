@@ -1,8 +1,8 @@
-#include "mainwindow_x11.h"
+#include "base/window/window_linux.h"
 
 namespace base {
 
-MainWindow_X11::MainWindow_X11() {
+WindowLinux::WindowLinux() {
   this->display_ = XOpenDisplay(0);
 
   assert(display_);
@@ -22,9 +22,9 @@ MainWindow_X11::MainWindow_X11() {
   XSetForeground(display_, gc, whiteColor);
 }
 
-MainWindow_X11::~MainWindow_X11() {}
+WindowLinux::~WindowLinux() {}
 
-void MainWindow_X11::show() {
+void WindowLinux::show() {
   printf("creating window - press `q` to quit\n");
   while (1) {
     XEvent e;

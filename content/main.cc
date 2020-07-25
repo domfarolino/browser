@@ -5,10 +5,10 @@
 #include <queue>
 
 #include "base/check.h"
-#include "base/mainwindow/mainwindow.h"
 #include "base/threading/simple_thread.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/mutex.h"
+#include "base/window/window_impl.h"
 
 // Returns a random wait period in ms, weighted to return lower milliesconds
 // more frequently.
@@ -84,7 +84,7 @@ int main() {
   consumer(message_queue, mutex, condition);
   producer_thread.join();
 
-  base::MainWindow win;
+  base::WindowImpl win;
   win.show();
   return 0;
 }
