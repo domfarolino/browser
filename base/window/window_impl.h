@@ -7,11 +7,11 @@
 
 namespace base {
 
-class WindowImpl : public base::Window {
+class WindowImpl final : public base::Window {
  public:
   WindowImpl();
   virtual ~WindowImpl();
-  void show();
+  void Show() override;
 
  private:
   std::unique_ptr<Window> platform_window_;

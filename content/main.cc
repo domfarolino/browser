@@ -85,6 +85,6 @@ int main() {
   producer_thread.join();
 
   base::WindowImpl win;
-  win.show();
+  win.Show();
   return 0;
 }

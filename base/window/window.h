@@ -6,7 +6,7 @@ namespace base {
 class Window {
  public:
   virtual ~Window() {}
-  virtual void show() = 0;
+  virtual void Show() = 0;
 };
 
 } // namespace base

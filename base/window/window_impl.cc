@@ -9,7 +9,6 @@
 
 namespace base {
 
-
 #ifdef OS_MACOS
 WindowImpl::WindowImpl() : platform_window_() {}
 #elif OS_LINUX
@@ -18,8 +17,8 @@ WindowImpl::WindowImpl() : platform_window_(new WindowLinux()) {}
 
 WindowImpl::~WindowImpl() {}
 
-void WindowImpl::show() {
-  platform_window_->show();
+void WindowImpl::Show() {
+  platform_window_->Show();
 }
 
 } // namespace base
