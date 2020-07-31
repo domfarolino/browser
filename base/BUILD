@@ -17,7 +17,9 @@ cc_library(
     "threading/simple_thread.h",
   ],
   srcs = ["threading/thread.cc"],
-  deps = [],
+  deps = [
+    "@glfw//:glfw",
+  ],
   visibility = ["//visibility:public"],
 )
 
