@@ -2,12 +2,12 @@
 #include <iostream>
 #include <ostream>
 
-#include <glad/glad.h> // must go before glfw3.h
-#include <GLFW/glfw3.h>
+#include "glad/glad.h" // must go before glfw3.h
+#include "GLFW/glfw3.h"
 
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/string_cast.hpp>
+#include "glm/glm.hpp"
+#include "glm/gtc/type_ptr.hpp"
+#include "glm/gtx/string_cast.hpp"
 
 struct Vertex {
   glm::vec2 position;

@@ -47,7 +47,11 @@ LINUX_SRCS = [
     "src/x11_window.c",
 ]
 
-LINUX_LINKOPTS = []
+LINUX_LINKOPTS = [
+    "-lX11",
+    "-lpthread", 
+    "-ldl",
+]
 
 MAC_DEFINES = [
   "_GLFW_COCOA",
