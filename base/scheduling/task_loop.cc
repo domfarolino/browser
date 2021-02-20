@@ -8,15 +8,14 @@
 namespace base {
 
 // static
-std::unique_ptr<TaskLoop> TaskLoop::Create(ThreadType type) {
+std::shared_ptr<TaskLoop> TaskLoop::Create(ThreadType type) {
   switch (type) {
     case ThreadType::WORKER:
-      printf("Creating a task loop of type worker\n");
-      return std::unique_ptr<TaskLoopForWorker>(new TaskLoopForWorker());
+      return std::shared_ptr<TaskLoopForWorker>(new TaskLoopForWorker());
     case ThreadType::UI:
     case ThreadType::IO:
       NOTREACHED();
-      return std::unique_ptr<TaskLoopForWorker>();
+      return std::shared_ptr<TaskLoopForWorker>();
   }
 }
 

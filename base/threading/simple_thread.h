@@ -2,6 +2,7 @@
 #define BASE_THREADING_SIMPLE_THREAD_H_
 
 #include <tuple>
+#include <memory>
 #include <utility>
 
 #include "base/helper.h"
@@ -25,7 +26,7 @@ public:
     void Run() override {
       helper::invoker(f_, args_);
     }
-    TaskRunner* GetTaskRunner() override { NOTREACHED(); }
+    std::shared_ptr<TaskRunner> GetTaskRunner() override { NOTREACHED(); }
     void Quit() override {}
 
   private:

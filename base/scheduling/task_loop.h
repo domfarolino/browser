@@ -30,7 +30,7 @@ class TaskLoop : public Thread::Delegate,
   TaskLoop(TaskLoop&&) = delete;
   TaskLoop& operator=(const TaskLoop&) = delete;
 
-  static std::unique_ptr<TaskLoop> Create(ThreadType type);
+  static std::shared_ptr<TaskLoop> Create(ThreadType type);
 
   // Thread::Delegate implementation.
   // Called on the thread that |this| is bound to.
