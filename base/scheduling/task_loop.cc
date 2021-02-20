@@ -1,5 +1,8 @@
-#include "base/check.h"
 #include "base/scheduling/task_loop.h"
+
+#include <memory>
+
+#include "base/check.h"
 #include "base/scheduling/task_loop_for_worker.h"
 
 namespace base {
@@ -15,6 +18,10 @@ std::unique_ptr<TaskLoop> TaskLoop::Create(ThreadType type) {
       NOTREACHED();
       return std::unique_ptr<TaskLoopForWorker>();
   }
+}
+
+std::shared_ptr<TaskRunner> TaskLoop::GetTaskRunner() {
+  return std::shared_ptr<TaskRunner>(new TaskRunner(GetWeakPtr()));
 }
 
 }; // namespace base

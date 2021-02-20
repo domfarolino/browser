@@ -12,11 +12,13 @@
 
 namespace base {
 
-// |TaskLoop| should be uniquely owned by the owner of |Thread::Delegate|
-// (concretely, that's |Thread|). However, have to inherit from
-// |std::enable_shared_from_this| so that we can hand std::weak_ptrs pointing to
-// |this| out to |TaskRunner|. For more information see the documentation above
-// |TaskRunner|.
+// |TaskLoop| is owned long-term, solely by the owner of |Thread::Delegate|
+// (concretely, that's |Thread|). However, we have to inherit from
+// |std::enable_shared_from_this| so that we can hand std::weak_ptr<TaskLoop>s
+// out to |TaskRunner|. We should never handing std::shared_ptr<TaskLoop>s out
+// to anyone, and the std::weak_ptr<TaskLoop>s owned by |TaskRunner| should only
+// should ever take ownership of this object for the brief period of time they
+// post a task. For more information see the documentation above |TaskRunner|.
 class TaskLoop : public Thread::Delegate,
                  public TaskRunner::Delegate,
                  public std::enable_shared_from_this<TaskLoop> {
@@ -31,32 +33,26 @@ class TaskLoop : public Thread::Delegate,
   static std::unique_ptr<TaskLoop> Create(ThreadType type);
 
   // Thread::Delegate implementation.
+  // Called on the thread that |this| is bound to.
   void Run() override = 0;
   // Can be called from any thread.
   void Quit() override = 0;
   // Can be called from any thread.
-  std::shared_ptr<TaskRunner> GetTaskRunner() override {
-    return std::shared_ptr<TaskRunner>(new TaskRunner(GetWeakPtr()));
-  }
+  std::shared_ptr<TaskRunner> GetTaskRunner() override;
 
   // TaskRunner::Delegate implementation.
   // Can be called from any thread.
-  // This is used to expose only |TaskLoop::PostTask()| method to |TaskRunner|s
-  // that post tasks to this loop.
   void PostTask(Callback cb) override = 0;
 
  protected:
-  // TODO(domfarolino): We may want to move this method down to the
-  // |TaskLoopForWorker| base class instead of having it here for all |TaskLoop|
-  // types.
   void ExecuteTask(Callback cb) {
     cb();
   }
 
   // Each concrete implementation of |TaskLoop| has its own members that control
-  // when and on what the loop blocks, and how it is woken up, so this base
-  // class has no members specific to the internals of the loop, besides a basic
-  // |quit_| boolean that all loops share.
+  // when/on what the loop blocks, and how it is woken up. This base class has
+  // no members specific to the internals of the loop, besides a basic |quit_|
+  // boolean that all |TaskLoop| implementations use.
 
   // Set to |true| only once in the task loop's lifetime.
   bool quit_ = false;
