@@ -18,7 +18,7 @@ class TaskRunner;
 // capable of.
 enum class ThreadType {
   // This type of thread *only* supports executing manually posted tasks, e.g.,
-  // via |ThreadDelegate::PostTask()|.
+  // via |TaskRunner::PostTask()|.
   WORKER,
 
   // This type of thread supports waiting for and serializing native UI events

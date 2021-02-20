@@ -22,13 +22,11 @@ void TaskLoopForWorker::Run() {
   }
 }
 
-// Can be called from any thread.
 void TaskLoopForWorker::PostTask(Callback cb) {
   mutex_.lock();
-
   queue_.push(std::move(cb));
-
   mutex_.unlock();
+
   cv_.notify_one();
 }
 

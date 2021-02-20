@@ -38,9 +38,9 @@ class TaskRunner final {
     if (auto delegate_ = weak_delegate_.lock())
       delegate_->PostTask(std::move(cb));
 
-    // Maybe we should do some logging when |weak_delegate_| is destroyed, just
-    // to verify that this doesn't happen in unexpected cases i.e., not during
-    // thread shutdown.
+    // Maybe we should do some logging in the event |weak_delegate_| is
+    // destroyed, just to verify that this doesn't happen in unexpected cases
+    // i.e., not during thread shutdown.
   }
 
  private:

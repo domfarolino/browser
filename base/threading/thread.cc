@@ -1,7 +1,10 @@
+#include "base/threading/thread.h"
+
 #include <pthread.h>
 #include <unistd.h>
 
-#include "base/threading/thread.h"
+#include <chrono>
+#include <memory>
 
 #include "base/check.h"
 #include "base/scheduling/task_loop.h"
@@ -13,7 +16,7 @@ Thread::Thread(ThreadType type) : type_(type) {
 }
 
 void Thread::Start() {
-  // Given subclasses a chance to override their own |delegate_|.
+  // Give subclasses a chance to override their own |delegate_|.
   if (!delegate_) {
     delegate_.reset();
     delegate_ = TaskLoop::Create(type_);

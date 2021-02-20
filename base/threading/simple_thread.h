@@ -1,8 +1,8 @@
 #ifndef BASE_THREADING_SIMPLE_THREAD_H_
 #define BASE_THREADING_SIMPLE_THREAD_H_
 
-#include <tuple>
 #include <memory>
+#include <tuple>
 #include <utility>
 
 #include "base/helper.h"
