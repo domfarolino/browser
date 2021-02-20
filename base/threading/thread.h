@@ -41,12 +41,12 @@ class Thread {
    public:
     virtual ~Delegate() {}
     virtual void Run() = 0;
-    virtual TaskRunner* GetTaskRunner() = 0;
+    virtual std::shared_ptr<TaskRunner> GetTaskRunner() = 0;
     virtual void Quit() = 0;
   };
 
   void Start();
-  TaskRunner* GetTaskRunner();
+  std::shared_ptr<TaskRunner> GetTaskRunner();
   void Quit();
 
   // This method is run for the duration of the physical thread's lifetime. When
@@ -60,7 +60,12 @@ class Thread {
  protected:
   static void* ThreadFunc(void* in);
 
-  std::unique_ptr<Delegate> delegate_;
+  // NOTE: Never hand out any std::shared_ptr copies of this member! This is
+  // only a std::shared_ptr so that it can produce std::weak_ptrs of itself.
+  // The intention is to have |delegate_| be uniquely owned by |this|, but to be
+  // able to create many new |TaskRunner| objects that all weakly reference
+  // |delegate_|. See the documentation above |TaskRunner| for more information.
+  std::shared_ptr<Delegate> delegate_;
 
  private:
   ThreadType type_;

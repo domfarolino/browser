@@ -23,7 +23,7 @@ void Thread::Start() {
   pthread_create(&id_, &attributes_, ThreadFunc, this);
 }
 
-TaskRunner* Thread::GetTaskRunner() {
+std::shared_ptr<TaskRunner> Thread::GetTaskRunner() {
   return delegate_->GetTaskRunner();
 }
 

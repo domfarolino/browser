@@ -1,6 +1,7 @@
 #ifndef BASE_SCHEDULING_TASK_LOOP_H_
 #define BASE_SCHEDULING_TASK_LOOP_H_
 
+#include <memory>
 #include <queue>
 
 #include "base/helper.h"
@@ -11,7 +12,14 @@
 
 namespace base {
 
-class TaskLoop : public Thread::Delegate, public TaskRunner {
+// |TaskLoop| should be uniquely owned by the owner of |Thread::Delegate|
+// (concretely, that's |Thread|). However, have to inherit from
+// |std::enable_shared_from_this| so that we can hand std::weak_ptrs pointing to
+// |this| out to |TaskRunner|. For more information see the documentation above
+// |TaskRunner|.
+class TaskLoop : public Thread::Delegate,
+                 public TaskRunner::Delegate,
+                 public std::enable_shared_from_this<TaskLoop> {
  public:
   TaskLoop() {}
   ~TaskLoop() {}
@@ -27,16 +35,14 @@ class TaskLoop : public Thread::Delegate, public TaskRunner {
   // Can be called from any thread.
   void Quit() override = 0;
   // Can be called from any thread.
-  // TODO(domfarolino): It is bad that this returns a raw pointer, this needs to
-  // be changed.
-  TaskRunner* GetTaskRunner() override {
-    return this;
+  std::shared_ptr<TaskRunner> GetTaskRunner() override {
+    return std::shared_ptr<TaskRunner>(new TaskRunner(GetWeakPtr()));
   }
 
-  // TaskRunner implementation.
+  // TaskRunner::Delegate implementation.
   // Can be called from any thread.
-  // This is used to expose only the |PostTask()| method to consumers that one
-  // to post tasks.
+  // This is used to expose only |TaskLoop::PostTask()| method to |TaskRunner|s
+  // that post tasks to this loop.
   void PostTask(Callback cb) override = 0;
 
  protected:
@@ -54,6 +60,11 @@ class TaskLoop : public Thread::Delegate, public TaskRunner {
 
   // Set to |true| only once in the task loop's lifetime.
   bool quit_ = false;
+
+ private:
+  std::weak_ptr<TaskLoop> GetWeakPtr() {
+    return shared_from_this();
+  }
 };
 
 } // namespace base

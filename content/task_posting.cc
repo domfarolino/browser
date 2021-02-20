@@ -37,7 +37,7 @@ void TaskThree(TaskParam param) {
 
 // This runs on the main thread.
 void PostTasks(base::Thread& thread) {
-  base::TaskRunner* task_runner = thread.GetTaskRunner();
+  std::shared_ptr<base::TaskRunner> task_runner = thread.GetTaskRunner();
   int task_number;
   while (1) {
     std::cout << "Enter 1, 2, or 3 to post tasks 1, 2, or 3 respectively. Or 0 to quit: ";
