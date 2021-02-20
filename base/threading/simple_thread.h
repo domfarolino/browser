@@ -9,6 +9,8 @@
 
 namespace base {
 
+class TaskRunner;
+
 class SimpleThread : public Thread {
 public:
   template <typename... Ts>
@@ -23,7 +25,7 @@ public:
     void Run() override {
       helper::invoker(f_, args_);
     }
-    void PostTask(Callback) override { NOTREACHED(); }
+    TaskRunner* GetTaskRunner() override { NOTREACHED(); }
     void Quit() override {}
 
   private:

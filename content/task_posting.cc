@@ -1,5 +1,7 @@
 #include <iostream>
 
+#include "base/scheduling/task_runner.h"
+#include "base/scheduling/task_loop.h"
 #include "base/threading/thread.h"
 
 class TaskParam {
@@ -35,6 +37,7 @@ void TaskThree(TaskParam param) {
 
 // This runs on the main thread.
 void PostTasks(base::Thread& thread) {
+  base::TaskRunner* task_runner = thread.GetTaskRunner();
   int task_number;
   while (1) {
     std::cout << "Enter 1, 2, or 3 to post tasks 1, 2, or 3 respectively. Or 0 to quit: ";
@@ -44,19 +47,19 @@ void PostTasks(base::Thread& thread) {
       break;
 
     if (task_number == 1) {
-      thread.PostTask(std::bind(&TaskOne));
+      task_runner->PostTask(std::bind(&TaskOne));
     } else if (task_number == 2) {
       int input;
       std::cout << "Enter TaskTwo's input: ";
       std::cin >> input;
-      thread.PostTask(std::bind(&TaskTwo, input));
+      task_runner->PostTask(std::bind(&TaskTwo, input));
     } else {
       int input;
       std::cout << "Enter TaskThree's input: ";
       std::cin >> input;
       TaskParam param(input);
       auto task  = std::bind(&TaskThree, param);
-      thread.PostTask(std::move(task));
+      task_runner->PostTask(std::move(task));
     }
   }
 

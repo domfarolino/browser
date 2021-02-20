@@ -8,17 +8,31 @@
 
 namespace base {
 
-Thread::Thread() {
+Thread::Thread(ThreadType type) : type_(type) {
   pthread_attr_init(&attributes_);
 }
 
 void Thread::Start() {
-  if (!delegate_)
-    delegate_.reset(new TaskLoop());
+  // Given subclasses a chance to override their own |delegate_|.
+  if (!delegate_) {
+    delegate_.reset();
+    delegate_ = TaskLoop::Create(type_);
+  }
+
   CHECK(delegate_);
   pthread_create(&id_, &attributes_, ThreadFunc, this);
 }
 
+TaskRunner* Thread::GetTaskRunner() {
+  return delegate_->GetTaskRunner();
+}
+
+void Thread::Quit() {
+  delegate_->Quit();
+}
+
+// This method is run for the duration of the physical thread's lifetime. When
+// it exits, the thread is terminated.
 void Thread::ThreadMain() {
   CHECK(delegate_);
   delegate_->Run();

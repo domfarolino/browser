@@ -4,14 +4,15 @@
 #include <queue>
 
 #include "base/helper.h"
+#include "base/scheduling/task_runner.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/mutex.h"
 #include "base/threading/thread.h"
 
 namespace base {
 
-class TaskLoop : public Thread::Delegate {
-public:
+class TaskLoop : public Thread::Delegate, public TaskRunner {
+ public:
   TaskLoop() {}
   ~TaskLoop() {}
 
@@ -19,58 +20,42 @@ public:
   TaskLoop(TaskLoop&&) = delete;
   TaskLoop& operator=(const TaskLoop&) = delete;
 
+  static std::unique_ptr<TaskLoop> Create(ThreadType type);
+
   // Thread::Delegate implementation.
-  void Run() override {
-    while (1) {
-      cv_.wait(mutex_, [&]() -> bool{
-        bool can_skip_waiting = (q_.empty() == false || quit_);
-        return can_skip_waiting;
-      });
-
-      if (quit_)
-        break;
-
-      // We now own the lock for |q_|.
-      CHECK(q_.size());
-      Callback cb = std::move(q_.front());
-      q_.pop();
-      cv_.release_lock();
-
-      ExecuteTask(std::move(cb));
-    }
-  }
-
+  void Run() override = 0;
   // Can be called from any thread.
-  void PostTask(Callback cb) override {
-    mutex_.lock();
-
-    q_.push(std::move(cb));
-
-    mutex_.unlock();
-    cv_.notify_one();
-  }
-
+  void Quit() override = 0;
   // Can be called from any thread.
-  void Quit() override {
-    quit_ = true;
-    cv_.notify_one();
+  // TODO(domfarolino): It is bad that this returns a raw pointer, this needs to
+  // be changed.
+  TaskRunner* GetTaskRunner() override {
+    return this;
   }
 
-private:
+  // TaskRunner implementation.
+  // Can be called from any thread.
+  // This is used to expose only the |PostTask()| method to consumers that one
+  // to post tasks.
+  void PostTask(Callback cb) override = 0;
+
+ protected:
+  // TODO(domfarolino): We may want to move this method down to the
+  // |TaskLoopForWorker| base class instead of having it here for all |TaskLoop|
+  // types.
   void ExecuteTask(Callback cb) {
     cb();
   }
 
-  // The mutex and condition variable are used to lock |q_|, and notify TaskLoop
-  // when a task is ready to be executed.
-  base::Mutex mutex_;
-  base::ConditionVariable cv_;
-  std::queue<Callback> q_;
+  // Each concrete implementation of |TaskLoop| has its own members that control
+  // when and on what the loop blocks, and how it is woken up, so this base
+  // class has no members specific to the internals of the loop, besides a basic
+  // |quit_| boolean that all loops share.
 
-  // Set to |true| only once in a TaskLoop's lifetime.
+  // Set to |true| only once in the task loop's lifetime.
   bool quit_ = false;
 };
 
 } // namespace base
 
-#endif //BASE_SCHEDULING_TASK_LOOP_H_
+#endif // BASE_SCHEDULING_TASK_LOOP_H_
