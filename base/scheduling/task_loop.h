@@ -51,8 +51,14 @@ class TaskLoop : public Thread::Delegate,
 
   // Each concrete implementation of |TaskLoop| has its own members that control
   // when/on what the loop blocks, and how it is woken up. This base class has
-  // no members specific to the internals of the loop, besides a basic |quit_|
-  // boolean that all |TaskLoop| implementations use.
+  // no members specific to the internals of the loop, besides a callback
+  // |queue_| (which all |TaskLoop| implementations support), a |mutex_| for the
+  // |queue_|, and a basic |quit_| boolean.
+
+  // Used to lock |queue_|, since it can be accessed from multiple threads via
+  // |PostTask()|.
+  base::Mutex mutex_;
+  std::queue<Callback> queue_;
 
   // Set to |true| only once in the task loop's lifetime.
   bool quit_ = false;

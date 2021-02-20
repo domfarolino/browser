@@ -28,11 +28,10 @@ public:
   void Quit() override;
 
 private:
-  // The mutex and condition variable are used to lock |queue_|, and notify the
-  // task loop when a task has been posted and is ready to execute.
-  base::Mutex mutex_;
+  // This |TaskLoop| implementation only responds to user-posted tasks, so we
+  // use a condition variable to wake up the loop when a task has been posted
+  // and is ready to execute.
   base::ConditionVariable cv_;
-  std::queue<Callback> queue_;
 };
 
 } // namespace base
