@@ -17,8 +17,9 @@ namespace base {
 // |std::enable_shared_from_this| so that we can hand std::weak_ptr<TaskLoop>s
 // out to |TaskRunner|. We should never handing std::shared_ptr<TaskLoop>s out
 // to anyone, and the std::weak_ptr<TaskLoop>s owned by |TaskRunner| should only
-// should ever take ownership of this object for the brief period of time they
-// post a task. For more information see the documentation above |TaskRunner|.
+// should ever take ownership of this object for the brief period of time it
+// needs to post a task. For more information see the documentation above
+// |TaskRunner|.
 class TaskLoop : public Thread::Delegate,
                  public TaskRunner::Delegate,
                  public std::enable_shared_from_this<TaskLoop> {
