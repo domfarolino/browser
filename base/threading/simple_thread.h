@@ -1,6 +1,7 @@
 #ifndef BASE_THREADING_SIMPLE_THREAD_H_
 #define BASE_THREADING_SIMPLE_THREAD_H_
 
+#include <memory>
 #include <tuple>
 #include <utility>
 
@@ -8,6 +9,8 @@
 #include "base/threading/thread.h"
 
 namespace base {
+
+class TaskRunner;
 
 class SimpleThread : public Thread {
 public:
@@ -23,7 +26,7 @@ public:
     void Run() override {
       helper::invoker(f_, args_);
     }
-    void PostTask(Callback) override { NOTREACHED(); }
+    std::shared_ptr<TaskRunner> GetTaskRunner() override { NOTREACHED(); }
     void Quit() override {}
 
   private:

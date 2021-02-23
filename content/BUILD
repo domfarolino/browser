@@ -18,6 +18,13 @@ cc_binary(
     "//base:base",
   ],
 )
+cc_binary(
+  name = "bind_task_loop_to_current_thread",
+  srcs = ["bind_task_loop_to_current_thread.cc"],
+  deps = [
+    "//base:base",
+  ],
+)
 
 # Workaround for debugging symbols. See
 # https://github.com/bazelbuild/bazel/issues/2537#issuecomment-281497449.
