@@ -12,37 +12,36 @@ namespace base {
 
 void TaskLoopForIO::Run() {
   while (true) {
-    base::Thread::sleep_for(std::chrono::milliseconds(300));
-    // TODO(domfarolino): Support processing multiple queued events
-    // synchronously (see below comment);
+    events_.resize(event_count_);
     int rv = kevent64(kqueue_, nullptr, 0, events_.data(), events_.size(), 0,
                       nullptr);
-    CHECK_GEQ(rv, 0);
+
+    // At this point we had to have read at least one event from the kernel.
+    CHECK_GEQ(rv, 1);
 
     if (quit_)
       break;
 
-    // Right now we only support processing one event at a time.
-    // TODO(domfarolino): Change this before mering.
-    CHECK_EQ(rv, 1);
-    auto* event = &events_[0];
+    for (int i = 0; i < rv; ++i) {
+      auto* event = &events_[i];
 
-    if (event->filter == EVFILT_READ) {
-      int fd = event->ident;
-      auto* socket_reader = async_socket_readers_[fd];
-      CHECK(socket_reader);
-      socket_reader->OnCanReadFromSocket();
-    } else if (event->filter == EVFILT_MACHPORT) {
-      mutex_.lock();
-      CHECK(queue_.size());
-      Callback cb = std::move(queue_.front());
-      queue_.pop();
-      mutex_.unlock();
+      if (event->filter == EVFILT_READ) {
+        int fd = event->ident;
+        auto* socket_reader = async_socket_readers_[fd];
+        CHECK(socket_reader);
+        socket_reader->OnCanReadFromSocket();
+      } else if (event->filter == EVFILT_MACHPORT) {
+        mutex_.lock();
+        CHECK(queue_.size());
+        Callback cb = std::move(queue_.front());
+        queue_.pop();
+        mutex_.unlock();
 
-      ExecuteTask(std::move(cb));
-    } else {
-      NOTREACHED();
-    }
+        ExecuteTask(std::move(cb));
+      } else {
+        NOTREACHED();
+      }
+    } // for.
 
   } // while (true).
 }
