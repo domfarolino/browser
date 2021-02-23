@@ -42,6 +42,4 @@ using TaskLoopForIO = TaskLoopForIOMac;
 using TaskLoopForIO = TaskLoopForIOLinux;
 #endif
 
-} // namespace base
-
 #endif // BASE_SCHEDULING_TASK_LOOP_FOR_IO_H_
