@@ -2,6 +2,9 @@
 #include <stdint.h>
 #include <sys/errno.h>
 #include <sys/event.h>
+#include <sys/socket.h>
+
+#include <vector>
 
 #include "base/scheduling/task_loop_for_io.h"
 
@@ -9,20 +12,57 @@ namespace base {
 
 void TaskLoopForIO::Run() {
   while (true) {
-    int rv = kevent64(kqueue_fd_, nullptr, 0, events_.data(), events_.size(), 0, nullptr);
+    base::Thread::sleep_for(std::chrono::milliseconds(300));
+    // TODO(domfarolino): Support processing multiple queued events
+    // synchronously (see below comment);
+    int rv = kevent64(kqueue_, nullptr, 0, events_.data(), events_.size(), 0,
+                      nullptr);
     CHECK_GEQ(rv, 0);
 
     if (quit_)
       break;
 
-    mutex_.lock();
-    CHECK(queue_.size());
-    Callback cb = std::move(queue_.front());
-    queue_.pop();
-    mutex_.unlock();
+    // Right now we only support processing one event at a time.
+    // TODO(domfarolino): Change this before mering.
+    CHECK_EQ(rv, 1);
+    auto* event = &events_[0];
 
-    ExecuteTask(std::move(cb));
-  }
+    if (event->filter == EVFILT_READ) {
+      int fd = event->ident;
+      auto* socket_reader = async_socket_readers_[fd];
+      CHECK(socket_reader);
+      socket_reader->OnCanReadFromSocket();
+    } else if (event->filter == EVFILT_MACHPORT) {
+      mutex_.lock();
+      CHECK(queue_.size());
+      Callback cb = std::move(queue_.front());
+      queue_.pop();
+      mutex_.unlock();
+
+      ExecuteTask(std::move(cb));
+    } else {
+      NOTREACHED();
+    }
+
+  } // while (true).
+}
+
+void TaskLoopForIO::WatchSocket(int fd, SocketReader* socket_reader) {
+  std::vector<kevent64_s> events;
+
+  kevent64_s new_event{};
+  new_event.ident = fd;
+  new_event.flags = EV_ADD;
+  new_event.filter = EVFILT_READ;
+  // new_event.udata = fd_controllers_.Add(controller);
+  events.push_back(new_event);
+
+  int rv = kevent64(kqueue_, events.data(), events.size(), nullptr, 0, 0, nullptr);
+  CHECK_GEQ(rv, 0);
+
+  async_socket_readers_[fd] = socket_reader;
+
+  event_count_++;
 }
 
 // Can be called from any thread.
@@ -47,21 +87,22 @@ void TaskLoopForIO::PostTask(Callback cb) {
   message.header.msgh_bits =
       MACH_MSGH_BITS_REMOTE(MACH_MSG_TYPE_MAKE_SEND_ONCE);
   message.header.msgh_remote_port = wakeup_;
-  kern_return_t kr = mach_msg_send(&message.header);
 
+  kern_return_t kr = mach_msg_send(&message.header);
   CHECK_EQ(kr, KERN_SUCCESS);
   mutex_.unlock();
 }
 
 void TaskLoopForIO::Quit() {
   quit_ = true;
+  // See documentation in |PostTask()|.
   mach_msg_empty_send_t message{};
   message.header.msgh_size = sizeof(message);
   message.header.msgh_bits =
       MACH_MSGH_BITS_REMOTE(MACH_MSG_TYPE_MAKE_SEND_ONCE);
   message.header.msgh_remote_port = wakeup_;
-  kern_return_t kr = mach_msg_send(&message.header);
 
+  kern_return_t kr = mach_msg_send(&message.header);
   CHECK_EQ(kr, KERN_SUCCESS);
 }
 
