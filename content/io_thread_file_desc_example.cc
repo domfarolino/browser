@@ -14,17 +14,17 @@ class SocketReaderImpl : public base::TaskLoopForIO::SocketReader {
  public:
   SocketReaderImpl(int fd): base::TaskLoopForIO::SocketReader::SocketReader(fd) {}
   void OnCanReadFromSocket() {
-    char* buf[256]; 
-    struct iovec iov = {buf, 256}; 
-    char cmsg_buf[CMSG_SPACE(256* sizeof(int))]; 
-    struct msghdr msg = {}; 
-    msg.msg_iov = &iov; 
-    msg.msg_iovlen = 1; 
-    msg.msg_control = cmsg_buf; 
-    msg.msg_controllen = sizeof(cmsg_buf); 
+    char* buf[25];
+    struct iovec iov = {buf, 25};
+    char cmsg_buf[CMSG_SPACE(25* sizeof(int))];
+    struct msghdr msg = {};
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = cmsg_buf;
+    msg.msg_controllen = sizeof(cmsg_buf);
 
     recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
-    printf("  Message: %s\n", buf);
+    printf("  %s\n", buf);
   }
 };
 
@@ -34,27 +34,27 @@ void WriteToFDFromSimpleThread(int fd) {
   // 1.) Write a message.
   base::Thread::sleep_for(std::chrono::milliseconds(300));
   printf("1.) |WriteToFDFromSimpleThread| is writing a message to IO thread\n");
-  char* msg = "1.) First message";
+  char* msg = "[READ] 1.) First message \0";
   write(fd, msg, strlen(msg));
 
   // 2.) Post a task.
   base::Thread::sleep_for(std::chrono::milliseconds(300));
   printf("2.) |WriteToFDFromSimpleThread| is posting a task to IO thread\n");
   g_io_task_runner->PostTask(std::bind([](){
-    printf("  2.) First task is running\n");
+    printf("  [TASK]: 2.) First task is running\n");
   }));
 
   // 3.) Write another message.
   base::Thread::sleep_for(std::chrono::milliseconds(300));
   printf("3.) |WriteToFDFromSimpleThread| is writing a message to IO thread\n");
-  msg = "3.) Second message";
+  msg = "[READ] 3.) Second message\0";
   write(fd, msg, strlen(msg));
 
   // 4.) Post another task.
   base::Thread::sleep_for(std::chrono::milliseconds(300));
   printf("4.) |WriteToFDFromSimpleThread| is posting a task to IO thread\n");
   g_io_task_runner->PostTask(std::bind([](){
-    printf("  4.) Second task is running\n");
+    printf("  [TASK]: 4.) Second task is running\n");
   }));
 }
 
