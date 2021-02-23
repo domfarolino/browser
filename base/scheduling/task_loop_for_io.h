@@ -25,8 +25,9 @@ namespace base {
 // instantiate the correct one depending on the platform we're running on.
 class TaskLoopForIO : public TaskLoop {
  public:
-  // |SocketReader|s register themselves with a given file descriptor, and are
-  // notified asynchronously when the file descriptor can be read from.
+  // |SocketReader|s register themselves with a |TaskLoopForIO| associated with
+  // a given file descriptor. They are notified asynchronously when the file
+  // descriptor can be read from.
   class SocketReader {
    public:
     SocketReader(int fd): fd_(fd) {}
