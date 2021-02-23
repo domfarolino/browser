@@ -3,7 +3,7 @@ Simple browser components
 
 ## Compatibility
 
-Right now things have only been build and tested on macOS Catalina.
+Right now things have only been built and tested on macOS Catalina.
 
 ## Building
 
