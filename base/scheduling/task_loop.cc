@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "base/check.h"
+#include "base/scheduling/task_loop_for_io.h"
 #include "base/scheduling/task_loop_for_worker.h"
 
 namespace base {
@@ -13,9 +14,10 @@ std::shared_ptr<TaskLoop> TaskLoop::Create(ThreadType type) {
     case ThreadType::WORKER:
       return std::shared_ptr<TaskLoopForWorker>(new TaskLoopForWorker());
     case ThreadType::UI:
-    case ThreadType::IO:
       NOTREACHED();
       return std::shared_ptr<TaskLoopForWorker>();
+    case ThreadType::IO:
+      return std::shared_ptr<TaskLoopForIO>(new TaskLoopForIO());
   }
 }
 

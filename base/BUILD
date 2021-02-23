@@ -21,6 +21,7 @@ cc_library(
     "callback.h",
     "check.h",
     "scheduling/task_loop.h",
+    "scheduling/task_loop_for_io.h",
     "scheduling/task_loop_for_worker.h",
     "scheduling/task_runner.h",
     "synchronization/condition_variable.h",
@@ -31,6 +32,7 @@ cc_library(
   ],
   srcs = [
     "scheduling/task_loop.cc",
+    "scheduling/task_loop_for_io.cc",
     "scheduling/task_loop_for_worker.cc",
     "threading/thread.cc",
   ],
