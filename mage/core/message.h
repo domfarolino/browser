@@ -57,7 +57,7 @@ enum MessageType : int {
 
 class Message {
  public:
-  Message(MessageType type) : type_(type) {}
+  Message(MessageType type) : type(type) {}
   virtual ~Message() = default;
 
   virtual std::vector<char> Serialize() = 0;
@@ -65,8 +65,8 @@ class Message {
     NOTREACHED();
   }
 
- protected:
-  MessageType type_;
+  // See the TODO in |SendInvitationMessage|.
+  MessageType type;
 };
 
 class SendInvitationMessage : public Message {
@@ -77,9 +77,10 @@ class SendInvitationMessage : public Message {
   static std::unique_ptr<Message> Deserialize(int fd);
 
   // TODO(domfarolino): We should either make this a struct and have these be public, or make these private and give these setters.
-  std::string inviter_name_;
-  std::string temporary_remote_node_name_;
-  std::string intended_peer_endpoint_name_;
+  std::string inviter_name;
+  std::string temporary_remote_node_name;
+  std::string intended_endpoint_name;
+  std::string intended_endpoint_peer_name;
 };
 
 }; // namspace mage

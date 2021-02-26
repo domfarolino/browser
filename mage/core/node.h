@@ -18,7 +18,7 @@ namespace mage {
 
 class Endpoint;
 
-class Node {
+class Node : public Channel::Delegate {
  public:
   Node() : name_(util::RandomString()) {
     printf("Node name_: %s\n", name_.c_str());
@@ -27,6 +27,12 @@ class Node {
   void InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1, std::shared_ptr<Endpoint> ep2);
   MageHandle SendInvitationToTargetNodeAndGetMessagePipe(int fd);
   void AcceptInvitation(int fd);
+
+  // Channel::Delegate implementation:
+  void OnReceivedMessage(std::unique_ptr<Message> message) override;
+
+  void OnReceivedSendInvitation(std::unique_ptr<Message>);
+  void OnReceivedAcceptInvitation(std::unique_ptr<Message>);
 
  private:
   std::string name_;
@@ -37,7 +43,6 @@ class Node {
 
   // A set of queues keyed by [??]
   // std::map<std::string, std::queue<std::unique_ptr<Message>>> pending_outgoing_peer_messages_;
-
 
   // All endpoints whose address's node name is |name_|, thus the |Endpoint| is
   // "local".

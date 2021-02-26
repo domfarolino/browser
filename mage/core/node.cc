@@ -74,20 +74,52 @@ MageHandle Node::SendInvitationToTargetNodeAndGetMessagePipe(int fd) {
   NodeName temporary_remote_node_name = util::RandomString();
   reserved_endpoints_.insert({temporary_remote_node_name, remote_endpoint});
 
-  std::unique_ptr<Channel> channel(new Channel(fd));
+  std::unique_ptr<Channel> channel(new Channel(fd, /*delegate=*/this));
   channel->Start();
   channel->SetRemoteNodeName(temporary_remote_node_name);
-  channel->SendInvitation(name_, remote_endpoint->name);
+  channel->SendInvitation(name_, remote_endpoint->name, remote_endpoint->peer_address.endpoint_name);
 
   node_channel_map_.insert({temporary_remote_node_name, std::move(channel)});
   pending_invitations_.insert(temporary_remote_node_name);
   return local_endpoint_handle;
 }
 
+void Node::OnReceivedMessage(std::unique_ptr<Message> message) {
+  printf("Node::OnReceivedMessage!\n");
+  switch (message->type) {
+    case MessageType::SEND_INVITATION:
+      OnReceivedSendInvitation(std::move(message));
+      return;
+    case MessageType::ACCEPT_INVITATION:
+      NOTREACHED();
+      OnReceivedAcceptInvitation(std::move(message));
+      return;
+    case MessageType::USER_MESSAGE:
+      NOTREACHED();
+      return;
+  }
+
+  NOTREACHED();
+}
+
+void Node::OnReceivedSendInvitation(std::unique_ptr<Message> message) {
+  SendInvitationMessage* inner_invitation = static_cast<SendInvitationMessage*>(message.release());
+  std::unique_ptr<SendInvitationMessage> invitation(inner_invitation);
+
+  printf("Node::OnReceivedSendInvitation\n");
+  printf("  inviter_name:                %s\n", invitation->inviter_name.c_str());
+  printf("  temporary_remote_node_name:  %s\n", invitation->temporary_remote_node_name.c_str());
+  printf("  intended_endpoint_name: %s\n", invitation->intended_endpoint_name.c_str());
+  printf("  intended_endpoint_peer_name: %s\n", invitation->intended_endpoint_peer_name.c_str());
+}
+
+void Node::OnReceivedAcceptInvitation(std::unique_ptr<Message> message) {}
+
+
 void Node::AcceptInvitation(int fd) {
-  std::unique_ptr<Channel> channel(new Channel(fd));
+  std::unique_ptr<Channel> channel(new Channel(fd, this));
   channel->Start();
-  std::string temporary_remote_node_name = "test"; // fix this!! We should just make this the inviter channel or something.
+  std::string temporary_remote_node_name = "INIT"; // fix this!! We should just make this the inviter channel or something.
   node_channel_map_.insert({temporary_remote_node_name, std::move(channel)});
 }
 

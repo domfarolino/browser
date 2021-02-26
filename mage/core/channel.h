@@ -8,14 +8,22 @@
 
 namespace mage {
 
+class Message;
+
 class Channel : public base::TaskLoopForIO::SocketReader {
  public:
-  Channel(int fd);
+  class Delegate {
+   public:
+    virtual ~Delegate() = default;
+    virtual void OnReceivedMessage(std::unique_ptr<Message> message) = 0;
+  };
+
+  Channel(int fd, Delegate* delegate);
   virtual ~Channel() = default;
 
   void Start();
   void SetRemoteNodeName(const std::string& name);
-  void SendInvitation(std::string inviter_name, std::string intended_peer_endpoint_name);
+  void SendInvitation(std::string inviter_name, std::string intended_endpoint_name, std::string intended_endpint_peer_nae);
 
   // base::TaskLoopForIO::SocketReader implementation:
   void OnCanReadFromSocket() override;
@@ -24,6 +32,9 @@ class Channel : public base::TaskLoopForIO::SocketReader {
   // This is always initialized as something temporary until we hear back from
   // the remote node and it tells us its name.
   std::string remote_node_name_;
+
+  // The |Delegate| owns |this|, so this pointer will never be null.
+  Delegate* delegate_;
 };
 
 }; // namespace mage
