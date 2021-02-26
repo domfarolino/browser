@@ -72,7 +72,6 @@ MageHandle Node::SendInvitationToTargetNodeAndGetMessagePipe(int fd) {
   MageHandle local_endpoint_handle = Core::Get()->GetNextMageHandle();
 
   NodeName temporary_remote_node_name = util::RandomString();
-  reserved_endpoints_.insert({temporary_remote_node_name, remote_endpoint});
 
   std::unique_ptr<Channel> channel(new Channel(fd, /*delegate=*/this));
   channel->Start();
@@ -80,7 +79,7 @@ MageHandle Node::SendInvitationToTargetNodeAndGetMessagePipe(int fd) {
   channel->SendInvitation(name_, remote_endpoint->name, remote_endpoint->peer_address.endpoint_name);
 
   node_channel_map_.insert({temporary_remote_node_name, std::move(channel)});
-  pending_invitations_.insert(temporary_remote_node_name);
+  pending_invitations_.insert({temporary_remote_node_name, remote_endpoint});
   return local_endpoint_handle;
 }
 

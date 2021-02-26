@@ -46,6 +46,23 @@ class Node : public Channel::Delegate {
   using NodeName = std::string;
   using EndpointName = std::string;
 
+  // All endpoints whose address's "node name" is our |name_|
+  std::map<EndpointName, std::shared_ptr<Endpoint>> local_endpoints_;
+
+  // When we send a message from a (necessarily, local) endpoint to find the
+  // channel associated with its peer endpoint. Without this, we couldn't send
+  // remote messages. A node will never reference its own |name_| in this map.
+  std::map<NodeName, std::unique_ptr<Channel>> node_channel_map_;
+
+  // Maps |NodeNames| that we've sent invitations to and are awaiting
+  // acceptances from, to an |Endpoint| that we've reserved for the peer node.
+  // The node names in this map are the temporary one we generate for a peer
+  // node before it has told us its real name. Once an invitation acceptance
+  // comes back from the node that identifies itself to us by the temporary name
+  // we've given it, we update instances of its temporary name with its "real"
+  // one that it provides in the invitation acceptance message.
+  std::map<NodeName, std::shared_ptr<Endpoint>> pending_invitations_;
+
   // TODO(domfarolino): Once we support passing endpoints over existing
   // endpoints, it will be possible for a node to be given an endpoint to a node
   // that it doesn't know of yet. We'll need a map of queues like the following
@@ -53,20 +70,6 @@ class Node : public Channel::Delegate {
   // We may also be able to hold these queues on the local |Endpoint|s
   // themselves.
   // std::map<NodeName, std::map<EndpointName, std::queue<std::unique_ptr<Message>>>> pending_outgoing_endpoint_messages_;
-
-  // All endpoints whose address's "node name" is our |name_|
-  std::map<EndpointName, std::shared_ptr<Endpoint>> local_endpoints_;
-
-  std::map<NodeName, std::unique_ptr<Channel>> node_channel_map_;
-
-  // TODO(domfarolino): Can we merge the following two?
-  // A set of |NodeNames| that we've sent invitations to, and are awaiting acceptances from. We need this to keep track of which node accepts which invitation.
-  std::set<NodeName> pending_invitations_;
-  // Holds the remote endpoint associated with a given (temporary) node name
-  // that we're sending an invite to. Once an invitation acceptance comes back
-  // from the node, we update instances of its temporary name with its real one
-  // that it tells us, and then [...]
-  std::map<NodeName, std::shared_ptr<Endpoint>> reserved_endpoints_;
 };
 
 }; // namespace mage
