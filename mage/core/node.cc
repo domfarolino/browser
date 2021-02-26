@@ -111,16 +111,27 @@ void Node::OnReceivedSendInvitation(std::unique_ptr<Message> message) {
   printf("  temporary_remote_node_name:  %s\n", invitation->temporary_remote_node_name.c_str());
   printf("  intended_endpoint_name: %s\n", invitation->intended_endpoint_name.c_str());
   printf("  intended_endpoint_peer_name: %s\n", invitation->intended_endpoint_peer_name.c_str());
+
+  // Now that we know our inviter's name, we can find our initial channel in our
+  // map, and change the entry's key to the actual inviter's name.
+  auto it = node_channel_map_.find(kInitialChannelName);
+  CHECK_NE(it, node_channel_map_.end());
+  std::unique_ptr<Channel> init_channel = std::move(it->second);
+  node_channel_map_.erase(kInitialChannelName);
+  node_channel_map_.insert({invitation->inviter_name, std::move(init_channel)});
 }
 
 void Node::OnReceivedAcceptInvitation(std::unique_ptr<Message> message) {}
 
 
 void Node::AcceptInvitation(int fd) {
+  CHECK_EQ(has_accepted_invitation_, false);
+
   std::unique_ptr<Channel> channel(new Channel(fd, this));
   channel->Start();
-  std::string temporary_remote_node_name = "INIT"; // fix this!! We should just make this the inviter channel or something.
-  node_channel_map_.insert({temporary_remote_node_name, std::move(channel)});
+  node_channel_map_.insert({kInitialChannelName, std::move(channel)});
+
+  has_accepted_invitation_ = true;
 }
 
 }; // namespace mage
