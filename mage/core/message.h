@@ -1,13 +1,12 @@
 #ifndef MAGE_CORE_MESSAGE_H_
 #define MAGE_CORE_MESSAGE_H_
 
+#include <string>
 #include <vector>
 
 #include "base/check.h"
 
 namespace mage {
-
-class Endpoint;
 
 enum MessageType : int {
   // This sends the maiden message to a new peer node along with a bootstrap
@@ -72,13 +71,15 @@ class Message {
 
 class SendInvitationMessage : public Message {
  public:
-  SendInvitationMessage(Endpoint* endpoint_to_send);
+  SendInvitationMessage() : Message(MessageType::SEND_INVITATION) {}
 
   std::vector<char> Serialize() override;
   static std::unique_ptr<Message> Deserialize(int fd);
 
- private:
-  Endpoint* endpoint_to_send_;
+  // TODO(domfarolino): We should either make this a struct and have these be public, or make these private and give these setters.
+  std::string inviter_name_;
+  std::string temporary_remote_node_name_;
+  std::string intended_peer_endpoint_name_;
 };
 
 }; // namspace mage

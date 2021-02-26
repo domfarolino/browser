@@ -8,8 +8,6 @@
 
 namespace mage {
 
-class Endpoint;
-
 class Channel : public base::TaskLoopForIO::SocketReader {
  public:
   Channel(int fd);
@@ -17,7 +15,7 @@ class Channel : public base::TaskLoopForIO::SocketReader {
 
   void Start();
   void SetRemoteNodeName(const std::string& name);
-  void SendInvitation(Endpoint* remote_endpoint);
+  void SendInvitation(std::string inviter_name, std::string intended_peer_endpoint_name);
 
   // base::TaskLoopForIO::SocketReader implementation:
   void OnCanReadFromSocket() override;

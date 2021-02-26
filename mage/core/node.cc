@@ -77,7 +77,7 @@ MageHandle Node::SendInvitationToTargetNodeAndGetMessagePipe(int fd) {
   std::unique_ptr<Channel> channel(new Channel(fd));
   channel->Start();
   channel->SetRemoteNodeName(temporary_remote_node_name);
-  channel->SendInvitation(remote_endpoint.get());
+  channel->SendInvitation(name_, remote_endpoint->name);
 
   node_channel_map_.insert({temporary_remote_node_name, std::move(channel)});
   pending_invitations_.insert(temporary_remote_node_name);

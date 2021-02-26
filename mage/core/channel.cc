@@ -22,10 +22,14 @@ void Channel::SetRemoteNodeName(const std::string& name) {
   remote_node_name_ = name;
 }
 
-void Channel::SendInvitation(Endpoint* remote_endpoint) {
-  SendInvitationMessage invite(remote_endpoint);
-  std::vector<char> buffer = invite.Serialize();
-  printf("buffer size: %lu\n", buffer.size());
+void Channel::SendInvitation(std::string inviter_name, std::string intended_peer_endpoint_name) {
+  SendInvitationMessage invitation;
+  invitation.inviter_name_ = inviter_name;
+  invitation.temporary_remote_node_name_ = remote_node_name_;
+  invitation.intended_peer_endpoint_name_ = intended_peer_endpoint_name;
+
+  std::vector<char> buffer = invitation.Serialize();
+  printf("Channel::SendInvitation buffer size: %lu\n", buffer.size());
   write(fd_, buffer.data(), buffer.size());
 }
 
