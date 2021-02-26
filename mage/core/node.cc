@@ -31,9 +31,41 @@ void Node::InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1, std::sh
 }
 
 MageHandle Node::SendInvitationToTargetNodeAndGetMessagePipe(int fd) {
-  // Attach the partial message pipe to the invitation, and prepare its handle
-  // for return. Once returned, it is immediately usable by this process to
-  // send messages that will eventually arrive on the remote process.
+  // This node wishes to invite another fresh peer node to the network of
+  // processes. The sequence of events here looks like so:
+  //   Endpoints:
+  //     1.) Create two new entangled endpoints.
+  //     2.) Insert both endpoints in the |local_endpoints_| map since both
+  //         endpoints are technically local to |this| at this point. Eventually
+  //         only one endpoint, |local_endpoint| below will be local to |this|
+  //         while |remote_endpoint| will eventually be replaced with an
+  //         endpoint with the same name as |remote_endpoint| on the target node.
+  //     3.) Insert |remote_endpoint| into |reserved_endpoints| which maps
+  //         temporary node names to endpoints that will eventually be replaced
+  //         with a truly remote endpoint.
+  //   Nodes:
+  //     1.) Create a new |Channel| for the node whose name is
+  //         |temporary_remote_node_name| (its name will change later when it
+  //         tells us its real name).
+  //     2.) Start the channel (listen for any messages from the remote node,
+  //         though we don't expect any just yet).
+  //     3.) Send the |MessageType::SEND_INVITATION| message to the remote node.
+  //     4.) Store the channel in |node_channel_map_| so that we can reference
+  //         it whenever we send a message from an endpoint that is bound for
+  //         the remote node.
+  //     5.) Insert the temporary remote node name in the |pending_invitations_|
+  //         set. When we receive invitation acceptance later on, we want to
+  //         make sure we know which node we're receiving the acceptance from.
+  //         We use this set to keep track of our pending invitations that we
+  //         expect acceptances for. Later we'll update all instances of
+  //         |temporary_remote_node_name| to the actual remote node name that it
+  //         makes us aware of as a part of invitation acceptance.
+  //   MageHandles:
+  //     1.) Return the |MageHandle| assocaited with |local_endpoint| so that
+  //         this process can start immediately queueing messages on
+  //         |local_endpoint| that will eventually be delivered to the remote
+  //         process.
+
   std::shared_ptr<Endpoint> local_endpoint(new Endpoint()), remote_endpoint(new Endpoint());
   InitializeAndEntangleEndpoints(local_endpoint, remote_endpoint);
 
@@ -48,15 +80,7 @@ MageHandle Node::SendInvitationToTargetNodeAndGetMessagePipe(int fd) {
   channel->SendInvitation(remote_endpoint.get());
 
   node_channel_map_.insert({temporary_remote_node_name, std::move(channel)});
-
-  // This is the part where we send an invitation to the remote process.
-  // Node:
-  //   X.) Create a new channel for the remote node
-  //   X.) Add to reate a new channel and put it in pending_invitations or pending_peers or something.
-  //   3.) Create a new Channel given fd
-  //   X.) Invoke channel->SetRemoteNodeName()
-  //   4.) Invoke channel->SendInvitation(...)
-  // NOTREACHED();
+  pending_invitations_.insert(temporary_remote_node_name);
   return local_endpoint_handle;
 }
 
@@ -65,15 +89,6 @@ void Node::AcceptInvitation(int fd) {
   channel->Start();
   std::string temporary_remote_node_name = "test"; // fix this!! We should just make this the inviter channel or something.
   node_channel_map_.insert({temporary_remote_node_name, std::move(channel)});
-}
-
-void Node::WriteMessage(MessageType message_type) {
-  switch (message_type) {
-    case MessageType::SEND_INVITATION:
-      printf("Will be writing an SEND_INVITATION message\n");
-    case MessageType::ACCEPT_INVITATION:
-      printf("Will be writing an ACCEPT_INVITATION message\n");
-  }
 }
 
 }; // namespace mage

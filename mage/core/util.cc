@@ -15,5 +15,5 @@ std::string RandomString() {
   return return_string;
 }
 
-};
-};
+}; // namespace util
+}; // namespace mage

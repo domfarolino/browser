@@ -10,12 +10,51 @@ namespace mage {
 class Endpoint;
 
 enum MessageType : int {
+  // This sends the maiden message to a new peer node along with a bootstrap
+  // endpoint identifier that the peer node will add. The peer node is then
+  // expected to send the next message below. The inviter's boostrap endpoint is
+  // local and ephemeral, used to queue messages that will eventually
+  // make it to the fresh peer node. The state of things in the inviter node
+  // after sending this looks like something like:
+  // +------------------------------+
+  // |           Node 1             |
+  // | +--------+       +---------+ |
+  // | |Local   |       |Ephemeral| |
+  // | |Endpoint|       |Endpoint | |
+  // | |  peer-+|------>|         | |
+  // | |        |<------|-+peer   | |
+  // | +--------+       +---------+ |
+  // +-------------------------------+
   SEND_INVITATION,
+  // A fresh peer node will send this message to its inviter node after
+  // receiving the above message and recovering the ephemeral endpoint
+  // identifier from it. Once the fresh peer recovers the endpoint identifier,
+  // it adds it as a local endpoint, whose peer is "Local Endpoint" above
+  // When the inviter receives this message, it knows to do two things:
+  //   1.) Set "Local Endpoint"'s  peer to the remote endpoint in the new peer
+  //       node
+  //   2.) Set "Ephemeral Endpoint" in a proxying state, flushing all messages
+  //       it may have queued to the remote endpoint in the peer node
+  // At this point, chain of endpoints looks like so:
+  //     +-------------------------------+
+  //     |                               |
+  //     v                   Proxying    +
+  //   Local      Ephemeral+---------> Remote
+  //  Endpoint     Endpoint           Endpoint
+  //     +                               ^
+  //     |                               |
+  //     +-------------------------------+
+  //     
+  //     ^                 ^             ^
+  //     |                 |             |
+  //     +------Node 1-----+-----Node2---+
   ACCEPT_INVITATION,
+  // TODO(domfarolino): Figure out if we need any more messages, like one
+  // indicating that all proxies have been closed and RemoteEndpoint will no
+  // longer be getting messages from endpoints other than its peer. This could
+  // be useful, but before implementing it, it's not clear if it is necessary.
+  USER_MESSAGE,
 };
-
-// TODO(domfarolino): We should support variable-sized messages.
-static const int kMessageHeaderSize = sizeof(int);
 
 class Message {
  public:
@@ -23,6 +62,9 @@ class Message {
   virtual ~Message() = default;
 
   virtual std::vector<char> Serialize() = 0;
+  static std::unique_ptr<Message> Deserialize(int fd) {
+    NOTREACHED();
+  }
 
  protected:
   MessageType type_;
@@ -33,6 +75,7 @@ class SendInvitationMessage : public Message {
   SendInvitationMessage(Endpoint* endpoint_to_send);
 
   std::vector<char> Serialize() override;
+  static std::unique_ptr<Message> Deserialize(int fd);
 
  private:
   Endpoint* endpoint_to_send_;

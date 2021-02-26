@@ -26,7 +26,6 @@ class Node {
 
   void InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1, std::shared_ptr<Endpoint> ep2);
   MageHandle SendInvitationToTargetNodeAndGetMessagePipe(int fd);
-  void WriteMessage(MessageType message_type);
   void AcceptInvitation(int fd);
 
  private:

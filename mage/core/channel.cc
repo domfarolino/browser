@@ -25,15 +25,15 @@ void Channel::SetRemoteNodeName(const std::string& name) {
 void Channel::SendInvitation(Endpoint* remote_endpoint) {
   SendInvitationMessage invite(remote_endpoint);
   std::vector<char> buffer = invite.Serialize();
-  // char* msg = "Sending the invitation";
-  printf("buffer size: %d\n", buffer.size());
+  printf("buffer size: %lu\n", buffer.size());
   write(fd_, buffer.data(), buffer.size());
 }
 
 void Channel::OnCanReadFromSocket() {
   printf("Reading from the socket!\n");
 
-  size_t message_size = 20;
+  MessageType message_type;
+  size_t message_size = sizeof(MessageType);
   char buffer[message_size];
   struct iovec iov = {buffer, message_size};
   char cmsg_buffer[CMSG_SPACE(message_size)];
@@ -45,11 +45,22 @@ void Channel::OnCanReadFromSocket() {
 
   // Deserialize MessageType from the message;
   recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
-  MessageType type;
-  type = *(MessageType*)&buffer;
+  message_type = *(MessageType*)&buffer;
 
-  printf("MessageType: %d\n", type);
-  printf("Port name: %s\n", buffer + sizeof(MessageType));
+  printf("MessageType: %d\n", message_type);
+
+  std::unique_ptr<Message> deserialized_message;
+  switch (message_type) {
+    case MessageType::SEND_INVITATION:
+      deserialized_message = SendInvitationMessage::Deserialize(fd_);
+      break;
+    case MessageType::ACCEPT_INVITATION:
+      NOTREACHED();
+      break;
+    case MessageType::USER_MESSAGE:
+      NOTREACHED();
+      break;
+  }
 }
 
 }; // namespace mage
