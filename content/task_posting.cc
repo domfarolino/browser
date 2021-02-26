@@ -1,8 +1,14 @@
+#include <chrono>
 #include <iostream>
 
 #include "base/scheduling/task_loop.h"
 #include "base/scheduling/task_runner.h"
 #include "base/threading/thread.h"
+#include "gtest/gtest.h"
+
+static bool task1_complete = false;
+static bool task2_complete = false;
+static bool task3_complete = false;
 
 class TaskParam {
  public:
@@ -27,48 +33,34 @@ class TaskParam {
 // These run off-main-thread.
 void TaskOne() {
   std::cout << std::endl << "I'm TaskOne, and I'm being invoked" << std::endl;
+  task1_complete = true;
 }
 void TaskTwo(int input) {
   std::cout << std::endl << "I'm TaskTwo, and I'm being invoked with intetger: " << input << std::endl;
+  task2_complete = true;
 }
 void TaskThree(TaskParam param) {
   std::cout << std::endl << "I'm TaskThree, and I'm being invoked with object whose data is: " << param.get_data() << std::endl;
+  task3_complete = true;
 }
 
-// This runs on the main thread.
-void PostTasks(base::Thread& thread) {
-  std::shared_ptr<base::TaskRunner> task_runner = thread.GetTaskRunner();
-  int task_number;
-  while (1) {
-    std::cout << "Enter 1, 2, or 3 to post tasks 1, 2, or 3 respectively. Or 0 to quit: ";
-    std::cin >> task_number;
-
-    if (!task_number)
-      break;
-
-    if (task_number == 1) {
-      task_runner->PostTask(std::bind(&TaskOne));
-    } else if (task_number == 2) {
-      int input;
-      std::cout << "Enter TaskTwo's input: ";
-      std::cin >> input;
-      task_runner->PostTask(std::bind(&TaskTwo, input));
-    } else {
-      int input;
-      std::cout << "Enter TaskThree's input: ";
-      std::cin >> input;
-      TaskParam param(input);
-      auto task  = std::bind(&TaskThree, param);
-      task_runner->PostTask(std::move(task));
-    }
-  }
-
-  thread.Quit();
-}
-
-int main() {
+TEST(BaseThreading, TaskPosting) {
   base::Thread worker_thread;
   worker_thread.Start();
-  PostTasks(worker_thread);
+  //PostTasks(worker_thread);
+
+  auto task_runner = worker_thread.GetTaskRunner();
+  task_runner->PostTask(std::bind(&TaskOne));
+  task_runner->PostTask(std::bind(&TaskTwo, 2));
+  TaskParam param(42);
+  task_runner->PostTask(std::bind(&TaskThree, param));
+
+  base::Thread::sleep_for(std::chrono::milliseconds(1000));
+
+  worker_thread.Quit();
   worker_thread.join();
+
+  ASSERT_EQ(task1_complete, true);
+  ASSERT_EQ(task2_complete, true);
+  ASSERT_EQ(task3_complete, true);
 }

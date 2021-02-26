@@ -1,28 +1,17 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
-cc_binary(
-  name = "main",
-  srcs = ["main.cc"],
+cc_test(
+  name = "base",
+  srcs = [
+    "main.cc",
+    "task_posting.cc",
+    "bind_task_loop_to_current_thread.cc"
+  ],
   copts = ["-Iexternal/gtest/include"],
   deps = [
     "//base:base",
     "@gtest//:gtest",
     "@gtest//:gtest_main",
-  ],
-)
-
-cc_binary(
-  name = "task_posting",
-  srcs = ["task_posting.cc"],
-  deps = [
-    "//base:base",
-  ],
-)
-cc_binary(
-  name = "bind_task_loop_to_current_thread",
-  srcs = ["bind_task_loop_to_current_thread.cc"],
-  deps = [
-    "//base:base",
   ],
 )
 

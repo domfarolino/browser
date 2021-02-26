@@ -1,15 +1,13 @@
-#include <assert.h>
-
 #include <iostream>
 #include <cstdlib> // rand()
 #include <queue>
 
-#include "base/check.h"
 #include "base/threading/simple_thread.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/mutex.h"
+#include "gtest/gtest.h"
 
-// Returns a random wait period in ms, weighted to return lower milliesconds
+// Returns a random wait period in ms, weighted to return lower milliseconds
 // more frequently.
 int get_random_wait() {
   int random = rand() % 10 + 1; // [1, 10]
@@ -64,7 +62,7 @@ void consumer(std::queue<std::string>& q, base::Mutex& mutex,
       return can_skip_waiting;
     });
 
-    CHECK(mutex.is_locked());
+    EXPECT_EQ(mutex.is_locked(), true);
 
     data = q.front();
     std::cout << "\x1B[32m Consumer consuming '" << data << "'\x1B[00m" << std::endl;
@@ -73,7 +71,7 @@ void consumer(std::queue<std::string>& q, base::Mutex& mutex,
   }
 }
 
-int main() {
+TEST(BaseThreading, ProducerConsumerQueue) {
   srand(time(NULL));
   base::Mutex mutex(base::ThreadMode::kUsingPthread);
   base::ConditionVariable condition(base::ThreadMode::kUsingPthread);
@@ -82,5 +80,4 @@ int main() {
   base::SimpleThread producer_thread(producer, std::ref(message_queue), std::ref(mutex), std::ref(condition));
   consumer(message_queue, mutex, condition);
   producer_thread.join();
-  return 0;
 }
