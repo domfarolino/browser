@@ -32,4 +32,12 @@ MageHandle Core::GetNextMageHandle() {
   return next_available_handle_++;
 }
 
+void Core::OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint) {
+  printf("Core::OnReceivedInvitation\n");
+  MageHandle local_handle = GetNextMageHandle();
+  handle_table_.insert({local_handle, std::move(local_endpoint)});
+  CHECK(async_invitation_handler_);
+  async_invitation_handler_(local_handle);
+}
+
 }; // namspace mage

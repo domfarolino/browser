@@ -33,7 +33,7 @@ class Node : public Channel::Delegate {
   // Channel::Delegate implementation:
   void OnReceivedMessage(std::unique_ptr<Message> message) override;
 
-  void OnReceivedSendInvitation(std::unique_ptr<Message>);
+  void OnReceivedInvitation(std::unique_ptr<Message>);
   void OnReceivedAcceptInvitation(std::unique_ptr<Message>);
 
  private:

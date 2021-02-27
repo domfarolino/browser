@@ -28,22 +28,26 @@ class Core {
   static MageHandle SendInvitationToTargetNodeAndGetMessagePipe(int fd) {
     return Get()->node_->SendInvitationToTargetNodeAndGetMessagePipe(fd);
   }
-  static void AcceptInvitation(int fd) {
+  static void AcceptInvitation(int fd, std::function<void(MageHandle)> received_invitation_handler) {
+    Get()->async_invitation_handler_ = std::move(received_invitation_handler);
     Get()->node_->AcceptInvitation(fd);
   }
 
   MageHandle GetNextMageHandle();
+  void OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint);
 
  private:
   Core(): node_(new Node()) {}
 
   // A map of endpoints registered with this process, by Handle
-  std::map<MageHandle, Endpoint> handle_table_;
+  std::map<MageHandle, std::shared_ptr<Endpoint>> handle_table_;
 
   // A map of all known endpoint channels, by node name.
   std::map<std::string, std::unique_ptr<Channel>> node_channel_map_;
 
   MageHandle next_available_handle_ = 1;
+
+  std::function<void(MageHandle)> async_invitation_handler_;
 
   std::unique_ptr<Node> node_;
 };

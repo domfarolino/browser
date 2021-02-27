@@ -87,7 +87,7 @@ void Node::OnReceivedMessage(std::unique_ptr<Message> message) {
   printf("Node::OnReceivedMessage!\n");
   switch (message->type) {
     case MessageType::SEND_INVITATION:
-      OnReceivedSendInvitation(std::move(message));
+      OnReceivedInvitation(std::move(message));
       return;
     case MessageType::ACCEPT_INVITATION:
       NOTREACHED();
@@ -101,7 +101,7 @@ void Node::OnReceivedMessage(std::unique_ptr<Message> message) {
   NOTREACHED();
 }
 
-void Node::OnReceivedSendInvitation(std::unique_ptr<Message> message) {
+void Node::OnReceivedInvitation(std::unique_ptr<Message> message) {
   SendInvitationMessage* inner_invitation = static_cast<SendInvitationMessage*>(message.release());
   std::unique_ptr<SendInvitationMessage> invitation(inner_invitation);
 
@@ -118,6 +118,17 @@ void Node::OnReceivedSendInvitation(std::unique_ptr<Message> message) {
   std::unique_ptr<Channel> init_channel = std::move(it->second);
   node_channel_map_.erase(kInitialChannelName);
   node_channel_map_.insert({invitation->inviter_name, std::move(init_channel)});
+
+  // We can also create a new local |Endpoint|, and wire it up to point to its
+  // peer that we just learned about from the inviter's message.
+  std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
+  local_endpoint->name = util::RandomString();
+  local_endpoint->peer_address.node_name = invitation->inviter_name;
+  local_endpoint->peer_address.endpoint_name = invitation->intended_endpoint_peer_name;
+  local_endpoints_.insert({local_endpoint->name, local_endpoint});
+
+  printf("Calling into core now\n");
+  Core::Get()->OnReceivedInvitation(local_endpoint);
 }
 
 void Node::OnReceivedAcceptInvitation(std::unique_ptr<Message> message) {}

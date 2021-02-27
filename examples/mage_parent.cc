@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include <iostream>
+#include <memory>
 
 #include "base/scheduling/task_loop_for_io.h"
 #include "mage/core/core.h"
@@ -21,7 +22,7 @@ int main() {
   }
 
   auto task_loop = base::TaskLoop::Create(base::ThreadType::IO);
-  mage::Core::Init(static_pointer_cast<base::TaskLoopForIO>(task_loop).get());
+  mage::Core::Init(std::static_pointer_cast<base::TaskLoopForIO>(task_loop).get());
 
   // Spin up a new process, and have it access fds[1].
   mage::MageHandle local_message_pipe =
