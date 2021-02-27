@@ -13,8 +13,8 @@ genrule(
     ],
     cmd = " && ".join([
       # Follow the pattern below:
-      # python $(location //generated:gen) <input *.mage file> <output *.magen.h file>
-      "python $(location //mage/parser:gen) $(location demo.magen) $(location demo.magen.h)",
+      # python3 $(location //generated:gen) <input *.mage file> <output *.magen.h file>
+      "python3 $(location //mage/parser:gen) $(location demo.magen) $(location demo.magen.h)",
     ]),
 )
 

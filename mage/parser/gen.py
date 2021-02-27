@@ -1,3 +1,5 @@
+from jinja2 import Template
+
 import sys
 print(sys.argv[1:]) # For debugging
 
@@ -15,9 +17,10 @@ source_interface_method_name = source_text_split[2]
 
 source.close()
 
-# Create a string out of the parsed source parameters.
 
-generated_class = """
+# Generate a C++ header out of the parsed source parameters.
+
+generated_magen_template = Template("""
 // This file is generated at build-time. Do not edit it.
 
 #include <vector>
@@ -34,18 +37,18 @@ T* Get(char* buffer) {
 namespace magen {
 
 // The class that user implementations of the interface will implement.
-class %s {
+class {{Interface}} {
  public:
-  virtual void %s() = 0;
+  virtual void {{Method}}() = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 
 /* For each method on the interface we want to generate the following kind of class*/
 // These classes carry the arguments
-class %s_%s_Params {
+class {{Interface}}_{{Method}}_Params {
  public:
-  %s_%s_Params() : bytes(sizeof(*this)) {}
+  {{Interface}}_{{Method}}_Params() : bytes(sizeof(*this)) {}
   int bytes;
 
   /* For each argument in the method, we want a C++ member representing it. */
@@ -54,38 +57,30 @@ class %s_%s_Params {
 ////////////////////////////////////////////////////////////////////////////////
 
 // Instances of this class are what the mage::Remote<T> calls into to serialize and send messages.
-class %sProxy {
+class {{Interface}}Proxy {
  public:
-  void %s() {
+  void {{Method}}() {
     // Serialize the message data.
-    std::vector<char> buffer(sizeof(%s_%s_Params));
-    new (buffer.data()) %s_%s_Params();
-    auto params = Get<%s_%s_Params>(buffer.data());
+    int payload_length = sizeof({{Interface}}_{{Method}}_Params);
+    std::vector<char> buffer(payload_length);
+
+    // Instantiate a new {{Interface}}_{{Method}} over the buffer.
+    new (buffer.data()) {{Interface}}_{{Method}}_Params();
+    auto params = Get<{{Interface}}_{{Method}}_Params>(buffer.data());
     params->bytes = params->bytes;
   }
 };
 
 } // namespace magen.
-""" % (
-        source_interface_name,
-        source_interface_method_name,
-        source_interface_name,
-        source_interface_method_name,
-        source_interface_name,
-        source_interface_method_name,
-        source_interface_name,
-        source_interface_method_name,
-        source_interface_name,
-        source_interface_method_name,
-        source_interface_name,
-        source_interface_method_name,
-        source_interface_name,
-        source_interface_method_name,
-      )
+""")
+generated_magen_template = generated_magen_template.render(
+                             Interface=source_interface_name,
+                             Method=source_interface_method_name
+                           )
 
 destination = sys.argv[1:][1]
 text_file = open(destination, "w")
-text_file.writelines(generated_class)
+text_file.writelines(generated_magen_template)
 text_file.writelines('\n')
 text_file.close()
 
