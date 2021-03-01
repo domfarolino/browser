@@ -11,6 +11,7 @@
 #include "mage/core/core.h"
 #include "mage/core/handles.h"
 
+/*
 class DemoImpl : public magen::Demo {
  public:
   DemoImpl() {
@@ -21,6 +22,8 @@ class DemoImpl : public magen::Demo {
     printf("DemoImpl::Method1()\n");
   }
 };
+
+*/
 
 void OnInvitationAccepted(mage::MageHandle handle) {
   printf("OnInvitationAccepted: %d\n", handle);
