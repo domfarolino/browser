@@ -54,16 +54,6 @@ generated_magen_template = Template("""
 
 namespace magen {
 
-// The class that user implementations of the interface will implement.
-class {{Interface}} {
- public:
-  virtual void {{Method}}(
-  {%- for argument_pair in Arguments %}
-    {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
-  {%- endfor %}
-  ) = 0;
-};
-
 ////////////////////////////////////////////////////////////////////////////////
 
 /* For each method on the interface we want to generate the following kind of class*/
@@ -82,6 +72,7 @@ class {{Interface}}_{{Method}}_Params {
 // Instances of this class are what the mage::Remote<T> calls into to serialize and send messages.
 class {{Interface}}Proxy {
  public:
+  {{Interface}}Proxy() {}
   void {{Method}}(
   {%- for argument_pair in Arguments %}
     {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
@@ -116,6 +107,23 @@ class {{Interface}}Proxy {
     message.FinalizeSize();
   }
 };
+
+////////////////////////////////////////////////////////////////////////////////
+
+// The class that user implementations of the interface will implement.
+class {{Interface}} {
+ public:
+  // This is so that mage::Remotes can reference the proxy class.
+  using Proxy = {{Interface}}Proxy;
+
+  virtual void {{Method}}(
+  {%- for argument_pair in Arguments %}
+    {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
+  {%- endfor %}
+  ) = 0;
+};
+
+
 
 } // namespace magen.
 """)

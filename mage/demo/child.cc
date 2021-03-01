@@ -7,9 +7,10 @@
 #include <string>
 
 #include "base/scheduling/task_loop_for_io.h"
-#include "mage/demo/magen/demo.magen.h"  // Generated.
+#include "mage/bindings/remote.h"
 #include "mage/core/core.h"
 #include "mage/core/handles.h"
+#include "mage/demo/magen/demo.magen.h"  // Generated.
 
 /*
 class DemoImpl : public magen::Demo {
@@ -27,6 +28,8 @@ class DemoImpl : public magen::Demo {
 
 void OnInvitationAccepted(mage::MageHandle handle) {
   printf("OnInvitationAccepted: %d\n", handle);
+  mage::Remote<magen::Demo> remote;
+  remote->Method1(16, "this", "that");
 }
 
 int main(int argc, char** argv) {
