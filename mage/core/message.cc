@@ -9,40 +9,7 @@
 
 namespace mage {
 
-std::vector<char> SendInvitationMessage::Serialize() {
-  int payload_length = sizeof(MessageType) +
-                      (sizeof(char) * inviter_name.size()) +
-                      (sizeof(char) * temporary_remote_node_name.size()) +
-                      (sizeof(char) * intended_endpoint_name.size()) +
-                      (sizeof(char) * intended_endpoint_peer_name.size());
-  std::vector<char> buffer(payload_length);
-  char* internal_buffer = buffer.data();
-
-  // Serialize |type|.
-  int offset = 0;
-  memcpy(&internal_buffer[offset], (char*)&type, sizeof(MessageType));
-  offset += sizeof(MessageType);
-
-  // Serialize |inviter_name|.
-  memcpy(&internal_buffer[offset], inviter_name.data(), inviter_name.size());
-  offset += inviter_name.size();
-
-  // Serialize |temporary_remote_node_name|.
-  memcpy(&internal_buffer[offset], temporary_remote_node_name.data(), temporary_remote_node_name.size());
-  offset += temporary_remote_node_name.size();
-
-  // Serialize |intended_endpoint_name|.
-  memcpy(&internal_buffer[offset], intended_endpoint_name.data(), intended_endpoint_name.size());
-  offset += intended_endpoint_name.size();
-
-  // Serialize |intended_endpoint_peer_name|.
-  memcpy(&internal_buffer[offset], intended_endpoint_peer_name.data(), intended_endpoint_peer_name.size());
-  offset += intended_endpoint_peer_name.size();
-
-  buffer.push_back('\0');
-  return buffer;
-}
-
+/*
 // static
 std::unique_ptr<Message> SendInvitationMessage::Deserialize(int fd) {
   size_t message_size = 65 - sizeof(MessageType);
@@ -55,7 +22,7 @@ std::unique_ptr<Message> SendInvitationMessage::Deserialize(int fd) {
   msg.msg_control = cmsg_buffer;
   msg.msg_controllen = sizeof(cmsg_buffer);
 
-  recvmsg(fd, &msg, /*non blocking*/MSG_DONTWAIT);
+  recvmsg(fd, &msg, MSG_DONTWAIT);
 
   int offset = 0;
 
@@ -89,5 +56,6 @@ std::unique_ptr<Message> SendInvitationMessage::Deserialize(int fd) {
   message->intended_endpoint_peer_name = intended_endpoint_peer_name;
   return message;
 }
+*/
 
 }; // namspace mage

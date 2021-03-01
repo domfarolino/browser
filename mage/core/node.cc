@@ -83,14 +83,13 @@ MageHandle Node::SendInvitationToTargetNodeAndGetMessagePipe(int fd) {
   return local_endpoint_handle;
 }
 
-void Node::OnReceivedMessage(std::unique_ptr<Message> message) {
+void Node::OnReceivedMessage(Message message) {
   printf("Node::OnReceivedMessage!\n");
-  switch (message->type) {
+  switch (message.Type()) {
     case MessageType::SEND_INVITATION:
       OnReceivedInvitation(std::move(message));
       return;
     case MessageType::ACCEPT_INVITATION:
-      NOTREACHED();
       OnReceivedAcceptInvitation(std::move(message));
       return;
     case MessageType::USER_MESSAGE:
@@ -101,15 +100,32 @@ void Node::OnReceivedMessage(std::unique_ptr<Message> message) {
   NOTREACHED();
 }
 
-void Node::OnReceivedInvitation(std::unique_ptr<Message> message) {
-  SendInvitationMessage* inner_invitation = static_cast<SendInvitationMessage*>(message.release());
-  std::unique_ptr<SendInvitationMessage> invitation(inner_invitation);
+void Node::OnReceivedInvitation(Message message) {
+  auto params = message.Get<SendInvitationParams>(/*starting_index=*/0);
+
+  // Deserialize
+  std::string inviter_name(
+    params->inviter_name.Get()->array_storage(),
+    params->inviter_name.Get()->array_storage() +
+        params->inviter_name.Get()->num_elements);
+  std::string temporary_remote_node_name(
+    params->temporary_remote_node_name.Get()->array_storage(),
+    params->temporary_remote_node_name.Get()->array_storage() +
+        params->temporary_remote_node_name.Get()->num_elements);
+  std::string intended_endpoint_name(
+    params->intended_endpoint_name.Get()->array_storage(),
+    params->intended_endpoint_name.Get()->array_storage() +
+        params->intended_endpoint_name.Get()->num_elements);
+  std::string intended_endpoint_peer_name(
+    params->intended_endpoint_peer_name.Get()->array_storage(),
+    params->intended_endpoint_peer_name.Get()->array_storage() +
+        params->intended_endpoint_peer_name.Get()->num_elements);
 
   printf("Node::OnReceivedSendInvitation\n");
-  printf("  inviter_name:                %s\n", invitation->inviter_name.c_str());
-  printf("  temporary_remote_node_name:  %s\n", invitation->temporary_remote_node_name.c_str());
-  printf("  intended_endpoint_name: %s\n", invitation->intended_endpoint_name.c_str());
-  printf("  intended_endpoint_peer_name: %s\n", invitation->intended_endpoint_peer_name.c_str());
+  printf("  inviter_name:                %s\n", inviter_name.c_str());
+  printf("  temporary_remote_node_name:  %s\n", temporary_remote_node_name.c_str());
+  printf("  intended_endpoint_name: %s\n", intended_endpoint_name.c_str());
+  printf("  intended_endpoint_peer_name: %s\n", intended_endpoint_peer_name.c_str());
 
   // Now that we know our inviter's name, we can find our initial channel in our
   // map, and change the entry's key to the actual inviter's name.
@@ -117,22 +133,64 @@ void Node::OnReceivedInvitation(std::unique_ptr<Message> message) {
   CHECK_NE(it, node_channel_map_.end());
   std::unique_ptr<Channel> init_channel = std::move(it->second);
   node_channel_map_.erase(kInitialChannelName);
-  node_channel_map_.insert({invitation->inviter_name, std::move(init_channel)});
+  node_channel_map_.insert({inviter_name, std::move(init_channel)});
 
   // We can also create a new local |Endpoint|, and wire it up to point to its
   // peer that we just learned about from the inviter's message.
   std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
   local_endpoint->name = util::RandomString();
-  local_endpoint->peer_address.node_name = invitation->inviter_name;
-  local_endpoint->peer_address.endpoint_name = invitation->intended_endpoint_peer_name;
+  local_endpoint->peer_address.node_name = inviter_name;
+  local_endpoint->peer_address.endpoint_name = intended_endpoint_peer_name;
   local_endpoints_.insert({local_endpoint->name, local_endpoint});
 
-  printf("Calling into core now\n");
   Core::Get()->OnReceivedInvitation(local_endpoint);
+
+  node_channel_map_[inviter_name]->SendAcceptInvitation(
+    temporary_remote_node_name,
+    name_);
 }
 
-void Node::OnReceivedAcceptInvitation(std::unique_ptr<Message> message) {}
+void Node::OnReceivedAcceptInvitation(Message message) {
+  auto params = message.Get<SendAcceptInvitationParams>(/*starting_index=*/0);
+  std::string temporary_remote_node_name(
+    params->temporary_remote_node_name.Get()->array_storage(),
+    params->temporary_remote_node_name.Get()->array_storage() +
+        params->temporary_remote_node_name.Get()->num_elements);
+  std::string actual_node_name(
+    params->actual_node_name.Get()->array_storage(),
+    params->actual_node_name.Get()->array_storage() +
+        params->actual_node_name.Get()->num_elements);
 
+  printf("Just received ACCEPT_INVITATION from: %s (actually %s)\n", temporary_remote_node_name.c_str(), actual_node_name.c_str());
+
+  auto it = pending_invitations_.find(temporary_remote_node_name);
+  CHECK_NE(it, pending_invitations_.end());
+
+  // TODO(domfarolino): This asserts that no messages have been queued for the
+  // stand-in remote endpoint. Long-term, this is wrong. We should support the
+  // ability to queue messages for a remote endpoint that we don't yet know the
+  // name of. However in early development, this is simpler.
+  CHECK_EQ(it->second->incoming_message_queue.size(), 0);
+
+  // In order to acknowledge the invitation acceptance, we must do three things:
+  //   1.) Update our local endpoint peer address to point to the remote
+  //       endpoint that we now know the full address of.
+  auto local_endpoint_it = local_endpoints_.find(it->second->peer_address.endpoint_name);
+  CHECK_NE(local_endpoint_it, local_endpoints_.end());
+
+  //   2.) Remove the pending invitation from |pending_invitations_|.
+  local_endpoint_it->second->peer_address.node_name = actual_node_name;
+  pending_invitations_.erase(temporary_remote_node_name);
+  printf("Our local endpoint now recognizes its peer as: (%s, %s)\n", local_endpoint_it->second->peer_address.node_name.c_str(), local_endpoint_it->second->peer_address.endpoint_name.c_str());
+
+  //   3.) Update |node_channel_map_| to correctly be keyed off of
+  //       |actual_node_name|.
+  auto node_channel_it = node_channel_map_.find(temporary_remote_node_name);
+  CHECK_NE(node_channel_it, node_channel_map_.end());
+  std::unique_ptr<Channel> channel = std::move(node_channel_it->second);
+  node_channel_map_.erase(temporary_remote_node_name);
+  node_channel_map_.insert({actual_node_name, std::move(channel)});
+}
 
 void Node::AcceptInvitation(int fd) {
   CHECK_EQ(has_accepted_invitation_, false);

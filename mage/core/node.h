@@ -31,10 +31,10 @@ class Node : public Channel::Delegate {
   void AcceptInvitation(int fd);
 
   // Channel::Delegate implementation:
-  void OnReceivedMessage(std::unique_ptr<Message> message) override;
+  void OnReceivedMessage(Message message) override;
 
-  void OnReceivedInvitation(std::unique_ptr<Message>);
-  void OnReceivedAcceptInvitation(std::unique_ptr<Message>);
+  void OnReceivedInvitation(Message message);
+  void OnReceivedAcceptInvitation(Message message);
 
  private:
   std::string name_;

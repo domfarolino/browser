@@ -23,49 +23,126 @@ void Channel::SetRemoteNodeName(const std::string& name) {
 }
 
 void Channel::SendInvitation(std::string inviter_name, std::string intended_endpoint_name, std::string intended_endpoint_peer_name) {
-  SendInvitationMessage invitation;
-  invitation.inviter_name = inviter_name;
-  invitation.temporary_remote_node_name = remote_node_name_;
-  invitation.intended_endpoint_name = intended_endpoint_name;
-  invitation.intended_endpoint_peer_name = intended_endpoint_peer_name;
+  Message invitation_message(MessageType::SEND_INVITATION);
+  MessageFragment<SendInvitationParams> params(invitation_message);
+  params.Allocate();
 
-  std::vector<char> buffer = invitation.Serialize();
-  printf("Channel::SendInvitation buffer size: %lu\n", buffer.size());
-  write(fd_, buffer.data(), buffer.size());
+  // Serialize inviter name.
+  {
+    MessageFragment<ArrayHeader<char>> array(invitation_message);
+    array.AllocateArray(inviter_name.size());
+    memcpy(array.data()->array_storage(), inviter_name.c_str(), inviter_name.size());
+    params.data()->inviter_name.Set(array.data());
+  }
+
+  // Serialize temporary node name.
+  {
+    MessageFragment<ArrayHeader<char>> array(invitation_message);
+    array.AllocateArray(remote_node_name_.size());
+    memcpy(array.data()->array_storage(), remote_node_name_.c_str(), remote_node_name_.size());
+    params.data()->temporary_remote_node_name.Set(array.data());
+  }
+
+  // Serialize intended endpoint name.
+  {
+    MessageFragment<ArrayHeader<char>> array(invitation_message);
+    array.AllocateArray(intended_endpoint_name.size());
+    memcpy(array.data()->array_storage(), intended_endpoint_name.c_str(), intended_endpoint_name.size());
+    params.data()->intended_endpoint_name.Set(array.data());
+  }
+
+  // Serialize intended endpoint name.
+  {
+    MessageFragment<ArrayHeader<char>> array(invitation_message);
+    array.AllocateArray(intended_endpoint_peer_name.size());
+    memcpy(array.data()->array_storage(), intended_endpoint_peer_name.c_str(), intended_endpoint_peer_name.size());
+    params.data()->intended_endpoint_peer_name.Set(array.data());
+  }
+
+  invitation_message.FinalizeSize();
+
+  std::vector<char>& payload_buffer = invitation_message.payload_buffer();
+  for (char c : payload_buffer) {
+    printf("%02x ", c);
+  }
+  printf("\n");
+  write(fd_, payload_buffer.data(), payload_buffer.size());
+}
+
+void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
+                                   std::string actual_node_name) {
+  Message message(MessageType::ACCEPT_INVITATION);
+  MessageFragment<SendAcceptInvitationParams> params(message);
+  params.Allocate();
+
+  // Serialize temporary node name.
+  {
+    MessageFragment<ArrayHeader<char>> array(message);
+    array.AllocateArray(temporary_remote_node_name.size());
+    memcpy(array.data()->array_storage(), temporary_remote_node_name.c_str(), temporary_remote_node_name.size());
+    params.data()->temporary_remote_node_name.Set(array.data());
+  }
+
+  // Serialize actual node name.
+  {
+    MessageFragment<ArrayHeader<char>> array(message);
+    array.AllocateArray(actual_node_name.size());
+    memcpy(array.data()->array_storage(), actual_node_name.c_str(), actual_node_name.size());
+    params.data()->actual_node_name.Set(array.data());
+  }
+
+  message.FinalizeSize();
+
+  printf("Heeeereeeeee\n");
+  std::vector<char>& payload_buffer = message.payload_buffer();
+  for (char c : payload_buffer) {
+    printf("%02x ", c);
+  }
+  printf("\n");
+
+  write(fd_, payload_buffer.data(), payload_buffer.size());
 }
 
 void Channel::OnCanReadFromSocket() {
-  size_t message_size = sizeof(MessageType);
-  char buffer[message_size];
-  struct iovec iov = {buffer, message_size};
-  char cmsg_buffer[CMSG_SPACE(message_size)];
+  size_t header_size = sizeof(MessageHeader);
+  char buffer[header_size];
+  struct iovec iov = {buffer, header_size};
+  char cmsg_buffer[CMSG_SPACE(header_size)];
   struct msghdr msg = {};
   msg.msg_iov = &iov;
   msg.msg_iovlen = 1;
   msg.msg_control = cmsg_buffer;
   msg.msg_controllen = sizeof(cmsg_buffer);
 
-  // Deserialize MessageType from the message.
-  MessageType message_type;
   recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
-  message_type = *(MessageType*)&buffer;
 
-  std::unique_ptr<Message> deserialized_message;
-  switch (message_type) {
-    case MessageType::SEND_INVITATION:
-      printf("Received message type: SEND_INVITATION\n");
-      deserialized_message = SendInvitationMessage::Deserialize(fd_);
-      break;
-    case MessageType::ACCEPT_INVITATION:
-      NOTREACHED();
-      break;
-    case MessageType::USER_MESSAGE:
-      NOTREACHED();
-      break;
+  // Pull the message header.
+  MessageHeader* header = reinterpret_cast<MessageHeader*>(buffer);
+  Message message(header->type);
+
+  {
+    size_t message_size = header->size - sizeof(MessageHeader);
+    char buffer[message_size];
+    struct iovec iov = {buffer, message_size};
+    char cmsg_buffer[CMSG_SPACE(message_size)];
+    struct msghdr msg = {};
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = cmsg_buffer;
+    msg.msg_controllen = sizeof(cmsg_buffer);
+    recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
+    std::vector<char> byte_buffer(buffer, buffer + message_size);
+    message.TakeBuffer(byte_buffer);
   }
 
+  std::vector<char>& payload_buffer = message.payload_buffer();
+  for (char c : payload_buffer) {
+    printf("%02x ", c);
+  }
+  printf("\n");
+
   CHECK(delegate_);
-  delegate_->OnReceivedMessage(std::move(deserialized_message));
+  delegate_->OnReceivedMessage(message);
 }
 
 }; // namespace mage

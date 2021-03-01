@@ -15,7 +15,7 @@ class Channel : public base::TaskLoopForIO::SocketReader {
   class Delegate {
    public:
     virtual ~Delegate() = default;
-    virtual void OnReceivedMessage(std::unique_ptr<Message> message) = 0;
+    virtual void OnReceivedMessage(Message message) = 0;
   };
 
   Channel(int fd, Delegate* delegate);
@@ -23,7 +23,11 @@ class Channel : public base::TaskLoopForIO::SocketReader {
 
   void Start();
   void SetRemoteNodeName(const std::string& name);
-  void SendInvitation(std::string inviter_name, std::string intended_endpoint_name, std::string intended_endpint_peer_nae);
+  void SendInvitation(std::string inviter_name,
+                      std::string intended_endpoint_name,
+                      std::string intended_endpint_peer_nae);
+  void SendAcceptInvitation(std::string temporary_remote_node_name,
+                            std::string actual_node_name);
 
   // base::TaskLoopForIO::SocketReader implementation:
   void OnCanReadFromSocket() override;
