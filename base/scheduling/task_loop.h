@@ -25,7 +25,7 @@ class TaskLoop : public Thread::Delegate,
                  public std::enable_shared_from_this<TaskLoop> {
  public:
   TaskLoop() = default;
-  ~TaskLoop() = default;
+  virtual ~TaskLoop() = default;
 
   TaskLoop(TaskLoop&) = delete;
   TaskLoop(TaskLoop&&) = delete;
