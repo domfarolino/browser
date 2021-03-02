@@ -87,11 +87,14 @@ class TaskLoopForIO : public TaskLoop {
   // unregister themselves from this map upon destruction.
   std::map<int, SocketReader*> async_socket_readers_;
 
-  // The number of events scheduled on the |kqueue_|. There is always at least
-  // 1, for the |wakeup_| port (or |port_set_|).
+  // The number of event types (filters) that we're interested in listening to
+  // via |kqueue_|. There is always at least 1, for the |wakeup_| port (or
+  // |port_set_|), but increase this count whenever we register a new e.g.,
+  // |SocketReader|.
   size_t event_count_ = 1;
-  // Buffer used by DoInternalWork() to be notified of triggered events. This
-  // is always at least |event_count_|-sized.
+  // This buffer is where events from the kernel queue are stored after calls to
+  // |kevent64|. This buffer is consulted in |Run()|, where events are pulled
+  // and the loop responds to them.
   std::vector<kevent64_s> events_{event_count_};
 };
 
