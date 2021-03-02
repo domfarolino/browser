@@ -12,6 +12,12 @@ namespace base {
 
 void TaskLoopForIO::Run() {
   while (true) {
+    // The last task that ran may have introduced a new |SocketReader| that
+    // increased our |event_count_|, and thus increases the number of event
+    // filters that we care about listening for. In orer for the kqueue to
+    // notify us of potentially multiple different kinds of events in one go, we
+    // expand our |events_| vector, so kevent64 and push multiple events (with
+    // unique filters) onto |events_|.
     events_.resize(event_count_);
     int rv = kevent64(kqueue_, nullptr, 0, events_.data(), events_.size(), 0,
                       nullptr);
@@ -53,9 +59,11 @@ void TaskLoopForIO::WatchSocket(int fd, SocketReader* socket_reader) {
   new_event.ident = fd;
   new_event.flags = EV_ADD;
   new_event.filter = EVFILT_READ;
-  // new_event.udata = fd_controllers_.Add(controller);
   events.push_back(new_event);
 
+  // Invoke kevent64 not to listen to events, but to supply a changelist of
+  // event filters that we're interested in being notified about from the
+  // kernel.
   int rv = kevent64(kqueue_, events.data(), events.size(), nullptr, 0, 0, nullptr);
   CHECK_GEQ(rv, 0);
 
@@ -75,9 +83,9 @@ void TaskLoopForIO::PostTask(Callback cb) {
   //   2.) This is being called from another thread, and the task loop's thread
   //       is not sleeping, but running another task. In this case, the message
   //       will get pushed to the kernel queue to ensure that the thread doesn't
-  //       sleep on its next iteration of its running loop, and instead executes
-  //       the next task (the task we just posted if there are no others in
-  //       front of it in the queue)
+  //       sleep on its next iteration of its run loop, and instead executes the
+  //       next task in the queue (possible this one, if there are no others
+  //       before it).
   //   3.) This is being called from the thread that the task loop is running
   //       on. In that case, we're in the middle of a task right now, which is
   //       the same thing as (2) above.

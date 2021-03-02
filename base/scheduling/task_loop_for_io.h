@@ -7,8 +7,8 @@
 #include <sys/event.h>
 
 #include <map>
-#include <vector>
 #include <queue>
+#include <vector>
 
 #include "base/helper.h"
 #include "base/scheduling/task_loop.h"
@@ -30,6 +30,7 @@ class TaskLoopForIO : public TaskLoop {
   // descriptor can be read from.
   class SocketReader {
    public:
+    virtual ~SocketReader() = default;
     SocketReader(int fd): fd_(fd) {}
     virtual void OnCanReadFromSocket() = 0;
    protected:
