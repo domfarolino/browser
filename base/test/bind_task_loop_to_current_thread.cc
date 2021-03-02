@@ -13,13 +13,14 @@ void MainThreadTask() {
 }
 
 // This runs on a worker thread, and posts tasks back to the main thread.
-void PostTasksBackToMainThread(std::shared_ptr<base::TaskRunner> main_thread_task_runner, std::shared_ptr<base::TaskLoop> task_loop) {
-    for (int i = 0; i < 5; ++i) {
-      base::Thread::sleep_for(std::chrono::milliseconds(200));
-      main_thread_task_runner->PostTask(std::bind(&MainThreadTask));
-    }
-
-    task_loop->Quit();
+void PostTasksBackToMainThread(
+    std::shared_ptr<base::TaskRunner> main_thread_task_runner,
+    std::shared_ptr<base::TaskLoop> task_loop) {
+  for (int i = 0; i < 5; ++i) {
+    base::Thread::sleep_for(std::chrono::milliseconds(200));
+    main_thread_task_runner->PostTask(std::bind(&MainThreadTask));
+  }
+  task_loop->Quit();
 }
 
 TEST(BaseThreading, BindTaskLoopToCurrentThread) {
