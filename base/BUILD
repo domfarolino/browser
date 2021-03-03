@@ -44,6 +44,7 @@ cc_test(
   name = "base_tests",
   srcs = [
     "build_config_test.cc",
+    "scheduling/task_loop_for_io_test.cc",
     "scheduling/task_loop_test.cc",
     "threading/simple_thread_test.cc",
   ],
