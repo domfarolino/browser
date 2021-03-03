@@ -22,16 +22,6 @@ cc_binary(
   srcs = ["bind_task_loop_to_current_thread.cc"],
   deps = ["//base:base"],
 )
-cc_binary(
-  name = "io_thread_example",
-  srcs = ["io_thread_example.cc"],
-  deps = ["//base:base"],
-)
-cc_binary(
-  name = "io_thread_file_desc_example",
-  srcs = ["io_thread_file_desc_example.cc"],
-  deps = ["//base:base"],
-)
 
 # Workaround for debugging symbols. See
 # https://github.com/bazelbuild/bazel/issues/2537#issuecomment-281497449.
