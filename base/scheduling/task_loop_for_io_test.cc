@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <memory>
+#include <vector>
 
 #include "base/check.h"
 #include "base/scheduling/task_loop_for_io.h"
@@ -16,8 +17,10 @@ namespace {
 
 // These are messages that will be written to an underlying buffer via a file
 // descriptor. For simplicity, their length should all be |kMessageLength|.
-static const char* kFirstMessage = "First message ";
-static const char* kSecondMessage = "Second message";
+static const std::string kFirstMessage =      "First message ";
+static const std::string kSecondMessage =     "Second message";
+static const std::string kThirdMessage =      "Third message ";
+static const std::string kFourthMessage =     "Fourth message";
 static const int kMessageLength = 14;
 
 // With this test base class, all tests and assertions will be running on a
@@ -38,7 +41,8 @@ class TaskLoopForIOTestBase : public testing::Test {
     EXPECT_EQ(fcntl(fds_[1], F_SETFL, O_NONBLOCK), 0);
 
     num_tasks_ran_ = 0;
-    num_messages_read_ = 0;
+    expected_message_count_ = 0;
+    messages_read_.clear();
   }
 
   void TearDown() {
@@ -57,10 +61,14 @@ class TaskLoopForIOTestBase : public testing::Test {
     task_loop_for_io_->Quit();
   }
 
-  void OnMessageReadAndQuit(std::string message) {
-    num_messages_read_++;
-    last_message_read_ = message;
-    task_loop_for_io_->Quit();
+  void OnMessageRead(std::string message) {
+    messages_read_.push_back(message);
+    if (messages_read_.size() == expected_message_count_)
+      task_loop_for_io_->Quit();
+  }
+
+  void SetExpectedMessageCount(int count) {
+    expected_message_count_ = count;
   }
 
  protected:
@@ -68,8 +76,10 @@ class TaskLoopForIOTestBase : public testing::Test {
   std::shared_ptr<base::TaskLoopForIO> task_loop_for_io_;
 
   int num_tasks_ran_;
-  int num_messages_read_;
-  std::string last_message_read_;
+  std::vector<std::string> messages_read_;
+
+ private:
+  int expected_message_count_;
 };
 
 class TestSocketReader : public base::TaskLoopForIO::SocketReader {
@@ -100,9 +110,14 @@ class TestSocketReader : public base::TaskLoopForIO::SocketReader {
   MessageCallback callback_;
 };
 
-void WriteMessageToFDFromSimpleThread(int fd) {
-  std::string first_message = kFirstMessage;
-  write(fd, first_message.data(), first_message.size());
+void WriteMessagesToFDWithDelay(int fd, std::vector<std::string> messages, int delay_ms) {
+  if (delay_ms) {
+    base::Thread::sleep_for(std::chrono::milliseconds(delay_ms));
+  }
+
+  for (const std::string& message : messages) {
+    write(fd, message.data(), message.size());
+  }
 }
 
 /*
@@ -141,45 +156,83 @@ TEST_F(TaskLoopForIOTestBase, BasicTaskPosting) {
 }
 
 TEST_F(TaskLoopForIOTestBase, BasicSocketReading) {
+  SetExpectedMessageCount(1);
+
   TestSocketReader* socket_reader = new TestSocketReader(fds_[0]);
   TestSocketReader::MessageCallback callback =
-    std::bind(&TaskLoopForIOTestBase::OnMessageReadAndQuit, this,
+    std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
               std::placeholders::_1);
   socket_reader->SetCallback(std::move(callback));
   task_loop_for_io_->WatchSocket(fds_[0], socket_reader);
 
-  base::SimpleThread simple_thread(
-    WriteMessageToFDFromSimpleThread, std::ref(fds_[1]));
+  std::vector<std::string> messages_to_write = {kFirstMessage};
+  // TODO(domfarolino): base::SimpleThread has a buf where std::ref is required
+  // below.
+  base::SimpleThread simple_thread(WriteMessagesToFDWithDelay,
+                                   std::ref(fds_[1]),
+                                   std::ref(messages_to_write), 0);
   task_loop_for_io_->Run();
-  EXPECT_EQ(num_messages_read_, 1);
-  EXPECT_EQ(last_message_read_, kFirstMessage);
+  EXPECT_EQ(messages_read_.size(), 1);
+  EXPECT_EQ(messages_read_[0], kFirstMessage);
 }
 
-/*
-TEST_F(TaskLoopForIOTestBase, BasicSocketReading2) {
-  base::SimpleThread simple_thread(WriteToFDFromSimpleThread, std::ref(fds_[1]),
-                                   task_loop_for_io_->GetTaskRunner());
-  TestSocketReader* socket_reader = new TestSocketReader(fds_[0]);
-  task_loop_for_io_->WatchSocket(fds_[0], socket_reader);
+TEST_F(TaskLoopForIOTestBase, QueueingMessagesOnMultipleSockets) {
+  SetExpectedMessageCount(4);
+
+  // Set up the first SocketReader.
+  TestSocketReader* reader_1 = new TestSocketReader(fds_[0]);
+  TestSocketReader::MessageCallback callback =
+    std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
+              std::placeholders::_1);
+  reader_1->SetCallback(std::move(callback));
+  task_loop_for_io_->WatchSocket(fds_[0], reader_1);
+
+  // Set up the second SocketReader.
+  int moreFds[2];
+  EXPECT_EQ(socketpair(AF_UNIX, SOCK_STREAM, 0, moreFds), 0);
+  EXPECT_EQ(fcntl(moreFds[0], F_SETFL, O_NONBLOCK), 0);
+  EXPECT_EQ(fcntl(moreFds[1], F_SETFL, O_NONBLOCK), 0);
+  TestSocketReader* reader_2 = new TestSocketReader(moreFds[0]);
+  reader_2->SetCallback(std::move(callback));
+  task_loop_for_io_->WatchSocket(moreFds[0], reader_2);
+
+  // TODO(domfarolino): base::SimpleThread has a bug where std::ref is required
+  // below.
+  // Two separate threads each queue a message
+  std::vector<std::string> messages_1 = {kFirstMessage, kSecondMessage};
+  std::vector<std::string> messages_2 = {kThirdMessage, kFourthMessage};
+  base::SimpleThread thread1(WriteMessagesToFDWithDelay, std::ref(fds_[1]),
+                             std::ref(messages_1), 200);
+  base::SimpleThread thread2(WriteMessagesToFDWithDelay, std::ref(moreFds[1]),
+                             std::ref(messages_2), 600);
+
+  // Post a task on the task loop that will block the loop for 1 second while
+  // the above threads queue messages, then immediately run the queue so that
+  // task is run.
+  task_loop_for_io_->PostTask(std::bind([](){
+    base::Thread::sleep_for(std::chrono::milliseconds(1000));
+  }));
   task_loop_for_io_->Run();
+
+  EXPECT_EQ(messages_read_.size(), 4);
+  // The ordering looks funky here because our task queue services each file
+  // descriptor evenly, instead of starving one of them by reading all of the
+  // other's events.
+  EXPECT_EQ(messages_read_[0], kFirstMessage);
+  EXPECT_EQ(messages_read_[1], kThirdMessage);
+  EXPECT_EQ(messages_read_[2], kSecondMessage);
+  EXPECT_EQ(messages_read_[3], kFourthMessage);
+
+  EXPECT_EQ(close(moreFds[0]), 0);
+  EXPECT_EQ(close(moreFds[1]), 0);
 }
-*/
 
 // TODO: Test the following cases:
 //   - A thread writing to a file descriptor before we are formally listening to
-//     it
+//     it (before Run() is called on the task loop)
 //   - Multiple tasks are posted while a task is already running: test that when
 //     the currently-running task is done, the loop correctly resumes and serves
 //     all posted tasks
-//   - Multiple writes are made a file descriptor that a given tests is
-//     listening to, all while a long-running task is executing. Once the task
-//     is finished executing, test that all writes are available to read (we
-//     really care about testing that our TaskLoopForIO is not messing up and
-//     concealing kernel events that are ready to be read, causing us to never
-//     get to them.
-//   - A test that combines the two above test cases to make sure that all posts
-//     and socket reads are available, and not accidentally lost by our task
-//     loop
 
 /*
 
