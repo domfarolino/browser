@@ -120,34 +120,6 @@ void WriteMessagesToFDWithDelay(int fd, std::vector<std::string> messages, int d
   }
 }
 
-/*
-// A helper that runs on another thread and writes to a given file descriptor.
-void WriteToFDFromSimpleThread(int fd,
-                               std::shared_ptr<base::TaskRunner> task_runner) {
-  // 1.) Write a message.
-  base::Thread::sleep_for(std::chrono::milliseconds(300));
-  std::string first_message = kFirstMessage; // Character for padding.
-  write(fd, first_message.data(), first_message.size());
-
-  // 2.) Post a task.
-  base::Thread::sleep_for(std::chrono::milliseconds(300));
-  task_runner->PostTask(std::bind([](){
-    printf("First task is running\n");
-  }));
-
-  // 3.) Write another message.
-  base::Thread::sleep_for(std::chrono::milliseconds(300));
-  std::string second_message = kSecondMessage;
-  write(fd, second_message.data(), second_message.size());
-
-  // 4.) Post another task.
-  base::Thread::sleep_for(std::chrono::milliseconds(300));
-  task_runner->PostTask(std::bind([](){
-    printf("Second task is running\n");
-  }));
-}
-*/
-
 TEST_F(TaskLoopForIOTestBase, BasicTaskPosting) {
   base::SimpleThread simple_thread(&TaskLoopForIOTestBase::RunTaskAndQuit,
                                    this);
@@ -166,11 +138,45 @@ TEST_F(TaskLoopForIOTestBase, BasicSocketReading) {
   task_loop_for_io_->WatchSocket(fds_[0], socket_reader);
 
   std::vector<std::string> messages_to_write = {kFirstMessage};
-  // TODO(domfarolino): base::SimpleThread has a buf where std::ref is required
+  // TODO(domfarolino): base::SimpleThread has a bug where std::ref is required
   // below.
   base::SimpleThread simple_thread(WriteMessagesToFDWithDelay,
                                    std::ref(fds_[1]),
                                    std::ref(messages_to_write), 0);
+  task_loop_for_io_->Run();
+  EXPECT_EQ(messages_read_.size(), 1);
+  EXPECT_EQ(messages_read_[0], kFirstMessage);
+}
+
+// Just like the test above, but we write to the socket before the task loop is
+// actually aware of the file descriptor to listen from. We're testing that we
+// can read writes that were queued before we started listening.
+TEST_F(TaskLoopForIOTestBase, WriteToSocketBeforeListening) {
+  SetExpectedMessageCount(1);
+
+  std::vector<std::string> messages_to_write = {kFirstMessage};
+  // TODO(domfarolino): base::SimpleThread has a bug where std::ref is required
+  // below.
+  base::SimpleThread simple_thread(WriteMessagesToFDWithDelay,
+                                   std::ref(fds_[1]),
+                                   std::ref(messages_to_write), 0);
+
+  // TODO(domfarolino): We shouldn't sleep for a hard-coded amount of time like
+  // we are below. Instead we should consider giving TaskLoop the ability to
+  // expose a quit closure and re-run itself. That way we can be notified when
+  // an event happens, and respond by e.g., registering the TestSocketReader
+  // below and re-running the loop to listen for messages etc.
+  // Sleep, giving the thread above time to write to the file descriptor that we
+  // haven't started listening to.
+  base::Thread::sleep_for(std::chrono::milliseconds(400));
+
+  TestSocketReader* socket_reader = new TestSocketReader(fds_[0]);
+  TestSocketReader::MessageCallback callback =
+    std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
+              std::placeholders::_1);
+  socket_reader->SetCallback(std::move(callback));
+  task_loop_for_io_->WatchSocket(fds_[0], socket_reader);
+
   task_loop_for_io_->Run();
   EXPECT_EQ(messages_read_.size(), 1);
   EXPECT_EQ(messages_read_[0], kFirstMessage);
@@ -228,35 +234,37 @@ TEST_F(TaskLoopForIOTestBase, QueueingMessagesOnMultipleSockets) {
 }
 
 // TODO: Test the following cases:
-//   - A thread writing to a file descriptor before we are formally listening to
-//     it (before Run() is called on the task loop)
 //   - Multiple tasks are posted while a task is already running: test that when
 //     the currently-running task is done, the loop correctly resumes and serves
 //     all posted tasks
+//   - Same thing as above but interpolated with message writes as well (see
+//     below function that used to do this in a non-test environment).
 
 /*
+// A helper that runs on another thread and writes to a given file descriptor.
+void WriteToFDFromSimpleThread(int fd,
+                               std::shared_ptr<base::TaskRunner> task_runner) {
+  // 1.) Write a message.
+  base::Thread::sleep_for(std::chrono::milliseconds(300));
+  std::string first_message = kFirstMessage; // Character for padding.
+  write(fd, first_message.data(), first_message.size());
 
-// Test 2
-void CalledOnIOThread() {
-  printf("|CalledOnIOThread()| was invoked on the IO thread!!\n");
-}
+  // 2.) Post a task.
+  base::Thread::sleep_for(std::chrono::milliseconds(300));
+  task_runner->PostTask(std::bind([](){
+    printf("First task is running\n");
+  }));
 
-int main() {
-  // Set up a task loop on the current thread. There is no need to use
-  // base::Thread for this, since we don't want to spin up a new physical
-  // thread.
-  auto task_loop = base::TaskLoop::Create(base::ThreadType::WORKER);
+  // 3.) Write another message.
+  base::Thread::sleep_for(std::chrono::milliseconds(300));
+  std::string second_message = kSecondMessage;
+  write(fd, second_message.data(), second_message.size());
 
-  base::Thread io_thread(base::ThreadType::IO);
-  io_thread.Start();
-
-  printf("Main thread is posting a task to the IO thread\n");
-  io_thread.GetTaskRunner()->PostTask(&CalledOnIOThread);
-  io_thread.GetTaskRunner()->PostTask(&CalledOnIOThread);
-  io_thread.GetTaskRunner()->PostTask(&CalledOnIOThread);
-
-  task_loop->Run();
-  return 0;
+  // 4.) Post another task.
+  base::Thread::sleep_for(std::chrono::milliseconds(300));
+  task_runner->PostTask(std::bind([](){
+    printf("Second task is running\n");
+  }));
 }
 */
 
