@@ -69,10 +69,8 @@ TEST_P(TaskLoopTest, RunQuitRunQuit) {
   task_loop->Run();
 }
 
-// TODO(domfarolino): Once we enable more ThreadTypes, we should add them here
-// so these tests can exercise them.
 INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
                          TaskLoopTest,
-                         testing::Values(ThreadType::WORKER));
+                         testing::Values(ThreadType::WORKER, ThreadType::IO));
 
 }; // namespace base
