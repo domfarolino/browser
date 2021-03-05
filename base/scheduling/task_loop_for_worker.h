@@ -23,9 +23,11 @@ public:
   // Thread::Delegate implementation.
   void Run() override;
   // Can be called from any thread.
-  void PostTask(Callback cb) override;
-  // Can be called from any thread.
   void Quit() override;
+
+  // TaskRunner::Delegate implementation.
+  // Can be called from any thread.
+  void PostTask(Callback cb) override;
 
   Callback QuitClosure() override;
 

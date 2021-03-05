@@ -41,11 +41,11 @@ class TaskLoop : public Thread::Delegate,
   // Can be called from any thread.
   std::shared_ptr<TaskRunner> GetTaskRunner() override;
 
-  virtual Callback QuitClosure() = 0;
-
   // TaskRunner::Delegate implementation.
   // Can be called from any thread.
   void PostTask(Callback cb) override = 0;
+
+  virtual Callback QuitClosure() = 0;
 
  protected:
   void ExecuteTask(Callback cb) {
