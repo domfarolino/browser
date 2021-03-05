@@ -1,102 +1,47 @@
 #ifndef BASE_SCHEDULING_TASK_LOOP_FOR_IO_H_
 #define BASE_SCHEDULING_TASK_LOOP_FOR_IO_H_
 
-#include <mach/mach.h>
-#include <stdint.h>
-#include <sys/errno.h>
-#include <sys/event.h>
+// This file is just for bringing in platform-specific implementations of
+// TaskLoopForIO, and merging them into a single type. Users of TaskLoopForIO
+// should include this file, and it will "give" them the right TaskLoopForIO
+// depending on the platform they're on. It is inspired by
+// https://source.chromium.org/chromium/chromium/src/+/master:base/message_loop/message_pump_for_io.h.
+//
+// It is tempting to try and create one abstract interface to unify all
+// platform-specific implementations of TaskLoopForIO, especially to ensure they
+// all adhere to the same API contract, however it occurred to me that they will
+// all not actually have the same APIs. For example, SocketReader currently
+// deals in terms of file descriptors, but on Windows we'll have to use HANDLEs
+// or something. In that case, the SocketReader API is not the same across
+// platforms, so users of TaskLoopForIO will have to also base their usage of
+// TaskLoopForIO off of the existence of platform-specific compiler directives.
+// Luckily there will only be a small set of direct users of these kinds of
+// platform-specific APIs.
+//
+// Note that it actually is possible to generalize the TaskLoopForIO API surface
+// even across platforms, if we create platform-specific implementations of a
+// "platform handle" concept, which itself has platform-specific code to
+// conditionally deal in terms of POSIX file descriptors, Windows HANDLEs, or
+// what have you, all while maintaining a platform agnostic API that
+// TaskLoopForIO can speak in terms of. This would be worth looking into once we
+// expand to Windows, if we ever do.
 
-#include <map>
-#include <queue>
-#include <vector>
+#include "base/build_config.h"
 
-#include "base/helper.h"
-#include "base/scheduling/task_loop.h"
-#include "base/synchronization/condition_variable.h"
-#include "base/synchronization/mutex.h"
-#include "base/threading/thread.h"
+#if defined(OS_MACOS)
+#include "base/scheduling/task_loop_for_io_mac.h"
+// TODO(domfarolino): Implement an IO task loop for Linux, and maybe even it
+// will be general enough for both platforms.
+#endif
 
 namespace base {
 
-// Note that this |TaskLoop| variant only works on macOS, as it uses Mach ports
-// and |kevent64()| to block on OS-level IPC primitives. Once we support
-// detecting which platform we're on, we'll need to make an equivalent class
-// that uses glib, libevent, or something for Linux, and ensure that we
-// instantiate the correct one depending on the platform we're running on.
-class TaskLoopForIO : public TaskLoop {
- public:
-  // |SocketReader|s register themselves with a |TaskLoopForIO| associated with
-  // a given file descriptor. They are notified asynchronously when the file
-  // descriptor can be read from.
-  class SocketReader {
-   public:
-    virtual ~SocketReader() = default;
-    SocketReader(int fd): fd_(fd) {}
-    virtual void OnCanReadFromSocket() = 0;
-   protected:
-    int fd_;
-  };
-
-  TaskLoopForIO() : kqueue_(kqueue()) {
-    kern_return_t kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &wakeup_);
-    CHECK_EQ(kr, KERN_SUCCESS);
-
-    kevent64_s event{};
-    event.ident = wakeup_;
-    event.filter = EVFILT_MACHPORT;
-    event.flags = EV_ADD;
-    event.fflags = MACH_RCV_MSG;
-    event.ext[0] = reinterpret_cast<uint64_t>(&wakeup_buffer_);
-    event.ext[1] = sizeof(wakeup_buffer_);
-
-    kr = kevent64(kqueue_, &event, 1, nullptr, 0, 0, nullptr);
-    CHECK_EQ(kr, KERN_SUCCESS);
-  }
-  ~TaskLoopForIO() = default;
-
-  TaskLoopForIO(TaskLoopForIO&) = delete;
-  TaskLoopForIO(TaskLoopForIO&&) = delete;
-  TaskLoopForIO& operator=(const TaskLoopForIO&) = delete;
-
-  // Thread::Delegate implementation.
-  void Run() override;
-  // Can be called from any thread.
-  void Quit() override;
-
-  // TODO(domfarolino): Once we have platform-specific implementations of
-  // |TaskLoopForIO|, I think we'll want to make this pure virtual, and have
-  // impls provide a proper implementation.
-  void WatchSocket(int fd, SocketReader* reader);
-
-  // TaskRunner::Delegate implementation.
-  // Can be called from any thread.
-  void PostTask(Callback cb) override;
- private:
-
-  // The kqueue that drives the task loop.
-  int kqueue_;
-
-  // Receive right to which an empty Mach message is sent to wake up the pump
-  // in response to |PostTask()|.
-  mach_port_t wakeup_;
-  // Scratch buffer that is used to receive the message sent to |wakeup_|.
-  mach_msg_empty_rcv_t wakeup_buffer_;
-
-  // These are listeners that get notified when their file descriptor has been
-  // written to and is ready to read from. |SocketReader|s are expected to
-  // unregister themselves from this map upon destruction.
-  std::map<int, SocketReader*> async_socket_readers_;
-
-  // The number of event types (filters) that we're interested in listening to
-  // via |kqueue_|. There is always at least 1, for the |wakeup_| port (or
-  // |port_set_|), but increase this count whenever we register a new e.g.,
-  // |SocketReader|.
-  size_t event_count_ = 1;
-  // This buffer is where events from the kernel queue are stored after calls to
-  // |kevent64|. This buffer is consulted in |Run()|, where events are pulled
-  // and the loop responds to them.
-  std::vector<kevent64_s> events_{event_count_};
-};
+#if defined(OS_MACOS)
+using TaskLoopForIO = TaskLoopForIOMac;
+#elif defined(OS_LINUX)
+// using TaskLoopForIO = TaskLoopForIOLinux;
+#error This platform does not support TaskLoopForIO just yet
+#endif
 
 } // namespace base
 

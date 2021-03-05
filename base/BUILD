@@ -29,13 +29,21 @@ cc_library(
     "synchronization/synchronization_helpers.h",
     "threading/thread.h",
     "threading/simple_thread.h",
-  ],
+  ] +
+  select({
+    ":mac": ["scheduling/task_loop_for_io_mac.h"],
+    ":linux": ["scheduling/task_loop_for_io_mac.h"],
+  }),
   srcs = [
     "scheduling/task_loop.cc",
-    "scheduling/task_loop_for_io.cc",
     "scheduling/task_loop_for_worker.cc",
     "threading/thread.cc",
-  ],
+  ] +
+  select({
+    ":mac": ["scheduling/task_loop_for_io_mac.cc"],
+    ":linux": ["scheduling/task_loop_for_io_mac.cc"],
+  }),
+
   deps = [],
   visibility = ["//visibility:public"],
 )

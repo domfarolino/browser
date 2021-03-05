@@ -6,11 +6,11 @@
 
 #include <vector>
 
-#include "base/scheduling/task_loop_for_io.h"
+#include "base/scheduling/task_loop_for_io_mac.h"
 
 namespace base {
 
-void TaskLoopForIO::Run() {
+void TaskLoopForIOMac::Run() {
   while (true) {
     // The last task that ran may have introduced a new |SocketReader| that
     // increased our |event_count_|, and thus increases the number of event
@@ -52,7 +52,7 @@ void TaskLoopForIO::Run() {
   } // while (true).
 }
 
-void TaskLoopForIO::WatchSocket(int fd, SocketReader* socket_reader) {
+void TaskLoopForIOMac::WatchSocket(int fd, SocketReader* socket_reader) {
   std::vector<kevent64_s> events;
 
   kevent64_s new_event{};
@@ -73,7 +73,7 @@ void TaskLoopForIO::WatchSocket(int fd, SocketReader* socket_reader) {
 }
 
 // Can be called from any thread.
-void TaskLoopForIO::PostTask(Callback cb) {
+void TaskLoopForIOMac::PostTask(Callback cb) {
   mutex_.lock();
   queue_.push(std::move(cb));
   // Send an empty message to |wakeup_|. There are three things that can happen here:
@@ -100,7 +100,7 @@ void TaskLoopForIO::PostTask(Callback cb) {
   mutex_.unlock();
 }
 
-void TaskLoopForIO::Quit() {
+void TaskLoopForIOMac::Quit() {
   quit_ = true;
   // See documentation in |PostTask()|.
   mach_msg_empty_send_t message{};
