@@ -26,6 +26,9 @@ std::shared_ptr<TaskLoop> TaskLoop::Create(ThreadType type) {
       return std::shared_ptr<TaskLoopForWorker>();
 #endif
   }
+
+  NOTREACHED();
+  return std::shared_ptr<TaskLoopForWorker>();
 }
 
 std::shared_ptr<TaskRunner> TaskLoop::GetTaskRunner() {
