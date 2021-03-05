@@ -42,6 +42,7 @@ cc_test(
   name = "base_tests",
   srcs = [
     "build_config_test.cc",
+    "scheduling/task_loop_test.cc",
   ],
   copts = ["-Iexternal/gtest/include"],
   deps = [
