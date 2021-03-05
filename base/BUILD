@@ -1,5 +1,15 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
+config_setting(
+  name = "mac",
+  constraint_values = ["@bazel_tools//platforms:osx"],
+)
+
+config_setting(
+  name = "linux",
+  constraint_values = ["@bazel_tools//platforms:linux"],
+)
+
 # This library target doesn't actually produce anything. It is only to export
 # base header files to other targets and packages, until implementation files
 # are written in this directory. See
@@ -7,6 +17,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 cc_library(
   name = "base",
   hdrs = [
+    "build_config.h",
     "check.h",
     "helper.h",
     "scheduling/task_loop.h",
@@ -25,6 +36,19 @@ cc_library(
   ],
   deps = [],
   visibility = ["//visibility:public"],
+)
+
+cc_test(
+  name = "base_tests",
+  srcs = [
+    "build_config_test.cc",
+  ],
+  copts = ["-Iexternal/gtest/include"],
+  deps = [
+    "//base:base",
+    "@gtest//:gtest",
+    "@gtest//:gtest_main",
+  ],
 )
 
 # Workaround for debugging symbols. See

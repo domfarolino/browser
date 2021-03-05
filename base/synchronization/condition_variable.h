@@ -1,6 +1,8 @@
 #ifndef BASE_SYNCHRONIZATION_CONDITION_VARIABLE_H_
 #define BASE_SYNCHRONIZATION_CONDITION_VARIABLE_H_
 
+#include <condition_variable>
+
 #include "base/check.h"
 #include "base/helper.h"
 #include "base/synchronization/mutex.h"
