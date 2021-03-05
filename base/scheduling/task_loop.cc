@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "base/build_config.h"
 #include "base/check.h"
 #if defined(OS_MACOS)
 #include "base/scheduling/task_loop_for_io.h"
