@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 
+#include "base/build_config.h"
 #include "base/scheduling/task_loop.h"
 #include "base/threading/simple_thread.h"
 
@@ -69,8 +70,14 @@ TEST_P(TaskLoopTest, RunQuitRunQuit) {
   task_loop->Run();
 }
 
+#if defined(OS_MACOS)
 INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
                          TaskLoopTest,
                          testing::Values(ThreadType::WORKER, ThreadType::IO));
+#elif defined(OS_LINUX)
+INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
+                         TaskLoopTest,
+                         testing::Values(ThreadType::WORKER));
+#endif
 
 }; // namespace base

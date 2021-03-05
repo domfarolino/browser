@@ -52,10 +52,14 @@ cc_test(
   name = "base_tests",
   srcs = [
     "build_config_test.cc",
-    "scheduling/task_loop_for_io_test.cc",
     "scheduling/task_loop_test.cc",
     "threading/simple_thread_test.cc",
-  ],
+  ] +
+  select({
+    ":mac": ["scheduling/task_loop_for_io_test.cc"],
+    # TODO(domfarolino): Enable the task loop for IO tests on linux once an IO task loop is implemented there.
+    ":linux": [],
+  }),
   copts = ["-Iexternal/gtest/include"],
   deps = [
     "//base:base",
