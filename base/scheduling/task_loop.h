@@ -24,8 +24,8 @@ class TaskLoop : public Thread::Delegate,
                  public TaskRunner::Delegate,
                  public std::enable_shared_from_this<TaskLoop> {
  public:
-  TaskLoop() {}
-  ~TaskLoop() {}
+  TaskLoop() = default;
+  ~TaskLoop() = default;
 
   TaskLoop(TaskLoop&) = delete;
   TaskLoop(TaskLoop&&) = delete;
@@ -40,6 +40,8 @@ class TaskLoop : public Thread::Delegate,
   void Quit() override = 0;
   // Can be called from any thread.
   std::shared_ptr<TaskRunner> GetTaskRunner() override;
+
+  virtual Callback QuitClosure() = 0;
 
   // TaskRunner::Delegate implementation.
   // Can be called from any thread.
@@ -61,7 +63,6 @@ class TaskLoop : public Thread::Delegate,
   base::Mutex mutex_;
   std::queue<Callback> queue_;
 
-  // Set to |true| only once in the task loop's lifetime.
   bool quit_ = false;
 
  private:
