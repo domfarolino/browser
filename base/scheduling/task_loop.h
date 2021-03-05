@@ -45,7 +45,7 @@ class TaskLoop : public Thread::Delegate,
   // Can be called from any thread.
   void PostTask(Callback cb) override = 0;
 
-  virtual Callback QuitClosure() = 0;
+  virtual Callback QuitClosure();
 
  protected:
   void ExecuteTask(Callback cb) {

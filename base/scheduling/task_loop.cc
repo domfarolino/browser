@@ -25,4 +25,8 @@ std::shared_ptr<TaskRunner> TaskLoop::GetTaskRunner() {
   return std::shared_ptr<TaskRunner>(new TaskRunner(GetWeakPtr()));
 }
 
+Callback TaskLoop::QuitClosure() {
+  return std::bind(&TaskLoop::Quit, this);
+}
+
 }; // namespace base

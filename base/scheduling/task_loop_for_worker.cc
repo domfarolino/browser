@@ -44,8 +44,4 @@ void TaskLoopForWorker::Quit() {
   cv_.notify_one();
 }
 
-Callback TaskLoopForWorker::QuitClosure() {
-  return std::bind(&TaskLoopForWorker::Quit, this);
-}
-
 }; // namespace base
