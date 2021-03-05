@@ -74,7 +74,7 @@ TEST_P(TaskLoopTest, RunQuitRunQuit) {
 INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
                          TaskLoopTest,
                          testing::Values(ThreadType::WORKER, ThreadType::IO));
-#elif defined(OS_LINUX)
+#else
 INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
                          TaskLoopTest,
                          testing::Values(ThreadType::WORKER));

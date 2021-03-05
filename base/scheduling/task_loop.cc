@@ -3,7 +3,9 @@
 #include <memory>
 
 #include "base/check.h"
+#if defined(OS_MACOS)
 #include "base/scheduling/task_loop_for_io.h"
+#endif
 #include "base/scheduling/task_loop_for_worker.h"
 
 namespace base {
@@ -17,7 +19,12 @@ std::shared_ptr<TaskLoop> TaskLoop::Create(ThreadType type) {
       NOTREACHED();
       return std::shared_ptr<TaskLoopForWorker>();
     case ThreadType::IO:
+#if defined(OS_MACOS)
       return std::shared_ptr<TaskLoopForIO>(new TaskLoopForIO());
+#else
+      NOTREACHED();
+      return std::shared_ptr<TaskLoopForWorker>();
+#endif
   }
 }
 
