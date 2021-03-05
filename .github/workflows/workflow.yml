@@ -17,7 +17,7 @@ jobs:
 
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, which is the CWD for
-    # the rest of the steps
+    # the rest of the steps.
     - uses: actions/checkout@v2
 
     # Caches and restores the bazel build directory.
