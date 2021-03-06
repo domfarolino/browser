@@ -14,21 +14,21 @@ void OffMainThreadRunCallback(Callback callback) {
 
 TEST(SimpleThreadTest, BasicPassByReference) {
   bool thread_ran = false;
-  base::SimpleThread thread(OffMainThread, std::ref(thread_ran));
+  SimpleThread thread(OffMainThread, std::ref(thread_ran));
   thread.join();
   EXPECT_EQ(thread_ran, true);
 }
 
 TEST(SimpleThreadTest, BasicPassByValue) {
   bool thread_ran = false;
-  base::SimpleThread thread(OffMainThread, thread_ran);
+  SimpleThread thread(OffMainThread, thread_ran);
   thread.join();
   EXPECT_EQ(thread_ran, false);
 }
 
 TEST(SimpleThreadTest, BasicWithLambdaReferenceCapture) {
   bool thread_ran = false;
-  base::SimpleThread thread([&](){
+  SimpleThread thread([&](){
     thread_ran = true;
   });
   thread.join();
@@ -37,7 +37,7 @@ TEST(SimpleThreadTest, BasicWithLambdaReferenceCapture) {
 
 TEST(SimpleThreadTest, BasicWithLambdaCallback) {
   bool thread_ran = false;
-  base::SimpleThread thread(OffMainThreadRunCallback, [&](){
+  SimpleThread thread(OffMainThreadRunCallback, [&](){
     thread_ran = true;
   });
   thread.join();
@@ -46,7 +46,7 @@ TEST(SimpleThreadTest, BasicWithLambdaCallback) {
 
 TEST(SimpleThreadTest, BasicWithLambdaAndLambdaParameterPassed) {
   bool thread_ran = false;
-  base::SimpleThread thread([](Callback callback){
+  SimpleThread thread([](Callback callback){
     callback();
   }, [&](){
     thread_ran = true;
