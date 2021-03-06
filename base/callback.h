@@ -4,7 +4,9 @@
 #include <functional>
 #include <tuple>
 
-// Source: https://stackoverflow.com/questions/16868129.
+// Sources:
+//   - https://stackoverflow.com/questions/16868129
+//   - https://stackoverflow.com/questions/66501654
 
 namespace base {
 
