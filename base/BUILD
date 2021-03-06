@@ -18,8 +18,8 @@ cc_library(
   name = "base",
   hdrs = [
     "build_config.h",
+    "callback.h",
     "check.h",
-    "helper.h",
     "scheduling/task_loop.h",
     "scheduling/task_loop_for_worker.h",
     "scheduling/task_runner.h",
