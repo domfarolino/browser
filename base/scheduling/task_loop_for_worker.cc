@@ -37,7 +37,10 @@ void TaskLoopForWorker::PostTask(Callback cb) {
 }
 
 void TaskLoopForWorker::Quit() {
+  mutex_.lock();
   quit_ = true;
+  mutex_.unlock();
+
   cv_.notify_one();
 }
 
