@@ -101,7 +101,9 @@ void TaskLoopForIOMac::PostTask(Callback cb) {
 }
 
 void TaskLoopForIOMac::Quit() {
+  mutex_.lock();
   quit_ = true;
+  mutex_.unlock();
   // See documentation in |PostTask()|.
   mach_msg_empty_send_t message{};
   message.header.msgh_size = sizeof(message);
