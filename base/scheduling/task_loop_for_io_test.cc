@@ -7,13 +7,13 @@
 #include <memory>
 #include <vector>
 
+#include "base/callback.h"
 #include "base/check.h"
 #include "base/scheduling/task_loop_for_io.h"
 #include "base/threading/simple_thread.h"
 #include "gtest/gtest.h"
 
 namespace base {
-namespace {
 
 // These are messages that will be written to an underlying buffer via a file
 // descriptor. For simplicity, their length should all be |kMessageLength|.
@@ -138,11 +138,9 @@ TEST_F(TaskLoopForIOTestBase, BasicSocketReading) {
   task_loop_for_io_->WatchSocket(fds_[0], socket_reader);
 
   std::vector<std::string> messages_to_write = {kFirstMessage};
-  // TODO(domfarolino): base::SimpleThread has a bug where std::ref is required
-  // below.
   base::SimpleThread simple_thread(WriteMessagesToFDWithDelay,
-                                   std::ref(fds_[1]),
-                                   std::ref(messages_to_write), 0);
+                                   fds_[1],
+                                   messages_to_write, 0);
   task_loop_for_io_->Run();
   EXPECT_EQ(messages_read_.size(), 1);
   EXPECT_EQ(messages_read_[0], kFirstMessage);
@@ -155,11 +153,9 @@ TEST_F(TaskLoopForIOTestBase, WriteToSocketBeforeListening) {
   SetExpectedMessageCount(1);
 
   std::vector<std::string> messages_to_write = {kFirstMessage};
-  // TODO(domfarolino): base::SimpleThread has a bug where std::ref is required
-  // below.
   base::SimpleThread simple_thread(WriteMessagesToFDWithDelay,
-                                   std::ref(fds_[1]),
-                                   std::ref(messages_to_write), 0);
+                                   fds_[1],
+                                   messages_to_write, 0);
 
   // TODO(domfarolino): We shouldn't sleep for a hard-coded amount of time like
   // we are below. Instead we should consider giving TaskLoop the ability to
@@ -202,15 +198,13 @@ TEST_F(TaskLoopForIOTestBase, QueueingMessagesOnMultipleSockets) {
   reader_2->SetCallback(std::move(callback));
   task_loop_for_io_->WatchSocket(moreFds[0], reader_2);
 
-  // TODO(domfarolino): base::SimpleThread has a bug where std::ref is required
-  // below.
   // Two separate threads each queue a message
   std::vector<std::string> messages_1 = {kFirstMessage, kSecondMessage};
   std::vector<std::string> messages_2 = {kThirdMessage, kFourthMessage};
-  base::SimpleThread thread1(WriteMessagesToFDWithDelay, std::ref(fds_[1]),
-                             std::ref(messages_1), 200);
-  base::SimpleThread thread2(WriteMessagesToFDWithDelay, std::ref(moreFds[1]),
-                             std::ref(messages_2), 600);
+  base::SimpleThread thread1(WriteMessagesToFDWithDelay, fds_[1], messages_1,
+                             200);
+  base::SimpleThread thread2(WriteMessagesToFDWithDelay, moreFds[1], messages_2,
+                             600);
 
   // Post a task on the task loop that will block the loop for 1 second while
   // the above threads queue messages, then immediately run the queue so that
@@ -268,5 +262,4 @@ void WriteToFDFromSimpleThread(int fd,
 }
 */
 
-}; // namespace
 }; // namespace base
