@@ -23,8 +23,8 @@
 // "platform handle" concept, which itself has platform-specific code to
 // conditionally deal in terms of POSIX file descriptors, Windows HANDLEs, or
 // what have you, all while maintaining a platform agnostic API that
-// TaskLoopForIO can speak in terms of. This would be worth looking into once we
-// expand to Windows, if we ever do.
+// TaskLoopForIO can understand. This would be worth looking into once we expand
+// to Windows, if we ever do.
 
 #include "base/build_config.h"
 

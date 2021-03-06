@@ -32,26 +32,13 @@ class TaskLoopForIOMac : public TaskLoop {
    public:
     virtual ~SocketReader() = default;
     SocketReader(int fd): fd_(fd) {}
+    int Socket() { return fd_; }
     virtual void OnCanReadFromSocket() = 0;
    protected:
     int fd_;
   };
 
-  TaskLoopForIOMac() : kqueue_(kqueue()) {
-    kern_return_t kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &wakeup_);
-    CHECK_EQ(kr, KERN_SUCCESS);
-
-    kevent64_s event{};
-    event.ident = wakeup_;
-    event.filter = EVFILT_MACHPORT;
-    event.flags = EV_ADD;
-    event.fflags = MACH_RCV_MSG;
-    event.ext[0] = reinterpret_cast<uint64_t>(&wakeup_buffer_);
-    event.ext[1] = sizeof(wakeup_buffer_);
-
-    kr = kevent64(kqueue_, &event, 1, nullptr, 0, 0, nullptr);
-    CHECK_EQ(kr, KERN_SUCCESS);
-  }
+  TaskLoopForIOMac();
   ~TaskLoopForIOMac() = default;
 
   TaskLoopForIOMac(TaskLoopForIOMac&) = delete;
@@ -63,11 +50,13 @@ class TaskLoopForIOMac : public TaskLoop {
   // Can be called from any thread.
   void Quit() override;
 
-  void WatchSocket(int fd, SocketReader* reader);
-
   // TaskRunner::Delegate implementation.
   // Can be called from any thread.
   void PostTask(Callback cb) override;
+
+  void WatchSocket(SocketReader* reader);
+  // Can be called from any thread (it is *implicitly* thread-safe).
+  void MachWakeup();
  private:
 
   // The kqueue that drives the task loop.

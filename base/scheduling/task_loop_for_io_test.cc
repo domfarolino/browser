@@ -135,7 +135,7 @@ TEST_F(TaskLoopForIOTestBase, BasicSocketReading) {
     std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
               std::placeholders::_1);
   socket_reader->SetCallback(std::move(callback));
-  task_loop_for_io_->WatchSocket(fds_[0], socket_reader);
+  task_loop_for_io_->WatchSocket(socket_reader);
 
   std::vector<std::string> messages_to_write = {kFirstMessage};
   base::SimpleThread simple_thread(WriteMessagesToFDWithDelay,
@@ -171,7 +171,7 @@ TEST_F(TaskLoopForIOTestBase, WriteToSocketBeforeListening) {
     std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
               std::placeholders::_1);
   socket_reader->SetCallback(std::move(callback));
-  task_loop_for_io_->WatchSocket(fds_[0], socket_reader);
+  task_loop_for_io_->WatchSocket(socket_reader);
 
   task_loop_for_io_->Run();
   EXPECT_EQ(messages_read_.size(), 1);
@@ -187,7 +187,7 @@ TEST_F(TaskLoopForIOTestBase, QueueingMessagesOnMultipleSockets) {
     std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
               std::placeholders::_1);
   reader_1->SetCallback(std::move(callback));
-  task_loop_for_io_->WatchSocket(fds_[0], reader_1);
+  task_loop_for_io_->WatchSocket(reader_1);
 
   // Set up the second SocketReader.
   int moreFds[2];
@@ -196,7 +196,7 @@ TEST_F(TaskLoopForIOTestBase, QueueingMessagesOnMultipleSockets) {
   EXPECT_EQ(fcntl(moreFds[1], F_SETFL, O_NONBLOCK), 0);
   TestSocketReader* reader_2 = new TestSocketReader(moreFds[0]);
   reader_2->SetCallback(std::move(callback));
-  task_loop_for_io_->WatchSocket(moreFds[0], reader_2);
+  task_loop_for_io_->WatchSocket(reader_2);
 
   // Two separate threads each queue a message
   std::vector<std::string> messages_1 = {kFirstMessage, kSecondMessage};
