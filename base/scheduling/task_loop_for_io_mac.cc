@@ -52,7 +52,11 @@ void TaskLoopForIOMac::Run() {
 
       if (event->filter == EVFILT_READ) {
         int fd = event->ident;
+
+        mutex_.lock();
         auto* socket_reader = async_socket_readers_[fd];
+        mutex_.unlock();
+
         CHECK(socket_reader);
         socket_reader->OnCanReadFromSocket();
       } else if (event->filter == EVFILT_MACHPORT) {
@@ -92,9 +96,10 @@ void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {
   int rv = kevent64(kqueue_, events.data(), events.size(), nullptr, 0, 0, nullptr);
   CHECK_GEQ(rv, 0);
 
+  mutex_.lock();
   async_socket_readers_[fd] = socket_reader;
-
   event_count_++;
+  mutex_.unlock();
 }
 
 // Can be called from any thread.
