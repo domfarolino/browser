@@ -59,15 +59,21 @@ TEST_P(TaskLoopTest, PostMultipleTasksBeforeRun) {
 }
 
 TEST_P(TaskLoopTest, RunQuitRunQuit) {
-  SimpleThread t1([](Callback quit_closure) {
+  bool first_task_ran = false;
+  task_loop->PostTask(std::bind([&](Callback quit_closure){
+    first_task_ran = true;
     quit_closure();
-  }, task_loop->QuitClosure());
+  }, task_loop->QuitClosure()));
   task_loop->Run();
+  EXPECT_EQ(first_task_ran, true);
 
-  SimpleThread t2([](Callback quit_closure) {
+  bool second_task_ran = false;
+  task_loop->PostTask(std::bind([&](Callback quit_closure){
+    second_task_ran = true;
     quit_closure();
-  }, task_loop->QuitClosure());
+  }, task_loop->QuitClosure()));
   task_loop->Run();
+  EXPECT_EQ(second_task_ran, true);
 }
 
 #if defined(OS_MACOS)

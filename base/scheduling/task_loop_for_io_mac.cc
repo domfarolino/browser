@@ -69,6 +69,10 @@ void TaskLoopForIOMac::Run() {
     } // for.
 
   } // while (true).
+
+  // We need to reset |quit_| when |Run()| actually completes, so that we can
+  // call |Run()| again later.
+  quit_ = false;
 }
 
 void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {

@@ -110,14 +110,12 @@ class TestSocketReader : public base::TaskLoopForIO::SocketReader {
   MessageCallback callback_;
 };
 
-void WriteMessagesToFDWithDelay(int fd, std::vector<std::string> messages, int delay_ms) {
-  if (delay_ms) {
-    base::Thread::sleep_for(std::chrono::milliseconds(delay_ms));
-  }
-
+void WriteMessagesAndInvokeCallback(int fd, std::vector<std::string> messages, Callback callback) {
   for (const std::string& message : messages) {
     write(fd, message.data(), message.size());
   }
+
+  callback();
 }
 
 TEST_F(TaskLoopForIOTestBase, BasicTaskPosting) {
@@ -138,9 +136,9 @@ TEST_F(TaskLoopForIOTestBase, BasicSocketReading) {
   task_loop_for_io_->WatchSocket(socket_reader);
 
   std::vector<std::string> messages_to_write = {kFirstMessage};
-  base::SimpleThread simple_thread(WriteMessagesToFDWithDelay,
+  base::SimpleThread simple_thread(WriteMessagesAndInvokeCallback,
                                    fds_[1],
-                                   messages_to_write, 0);
+                                   messages_to_write, [](){});
   task_loop_for_io_->Run();
   EXPECT_EQ(messages_read_.size(), 1);
   EXPECT_EQ(messages_read_[0], kFirstMessage);
@@ -152,19 +150,14 @@ TEST_F(TaskLoopForIOTestBase, BasicSocketReading) {
 TEST_F(TaskLoopForIOTestBase, WriteToSocketBeforeListening) {
   SetExpectedMessageCount(1);
 
-  std::vector<std::string> messages_to_write = {kFirstMessage};
-  base::SimpleThread simple_thread(WriteMessagesToFDWithDelay,
-                                   fds_[1],
-                                   messages_to_write, 0);
+  std::vector<std::string> messages = {kFirstMessage};
+  base::SimpleThread simple_thread(WriteMessagesAndInvokeCallback, fds_[1],
+                                   messages,
+                                   task_loop_for_io_->QuitClosure());
 
-  // TODO(domfarolino): We shouldn't sleep for a hard-coded amount of time like
-  // we are below. Instead we should consider giving TaskLoop the ability to
-  // expose a quit closure and re-run itself. That way we can be notified when
-  // an event happens, and respond by e.g., registering the TestSocketReader
-  // below and re-running the loop to listen for messages etc.
-  // Sleep, giving the thread above time to write to the file descriptor that we
-  // haven't started listening to.
-  base::Thread::sleep_for(std::chrono::milliseconds(400));
+  // This will make us wait until the message above has been written. Once
+  // written, the test will continue.
+  task_loop_for_io_->Run();
 
   TestSocketReader* socket_reader = new TestSocketReader(fds_[0]);
   TestSocketReader::MessageCallback callback =
@@ -181,39 +174,38 @@ TEST_F(TaskLoopForIOTestBase, WriteToSocketBeforeListening) {
 TEST_F(TaskLoopForIOTestBase, QueueingMessagesOnMultipleSockets) {
   SetExpectedMessageCount(4);
 
-  // Set up the first SocketReader.
-  TestSocketReader* reader_1 = new TestSocketReader(fds_[0]);
-  TestSocketReader::MessageCallback callback =
-    std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
-              std::placeholders::_1);
-  reader_1->SetCallback(std::move(callback));
-  task_loop_for_io_->WatchSocket(reader_1);
-
-  // Set up the second SocketReader.
+  // Set up the second SocketReader, but do not register it.
   int moreFds[2];
   EXPECT_EQ(socketpair(AF_UNIX, SOCK_STREAM, 0, moreFds), 0);
   EXPECT_EQ(fcntl(moreFds[0], F_SETFL, O_NONBLOCK), 0);
   EXPECT_EQ(fcntl(moreFds[1], F_SETFL, O_NONBLOCK), 0);
-  TestSocketReader* reader_2 = new TestSocketReader(moreFds[0]);
-  reader_2->SetCallback(std::move(callback));
-  task_loop_for_io_->WatchSocket(reader_2);
 
   // Two separate threads each queue a message
   std::vector<std::string> messages_1 = {kFirstMessage, kSecondMessage};
   std::vector<std::string> messages_2 = {kThirdMessage, kFourthMessage};
-  base::SimpleThread thread1(WriteMessagesToFDWithDelay, fds_[1], messages_1,
-                             200);
-  base::SimpleThread thread2(WriteMessagesToFDWithDelay, moreFds[1], messages_2,
-                             600);
+  base::SimpleThread thread_1(WriteMessagesAndInvokeCallback, fds_[1],
+                              messages_1, task_loop_for_io_->QuitClosure());
+  task_loop_for_io_->Run(); // Will resume once the first two messages are written.
+  base::SimpleThread thread_2(WriteMessagesAndInvokeCallback, moreFds[1],
+                              messages_2, task_loop_for_io_->QuitClosure());
+  task_loop_for_io_->Run(); // Will resume once the last two messages are written.
 
-  // Post a task on the task loop that will block the loop for 1 second while
-  // the above threads queue messages, then immediately run the queue so that
-  // task is run.
-  task_loop_for_io_->PostTask(std::bind([](){
-    base::Thread::sleep_for(std::chrono::milliseconds(1000));
-  }));
-  task_loop_for_io_->Run();
+  // At this point the writes have been queued by the OS, but not exposed to the
+  // loop's via the kernel.
+  EXPECT_EQ(messages_read_.size(), 0);
 
+  // Create and register SocketReaders to listen to the above messages.
+  TestSocketReader* reader_1 = new TestSocketReader(fds_[0]);
+  TestSocketReader* reader_2 = new TestSocketReader(moreFds[0]);
+  TestSocketReader::MessageCallback callback =
+    std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
+              std::placeholders::_1);
+  reader_1->SetCallback(std::move(callback));
+  reader_2->SetCallback(std::move(callback));
+  task_loop_for_io_->WatchSocket(reader_1);
+  task_loop_for_io_->WatchSocket(reader_2);
+
+  task_loop_for_io_->Run(); // Process the queued messages.
   EXPECT_EQ(messages_read_.size(), 4);
   // The ordering looks funky here because our task queue services each file
   // descriptor evenly, instead of starving one of them by reading all of the
@@ -228,9 +220,6 @@ TEST_F(TaskLoopForIOTestBase, QueueingMessagesOnMultipleSockets) {
 }
 
 // TODO: Test the following cases:
-//   - Multiple tasks are posted while a task is already running: test that when
-//     the currently-running task is done, the loop correctly resumes and serves
-//     all posted tasks
 //   - Same thing as above but interpolated with message writes as well (see
 //     below function that used to do this in a non-test environment).
 
