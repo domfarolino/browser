@@ -11,19 +11,16 @@ cc_binary(
   ],
 )
 
+# TODO: Turn the example binaries below into actual gtests.
 cc_binary(
   name = "task_posting",
   srcs = ["task_posting.cc"],
-  deps = [
-    "//base:base",
-  ],
+  deps = ["//base:base"],
 )
 cc_binary(
   name = "bind_task_loop_to_current_thread",
   srcs = ["bind_task_loop_to_current_thread.cc"],
-  deps = [
-    "//base:base",
-  ],
+  deps = ["//base:base"],
 )
 
 # Workaround for debugging symbols. See

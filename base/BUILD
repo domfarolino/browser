@@ -21,6 +21,7 @@ cc_library(
     "callback.h",
     "check.h",
     "scheduling/task_loop.h",
+    "scheduling/task_loop_for_io.h",
     "scheduling/task_loop_for_worker.h",
     "scheduling/task_runner.h",
     "synchronization/condition_variable.h",
@@ -28,12 +29,21 @@ cc_library(
     "synchronization/synchronization_helpers.h",
     "threading/thread.h",
     "threading/simple_thread.h",
-  ],
+  ] +
+  select({
+    ":mac": ["scheduling/task_loop_for_io_mac.h"],
+    ":linux": [],
+  }),
   srcs = [
     "scheduling/task_loop.cc",
     "scheduling/task_loop_for_worker.cc",
     "threading/thread.cc",
-  ],
+  ] +
+  select({
+    ":mac": ["scheduling/task_loop_for_io_mac.cc"],
+    ":linux": [],
+  }),
+
   deps = [],
   visibility = ["//visibility:public"],
 )
@@ -44,7 +54,12 @@ cc_test(
     "build_config_test.cc",
     "scheduling/task_loop_test.cc",
     "threading/simple_thread_test.cc",
-  ],
+  ] +
+  select({
+    ":mac": ["scheduling/task_loop_for_io_test.cc"],
+    # TODO(domfarolino): Enable the task loop for IO tests on linux once an IO task loop is implemented there.
+    ":linux": [],
+  }),
   copts = ["-Iexternal/gtest/include"],
   deps = [
     "//base:base",
