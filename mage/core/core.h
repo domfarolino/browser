@@ -4,13 +4,10 @@
 #include <map>
 #include <memory>
 
+#include "base/scheduling/task_loop_for_io.h"
 #include "mage/core/endpoint.h"
 #include "mage/core/handles.h"
 #include "mage/core/node.h"
-
-namespace base {
-  class TaskLoopForIO;
-};
 
 namespace mage {
 

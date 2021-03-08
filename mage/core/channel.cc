@@ -15,7 +15,7 @@ namespace mage {
 Channel::Channel(int fd, Delegate* delegate) : SocketReader(fd), delegate_(delegate) {}
 
 void Channel::Start() {
-  Core::GetTaskLoop()->WatchSocket(fd_, this);
+  Core::GetTaskLoop()->WatchSocket(this);
 }
 
 void Channel::SetRemoteNodeName(const std::string& name) {
