@@ -12,7 +12,6 @@
 
 #include "base/callback.h"
 #include "base/scheduling/task_loop.h"
-#include "base/synchronization/condition_variable.h"
 #include "base/synchronization/mutex.h"
 #include "base/threading/thread.h"
 
@@ -30,8 +29,8 @@ class TaskLoopForIOMac : public TaskLoop {
   // descriptor can be read from.
   class SocketReader {
    public:
-    virtual ~SocketReader() = default;
     SocketReader(int fd): fd_(fd) {}
+    virtual ~SocketReader() = default;
     int Socket() { return fd_; }
     virtual void OnCanReadFromSocket() = 0;
    protected:
@@ -54,6 +53,7 @@ class TaskLoopForIOMac : public TaskLoop {
   // Can be called from any thread.
   void PostTask(Callback cb) override;
 
+  // Can be called from any thread.
   void WatchSocket(SocketReader* reader);
   // Can be called from any thread (it is *implicitly* thread-safe).
   void MachWakeup();

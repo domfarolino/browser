@@ -17,9 +17,9 @@ namespace base {
 
 // These are messages that will be written to an underlying buffer via a file
 // descriptor. For simplicity, their length should all be |kMessageLength|.
-static const std::string kFirstMessage =      "First message ";
+static const std::string kFirstMessage  =     "First message ";
 static const std::string kSecondMessage =     "Second message";
-static const std::string kThirdMessage =      "Third message ";
+static const std::string kThirdMessage  =     "Third message ";
 static const std::string kFourthMessage =     "Fourth message";
 static const int kMessageLength = 14;
 
@@ -27,56 +27,47 @@ static const int kMessageLength = 14;
 // thread on which a |TaskLoopForIO| is bound. The tests may create and use
 // other threads to asynchronously interact with the IO task loop on the main
 // thread. In these cases, it will be useful for the tests to call
-// |task_loop_for_io_->Run()| to wait for tasks and events to be posted.
+// |task_loop_for_io->Run()| to wait for tasks and events to be posted.
 class TaskLoopForIOTestBase : public testing::Test {
  public:
   void SetUp() {
-    task_loop_for_io_ = std::static_pointer_cast<base::TaskLoopForIO>(
+    task_loop_for_io = std::static_pointer_cast<base::TaskLoopForIO>(
                           base::TaskLoop::Create(base::ThreadType::IO));
 
     // Setup and entangle two file descriptors to/from which tests can read and
     // write.
-    EXPECT_EQ(socketpair(AF_UNIX, SOCK_STREAM, 0, fds_), 0);
-    EXPECT_EQ(fcntl(fds_[0], F_SETFL, O_NONBLOCK), 0);
-    EXPECT_EQ(fcntl(fds_[1], F_SETFL, O_NONBLOCK), 0);
+    EXPECT_EQ(socketpair(AF_UNIX, SOCK_STREAM, 0, fds), 0);
+    EXPECT_EQ(fcntl(fds[0], F_SETFL, O_NONBLOCK), 0);
+    EXPECT_EQ(fcntl(fds[1], F_SETFL, O_NONBLOCK), 0);
 
-    num_tasks_ran_ = 0;
     expected_message_count_ = 0;
-    messages_read_.clear();
+    messages_read.clear();
   }
 
   void TearDown() {
-    task_loop_for_io_.reset();
+    task_loop_for_io.reset();
 
-    EXPECT_EQ(close(fds_[0]), 0);
-    EXPECT_EQ(close(fds_[1]), 0);
+    EXPECT_EQ(close(fds[0]), 0);
+    EXPECT_EQ(close(fds[1]), 0);
   }
 
   std::shared_ptr<base::TaskRunner> GetTaskRunner() {
-    return task_loop_for_io_->GetTaskRunner();
-  }
-
-  void RunTaskAndQuit() {
-    num_tasks_ran_++;
-    task_loop_for_io_->Quit();
+    return task_loop_for_io->GetTaskRunner();
   }
 
   void OnMessageRead(std::string message) {
-    messages_read_.push_back(message);
-    if (messages_read_.size() == expected_message_count_)
-      task_loop_for_io_->Quit();
+    messages_read.push_back(message);
+    if (messages_read.size() == expected_message_count_)
+      task_loop_for_io->Quit();
   }
 
   void SetExpectedMessageCount(int count) {
     expected_message_count_ = count;
   }
 
- protected:
-  int fds_[2];
-  std::shared_ptr<base::TaskLoopForIO> task_loop_for_io_;
-
-  int num_tasks_ran_;
-  std::vector<std::string> messages_read_;
+  int fds[2];
+  std::shared_ptr<base::TaskLoopForIO> task_loop_for_io;
+  std::vector<std::string> messages_read;
 
  private:
   int expected_message_count_;
@@ -85,7 +76,8 @@ class TaskLoopForIOTestBase : public testing::Test {
 class TestSocketReader : public base::TaskLoopForIO::SocketReader {
  public:
   using MessageCallback = std::function<void(std::string)>;
-  TestSocketReader(int fd): base::TaskLoopForIO::SocketReader::SocketReader(fd){}
+  TestSocketReader(int fd) :
+    base::TaskLoopForIO::SocketReader::SocketReader(fd) {}
 
   void SetCallback(MessageCallback callback) {
     callback_ = std::move(callback);
@@ -110,7 +102,11 @@ class TestSocketReader : public base::TaskLoopForIO::SocketReader {
   MessageCallback callback_;
 };
 
-void WriteMessagesAndInvokeCallback(int fd, std::vector<std::string> messages, Callback callback) {
+// This should be used directly when you want to write a message from another
+// thread, and be notified on the main thread (via |callback|) when the write is
+// complete.
+void WriteMessagesAndInvokeCallback(int fd, std::vector<std::string> messages,
+                                    Callback callback) {
   for (const std::string& message : messages) {
     write(fd, message.data(), message.size());
   }
@@ -118,30 +114,25 @@ void WriteMessagesAndInvokeCallback(int fd, std::vector<std::string> messages, C
   callback();
 }
 
-TEST_F(TaskLoopForIOTestBase, BasicTaskPosting) {
-  base::SimpleThread simple_thread(&TaskLoopForIOTestBase::RunTaskAndQuit,
-                                   this);
-  task_loop_for_io_->Run();
-  EXPECT_EQ(num_tasks_ran_, 1);
+void WriteMessages(int fd, std::vector<std::string> messages) {
+  WriteMessagesAndInvokeCallback(fd, messages, [](){});
 }
 
 TEST_F(TaskLoopForIOTestBase, BasicSocketReading) {
   SetExpectedMessageCount(1);
 
-  TestSocketReader* socket_reader = new TestSocketReader(fds_[0]);
+  TestSocketReader* socket_reader = new TestSocketReader(fds[0]);
   TestSocketReader::MessageCallback callback =
     std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
               std::placeholders::_1);
   socket_reader->SetCallback(std::move(callback));
-  task_loop_for_io_->WatchSocket(socket_reader);
+  task_loop_for_io->WatchSocket(socket_reader);
 
   std::vector<std::string> messages_to_write = {kFirstMessage};
-  base::SimpleThread simple_thread(WriteMessagesAndInvokeCallback,
-                                   fds_[1],
-                                   messages_to_write, [](){});
-  task_loop_for_io_->Run();
-  EXPECT_EQ(messages_read_.size(), 1);
-  EXPECT_EQ(messages_read_[0], kFirstMessage);
+  base::SimpleThread simple_thread(WriteMessages, fds[1], messages_to_write);
+  task_loop_for_io->Run();
+  EXPECT_EQ(messages_read.size(), 1);
+  EXPECT_EQ(messages_read[0], kFirstMessage);
 }
 
 // Just like the test above, but we write to the socket before the task loop is
@@ -151,24 +142,24 @@ TEST_F(TaskLoopForIOTestBase, WriteToSocketBeforeListening) {
   SetExpectedMessageCount(1);
 
   std::vector<std::string> messages = {kFirstMessage};
-  base::SimpleThread simple_thread(WriteMessagesAndInvokeCallback, fds_[1],
+  base::SimpleThread simple_thread(WriteMessagesAndInvokeCallback, fds[1],
                                    messages,
-                                   task_loop_for_io_->QuitClosure());
+                                   task_loop_for_io->QuitClosure());
 
   // This will make us wait until the message above has been written. Once
   // written, the test will continue.
-  task_loop_for_io_->Run();
+  task_loop_for_io->Run();
 
-  TestSocketReader* socket_reader = new TestSocketReader(fds_[0]);
+  TestSocketReader* socket_reader = new TestSocketReader(fds[0]);
   TestSocketReader::MessageCallback callback =
     std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
               std::placeholders::_1);
   socket_reader->SetCallback(std::move(callback));
-  task_loop_for_io_->WatchSocket(socket_reader);
+  task_loop_for_io->WatchSocket(socket_reader);
 
-  task_loop_for_io_->Run();
-  EXPECT_EQ(messages_read_.size(), 1);
-  EXPECT_EQ(messages_read_[0], kFirstMessage);
+  task_loop_for_io->Run();
+  EXPECT_EQ(messages_read.size(), 1);
+  EXPECT_EQ(messages_read[0], kFirstMessage);
 }
 
 TEST_F(TaskLoopForIOTestBase, QueueingMessagesOnMultipleSockets) {
@@ -183,72 +174,80 @@ TEST_F(TaskLoopForIOTestBase, QueueingMessagesOnMultipleSockets) {
   // Two separate threads each queue a message
   std::vector<std::string> messages_1 = {kFirstMessage, kSecondMessage};
   std::vector<std::string> messages_2 = {kThirdMessage, kFourthMessage};
-  base::SimpleThread thread_1(WriteMessagesAndInvokeCallback, fds_[1],
-                              messages_1, task_loop_for_io_->QuitClosure());
-  task_loop_for_io_->Run(); // Will resume once the first two messages are written.
+  base::SimpleThread thread_1(WriteMessagesAndInvokeCallback, fds[1],
+                              messages_1, task_loop_for_io->QuitClosure());
+  task_loop_for_io->Run(); // Will resume once the first two messages are written.
   base::SimpleThread thread_2(WriteMessagesAndInvokeCallback, moreFds[1],
-                              messages_2, task_loop_for_io_->QuitClosure());
-  task_loop_for_io_->Run(); // Will resume once the last two messages are written.
+                              messages_2, task_loop_for_io->QuitClosure());
+  task_loop_for_io->Run(); // Will resume once the last two messages are written.
 
   // At this point the writes have been queued by the OS, but not exposed to the
   // loop's via the kernel.
-  EXPECT_EQ(messages_read_.size(), 0);
+  EXPECT_EQ(messages_read.size(), 0);
 
   // Create and register SocketReaders to listen to the above messages.
-  TestSocketReader* reader_1 = new TestSocketReader(fds_[0]);
+  TestSocketReader* reader_1 = new TestSocketReader(fds[0]);
   TestSocketReader* reader_2 = new TestSocketReader(moreFds[0]);
   TestSocketReader::MessageCallback callback =
     std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
               std::placeholders::_1);
   reader_1->SetCallback(std::move(callback));
   reader_2->SetCallback(std::move(callback));
-  task_loop_for_io_->WatchSocket(reader_1);
-  task_loop_for_io_->WatchSocket(reader_2);
+  task_loop_for_io->WatchSocket(reader_1);
+  task_loop_for_io->WatchSocket(reader_2);
 
-  task_loop_for_io_->Run(); // Process the queued messages.
-  EXPECT_EQ(messages_read_.size(), 4);
-  // The ordering looks funky here because our task queue services each file
+  task_loop_for_io->Run(); // Process the queued messages.
+  EXPECT_EQ(messages_read.size(), 4);
+  // The ordering looks funky here because our task loop services each file
   // descriptor evenly, instead of starving one of them by reading all of the
   // other's events.
-  EXPECT_EQ(messages_read_[0], kFirstMessage);
-  EXPECT_EQ(messages_read_[1], kThirdMessage);
-  EXPECT_EQ(messages_read_[2], kSecondMessage);
-  EXPECT_EQ(messages_read_[3], kFourthMessage);
+  EXPECT_EQ(messages_read[0], kFirstMessage);
+  EXPECT_EQ(messages_read[1], kThirdMessage);
+  EXPECT_EQ(messages_read[2], kSecondMessage);
+  EXPECT_EQ(messages_read[3], kFourthMessage);
 
   EXPECT_EQ(close(moreFds[0]), 0);
   EXPECT_EQ(close(moreFds[1]), 0);
 }
 
-// TODO: Test the following cases:
-//   - Same thing as above but interpolated with message writes as well (see
-//     below function that used to do this in a non-test environment).
+TEST_F(TaskLoopForIOTestBase, InterleaveTaskAndMessages) {
+  int num_tasks = 0;
 
-/*
-// A helper that runs on another thread and writes to a given file descriptor.
-void WriteToFDFromSimpleThread(int fd,
-                               std::shared_ptr<base::TaskRunner> task_runner) {
-  // 1.) Write a message.
-  base::Thread::sleep_for(std::chrono::milliseconds(300));
-  std::string first_message = kFirstMessage; // Character for padding.
-  write(fd, first_message.data(), first_message.size());
+  // Set up the SocketReader.
+  TestSocketReader* reader_1 = new TestSocketReader(fds[0]);
+  TestSocketReader::MessageCallback callback =
+    std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
+              std::placeholders::_1);
+  reader_1->SetCallback(std::move(callback));
+  task_loop_for_io->WatchSocket(reader_1);
 
-  // 2.) Post a task.
-  base::Thread::sleep_for(std::chrono::milliseconds(300));
-  task_runner->PostTask(std::bind([](){
-    printf("First task is running\n");
-  }));
+  // Write the first message & post the first task.
+  WriteMessages(fds[1], {kFirstMessage});
+  task_loop_for_io->PostTask([&]() {
+    EXPECT_EQ(num_tasks, 0);
+    num_tasks++;
+    EXPECT_EQ(messages_read.size(), 1);
+    EXPECT_EQ(messages_read[0], kFirstMessage);
+  });
 
-  // 3.) Write another message.
-  base::Thread::sleep_for(std::chrono::milliseconds(300));
-  std::string second_message = kSecondMessage;
-  write(fd, second_message.data(), second_message.size());
+  // Write the second message & post the first task.
+  WriteMessages(fds[1], {kSecondMessage});
+  task_loop_for_io->PostTask([&]() {
+    EXPECT_EQ(num_tasks, 1);
+    num_tasks++;
+    EXPECT_EQ(messages_read.size(), 2);
+    EXPECT_EQ(messages_read[1], kSecondMessage);
+  });
 
-  // 4.) Post another task.
-  base::Thread::sleep_for(std::chrono::milliseconds(300));
-  task_runner->PostTask(std::bind([](){
-    printf("Second task is running\n");
-  }));
+  // Write the third message & post the first task.
+  WriteMessages(fds[1], {kThirdMessage});
+  task_loop_for_io->PostTask([&]() {
+    EXPECT_EQ(num_tasks, 2);
+    num_tasks++;
+    EXPECT_EQ(messages_read.size(), 3);
+    EXPECT_EQ(messages_read[1], kThirdMessage);
+    task_loop_for_io->Quit();
+  });
 }
-*/
 
 }; // namespace base

@@ -93,7 +93,8 @@ void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {
   // Invoke kevent64 not to listen to events, but to supply a changelist of
   // event filters that we're interested in being notified about from the
   // kernel.
-  int rv = kevent64(kqueue_, events.data(), events.size(), nullptr, 0, 0, nullptr);
+  int rv = kevent64(kqueue_, events.data(), events.size(), nullptr, 0, 0,
+                    nullptr);
   CHECK_GEQ(rv, 0);
 
   mutex_.lock();
@@ -102,7 +103,6 @@ void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {
   mutex_.unlock();
 }
 
-// Can be called from any thread.
 void TaskLoopForIOMac::PostTask(Callback cb) {
   mutex_.lock();
   queue_.push(std::move(cb));

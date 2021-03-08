@@ -9,7 +9,8 @@
 
 namespace base {
 
-class TaskLoopTest : public testing::Test, public testing::WithParamInterface<ThreadType> {
+class TaskLoopTest : public testing::Test,
+                     public testing::WithParamInterface<ThreadType> {
  public:
   TaskLoopTest() : thread_type_(GetParam()) {}
 
@@ -32,20 +33,11 @@ TEST_P(TaskLoopTest, QuitBeforeRun) {
   task_loop->Run(); // Loop should immediately quit. Test should not time out.
 }
 
-TEST_P(TaskLoopTest, PostTaskBeforeRun) {
-  // The loop should immediately run the posted task. The side effect is
-  // quitting the loop, which we can observe by the test not timing out.
-  task_loop->PostTask(std::bind([](Callback quit_closure){
-    quit_closure();
-  }, task_loop->QuitClosure()));
-  task_loop->Run();
-}
-
-TEST_P(TaskLoopTest, PostMultipleTasksBeforeRun) {
+TEST_P(TaskLoopTest, PostTasksBeforeRun) {
   // When the loop is |Run()|, it immediately runs all posted tasks. We assert
-  // that at least the last task is run because the test does not time out. We
-  // assert that the first task runs before the second (last) task runs, because
-  // we count on its side effects being present after the loop is quit.
+  // that the first task is run by observing its side effects, and we assert
+  // that the last task runs because the loop quits and the test does not time
+  // out.
   bool first_task_ran = false;
   task_loop->PostTask([&](){
     first_task_ran = true;
