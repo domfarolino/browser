@@ -31,6 +31,9 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-${{ env.cache-name }}-master
 
+    - name: Temporarily kill bazel cache
+      run: rm -rf ~/.cache/bazel
+
     - name: Build
       run: bazel build base/base_tests
 
