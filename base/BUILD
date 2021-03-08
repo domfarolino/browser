@@ -36,7 +36,6 @@ cc_library(
   srcs = [
     "scheduling/scheduling_handles.cc",
     "scheduling/task_loop.cc",
-    "scheduling/task_loop_for_io.cc",
     "scheduling/task_loop_for_worker.cc",
     "threading/thread.cc",
     "threading/thread_checker.cc",
