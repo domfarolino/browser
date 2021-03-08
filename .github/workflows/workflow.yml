@@ -20,6 +20,9 @@ jobs:
     # the rest of the steps.
     - uses: actions/checkout@v2
 
+    - name: Temporary Expunge Bazel Cache
+    - run: bazel clean --expunge
+
     # Caches and restores the bazel build directory.
     - name: Cache bazel build results
       uses: actions/cache@v2.0.0
