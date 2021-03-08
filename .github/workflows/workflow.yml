@@ -31,9 +31,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-${{ env.cache-name }}-master
 
-    - name: Temporary Expunge Bazel Cache
-      run: bazel clean --expunge
-
     - name: Build
       run: bazel build base/base_tests
 
