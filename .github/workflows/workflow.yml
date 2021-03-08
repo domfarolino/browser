@@ -20,9 +20,6 @@ jobs:
     # the rest of the steps.
     - uses: actions/checkout@v2
 
-    - name: Temporary Expunge Bazel Cache
-    - run: bazel clean --expunge
-
     # Caches and restores the bazel build directory.
     - name: Cache bazel build results
       uses: actions/cache@v2.0.0
@@ -33,6 +30,10 @@ jobs:
         key: ${{ runner.os }}-${{ env.cache-name }}-${{ github.ref }}
         restore-keys: |
           ${{ runner.os }}-${{ env.cache-name }}-master
+
+    - name: Temporary Expunge Bazel Cache
+      run: bazel clean --expunge
+
     - name: Build
       run: bazel build base/base_tests
 
