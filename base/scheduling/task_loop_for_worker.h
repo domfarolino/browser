@@ -3,7 +3,7 @@
 
 #include <queue>
 
-#include "base/helper.h"
+#include "base/callback.h"
 #include "base/scheduling/task_loop.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/mutex.h"
@@ -23,9 +23,11 @@ public:
   // Thread::Delegate implementation.
   void Run() override;
   // Can be called from any thread.
-  void PostTask(Callback cb) override;
-  // Can be called from any thread.
   void Quit() override;
+
+  // TaskRunner::Delegate implementation.
+  // Can be called from any thread.
+  void PostTask(Callback cb) override;
 
 private:
   // This |TaskLoop| implementation only responds to user-posted tasks, so we
