@@ -30,11 +30,8 @@ cc_library(
 cc_test(
   name = "test_main",
   srcs = [
-    "test/helper.h",
-    "test/helper.cc",
-    "test/main.cc",
-    "test/task_posting.cc",
-    "test/bind_task_loop_to_current_thread.cc"
+    "scheduling/task_loop_for_worker_test.cc",
+    "synchronization/synchronization_primitives_test.cc",
   ],
   copts = ["-Iexternal/gtest/include"],
   deps = [

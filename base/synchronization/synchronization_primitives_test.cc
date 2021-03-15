@@ -1,43 +1,16 @@
-#include "helper.h"
+#include <iostream>
+#include <cstdlib> // rand()
+#include <queue>
 
 #include "base/scheduling/task_loop.h"
 #include "base/scheduling/task_runner.h"
+#include "base/synchronization/condition_variable.h"
+#include "base/synchronization/mutex.h"
 #include "base/threading/simple_thread.h"
+#include "gtest/gtest.h"
 
 namespace base {
-
-
-void BaseThreading::MainThreadTask() {
-  std::cout << std::endl << "I'm a task that was posted to the main thread from a base::SimpleThread" << std::endl;
-  main_thread_complete = true;
-}
-
-// This runs on a worker thread, and posts tasks back to the main thread.
-void BaseThreading::PostTasksBackToMainThread(
-    std::shared_ptr<base::TaskRunner> main_thread_task_runner,
-    std::shared_ptr<base::TaskLoop> task_loop) {
-  for (int i = 0; i < 5; ++i) {
-    base::Thread::sleep_for(std::chrono::milliseconds(200));
-    main_thread_task_runner->PostTask(std::bind(&BaseThreading::MainThreadTask, this));
-  }
-  task_loop->Quit();
-}
-
-// These run off-main-thread.
-void BaseThreading::TaskOne() {
-  std::cout << std::endl << "I'm TaskOne, and I'm being invoked" << std::endl;
-  task1_complete = true;
-}
-
-void BaseThreading::TaskTwo(int input) {
-  std::cout << std::endl << "I'm TaskTwo, and I'm being invoked with intetger: " << input << std::endl;
-  task2_complete = true;
-}
-
-void BaseThreading::TaskThree(TaskParam param) {
-  std::cout << std::endl << "I'm TaskThree, and I'm being invoked with object whose data is: " << param.get_data() << std::endl;
-  task3_complete = true;
-}
+namespace {
 
 // Returns a random wait period in ms, weighted to return lower milliseconds
 // more frequently.
@@ -97,6 +70,19 @@ void consumer(std::queue<std::string>& q, base::Mutex& mutex,
     q.pop();
     condition.release_lock();
   }
+}
+
+}  // namespace
+
+TEST(SynchronizationPrimitives, ProducerConsumerQueue) {
+  srand(time(NULL));
+  base::Mutex mutex(base::ThreadMode::kUsingPthread);
+  base::ConditionVariable condition(base::ThreadMode::kUsingPthread);
+
+  std::queue<std::string> message_queue;
+  base::SimpleThread producer_thread(producer, std::ref(message_queue), std::ref(mutex), std::ref(condition));
+  consumer(message_queue, mutex, condition);
+  producer_thread.join();
 }
 
 }  // namespace base
