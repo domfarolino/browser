@@ -10,10 +10,6 @@ config_setting(
   constraint_values = ["@bazel_tools//platforms:linux"],
 )
 
-# This library target doesn't actually produce anything. It is only to export
-# base header files to other targets and packages, until implementation files
-# are written in this directory. See
-# https://groups.google.com/forum/#!topic/bazel-discuss/x7c8HJ6dke8.
 cc_library(
   name = "base",
   hdrs = [
