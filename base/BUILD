@@ -63,13 +63,3 @@ cc_test(
     "@gtest//:gtest_main",
   ],
 )
-
-# Workaround for debugging symbols. See
-# https://github.com/bazelbuild/bazel/issues/2537#issuecomment-281497449.
-genrule(
-  name = "base_dsym",
-  srcs = [":base"],
-  outs = ["base.dSYM"],
-  output_to_bindir = True,
-  cmd = "dsymutil $(location :base) -o $@"
-)

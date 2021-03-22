@@ -22,13 +22,3 @@ cc_binary(
   srcs = ["bind_task_loop_to_current_thread.cc"],
   deps = ["//base:base"],
 )
-
-# Workaround for debugging symbols. See
-# https://github.com/bazelbuild/bazel/issues/2537#issuecomment-281497449.
-genrule(
-  name = "main_dsym",
-  srcs = [":main"],
-  outs = ["main.dSYM"],
-  output_to_bindir = True,
-  cmd = "dsymutil $(location :main) -o $@"
-)
