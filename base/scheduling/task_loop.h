@@ -33,6 +33,11 @@ class TaskLoop : public Thread::Delegate,
 
   static std::shared_ptr<TaskLoop> Create(ThreadType type);
 
+  // This is called when all subclasses are constructed. It does two things:
+  //   1. Binds |this|'s TaskRunner returned from |GetTaskRunner()| to the thread_local global pointer. This allows all tasks running on the thread that this TaskLoop is bound to, to reference |this|'s TaskRunner globally instead of having to always having to hold a reference to the TaskRunner explicitly.
+  //   2. TODO(domfarolino): Binds |this| to the process-global TaskLoop handle corresponding to the type in |GetType()|.
+  void BindToCurrentThread();
+
   // Thread::Delegate implementation.
   // Called on the thread that |this| is bound to.
   void Run() override = 0;

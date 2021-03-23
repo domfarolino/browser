@@ -8,8 +8,15 @@
 #include "base/scheduling/task_loop_for_io.h"
 #endif
 #include "base/scheduling/task_loop_for_worker.h"
+#include "base/scheduling/thread_task_runner.h"
 
 namespace base {
+
+void TaskLoop::BindToCurrentThread() {
+  printf("BindToCurrentThread() being called\n");
+  SetThreadTaskRunner(GetTaskRunner());
+  CHECK(GetThreadTaskRunner());
+}
 
 // static
 std::shared_ptr<TaskLoop> TaskLoop::Create(ThreadType type) {

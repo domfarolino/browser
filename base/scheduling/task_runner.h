@@ -1,9 +1,10 @@
 #ifndef BASE_SCHEDULING_TASK_RUNNER_H_
 #define BASE_SCHEDULING_TASK_RUNNER_H_
 
-#include <memory> // std::weak_ptr.
+#include <memory>
 
 #include "base/callback.h"
+#include "base/check.h"
 
 namespace base {
 

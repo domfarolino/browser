@@ -13,8 +13,8 @@ namespace base {
 
 class TaskLoopForWorker : public TaskLoop {
 public:
-  TaskLoopForWorker() {}
-  ~TaskLoopForWorker() {}
+  TaskLoopForWorker() = default;
+  ~TaskLoopForWorker() = default;
 
   TaskLoopForWorker(TaskLoopForWorker&) = delete;
   TaskLoopForWorker(TaskLoopForWorker&&) = delete;

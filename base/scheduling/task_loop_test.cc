@@ -1,8 +1,9 @@
 #include "gtest/gtest.h"
 
 #include "base/build_config.h"
-#include "base/scheduling/task_loop.h"
 #include "base/threading/simple_thread.h"
+#include "base/scheduling/task_loop.h"
+#include "base/scheduling/thread_task_runner.h"
 
 // These tests are general TaskLoop tests that should pass for all kinds of task
 // loops regardless of |base::ThreadType|.
@@ -66,6 +67,22 @@ TEST_P(TaskLoopTest, RunQuitRunQuit) {
   }, task_loop->QuitClosure()));
   task_loop->Run();
   EXPECT_EQ(second_task_ran, true);
+}
+
+// Using base::GetThreadTaskRunner() can be used to post tasks to the TaskLoop
+// bound to the current thread without explicitly referencing it or its
+// TaskRunner.
+TEST_P(TaskLoopTest, GetThreadTaskRunner) {
+  // TODO(domfarolino): This should probably just be called automatically.
+  task_loop->BindToCurrentThread();
+
+  bool first_task_ran = false;
+  base::GetThreadTaskRunner()->PostTask(std::bind([&](Callback quit_closure){
+    first_task_ran = true;
+    quit_closure();
+  }, task_loop->QuitClosure()));
+  task_loop->Run();
+  EXPECT_EQ(first_task_ran, true);
 }
 
 #if defined(OS_MACOS)

@@ -19,6 +19,7 @@ cc_library(
     "scheduling/task_loop.h",
     "scheduling/task_loop_for_io.h",
     "scheduling/task_loop_for_worker.h",
+    "scheduling/thread_task_runner.h",
     "scheduling/task_runner.h",
     "synchronization/condition_variable.h",
     "synchronization/mutex.h",
@@ -33,6 +34,7 @@ cc_library(
   srcs = [
     "scheduling/task_loop.cc",
     "scheduling/task_loop_for_worker.cc",
+    "scheduling/thread_task_runner.cc",
     "threading/thread.cc",
   ] +
   select({
