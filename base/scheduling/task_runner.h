@@ -33,15 +33,17 @@ class TaskRunner final {
     virtual void PostTask(Callback cb) = 0;
   };
 
-  TaskRunner(std::weak_ptr<Delegate> weak_delegate) : weak_delegate_(weak_delegate) {}
+  TaskRunner(std::weak_ptr<Delegate> weak_delegate) :
+    weak_delegate_(weak_delegate) {}
 
   void PostTask(Callback cb) {
-    if (auto delegate_ = weak_delegate_.lock())
-      delegate_->PostTask(std::move(cb));
+    if (auto delegate = weak_delegate_.lock()) {
+      delegate->PostTask(std::move(cb));
+      return;
+    }
 
-    // Maybe we should do some logging in the event |weak_delegate_| is
-    // destroyed, just to verify that this doesn't happen in unexpected cases
-    // i.e., not during thread shutdown.
+    printf("\033[31;1mPostTask attempted to post a task to a deleted "
+           "Delegate\033[0m\n");
   }
 
  private:

@@ -11,7 +11,8 @@
 namespace base {
 
 TaskLoopForIOMac::TaskLoopForIOMac() : kqueue_(kqueue()) {
-  kern_return_t kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &wakeup_);
+  kern_return_t kr = mach_port_allocate(mach_task_self(),
+                                        MACH_PORT_RIGHT_RECEIVE, &wakeup_);
   CHECK_EQ(kr, KERN_SUCCESS);
 
   kevent64_s event{};

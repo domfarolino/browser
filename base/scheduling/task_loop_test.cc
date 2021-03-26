@@ -73,9 +73,6 @@ TEST_P(TaskLoopTest, RunQuitRunQuit) {
 // bound to the current thread without explicitly referencing it or its
 // TaskRunner.
 TEST_P(TaskLoopTest, GetThreadTaskRunner) {
-  // TODO(domfarolino): This should probably just be called automatically.
-  task_loop->BindToCurrentThread();
-
   bool first_task_ran = false;
   base::GetThreadTaskRunner()->PostTask(std::bind([&](Callback quit_closure){
     first_task_ran = true;

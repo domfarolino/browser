@@ -3,15 +3,19 @@
 
 #include <memory>
 
-#include "base/callback.h"
 #include "base/check.h"
+#include "base/scheduling/task_loop.h"
 #include "base/scheduling/task_runner.h"
 
 namespace base {
 
 void SetThreadTaskRunner(std::shared_ptr<TaskRunner>);
-std::shared_ptr<TaskRunner> GetThreadTaskRunner();
+void SetUIThreadTaskLoop(std::weak_ptr<TaskLoop>);
+void SetIOThreadTaskLoop(std::weak_ptr<TaskLoop>);
 
+std::shared_ptr<TaskLoop> GetUIThreadTaskLoop();
+std::shared_ptr<TaskLoop> GetIOThreadTaskLoop();
+std::shared_ptr<TaskRunner> GetThreadTaskRunner();
 
 }; // namespace base
 

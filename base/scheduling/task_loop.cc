@@ -12,31 +12,55 @@
 
 namespace base {
 
-void TaskLoop::BindToCurrentThread() {
-  printf("BindToCurrentThread() being called\n");
+void TaskLoop::BindToCurrentThread(ThreadType type) {
+  // Depending on |type|, create a process-global pointer to |this|.
+  switch (type) {
+    case ThreadType::UI:
+      NOTREACHED();
+      CHECK(!GetUIThreadTaskLoop());
+      SetUIThreadTaskLoop(GetWeakPtr());
+      CHECK(GetUIThreadTaskLoop());
+      break;
+    case ThreadType::IO:
+      CHECK(!GetIOThreadTaskLoop());
+      SetIOThreadTaskLoop(GetWeakPtr());
+      CHECK(GetIOThreadTaskLoop());
+      break;
+    case ThreadType::WORKER:
+      // We don't store process-global pointers to |ThreadType::WORKER|
+      // TaskLoops because there can be more than one of these per process.
+      break;
+  }
+
+  // Regardless of |type|, set the current thread's TaskRunner to
+  // |this->GetTaskRunner()|.
   SetThreadTaskRunner(GetTaskRunner());
-  CHECK(GetThreadTaskRunner());
 }
 
 // static
 std::shared_ptr<TaskLoop> TaskLoop::Create(ThreadType type) {
+  std::shared_ptr<TaskLoop> task_loop;
   switch (type) {
     case ThreadType::WORKER:
-      return std::shared_ptr<TaskLoopForWorker>(new TaskLoopForWorker());
+      task_loop = std::shared_ptr<TaskLoopForWorker>(new TaskLoopForWorker());
+      break;
     case ThreadType::UI:
       NOTREACHED();
-      return std::shared_ptr<TaskLoopForWorker>();
+      task_loop = std::shared_ptr<TaskLoopForWorker>();
+      break;
     case ThreadType::IO:
 #if defined(OS_MACOS)
-      return std::shared_ptr<TaskLoopForIO>(new TaskLoopForIO());
+      task_loop = std::shared_ptr<TaskLoopForIO>(new TaskLoopForIO());
+      break;
 #else
       NOTREACHED();
-      return std::shared_ptr<TaskLoopForWorker>();
+      task_loop = std::shared_ptr<TaskLoopForWorker>();
+      break;
 #endif
   }
 
-  NOTREACHED();
-  return std::shared_ptr<TaskLoopForWorker>();
+  task_loop->BindToCurrentThread(type);
+  return task_loop;
 }
 
 std::shared_ptr<TaskRunner> TaskLoop::GetTaskRunner() {
