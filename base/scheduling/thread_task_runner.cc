@@ -7,8 +7,13 @@
 
 namespace base {
 
+// These two are weak because these pointers may outlive the underlying
+// |TaskLoop| (especially in tests) and we don't want to keep it alive here.
 static std::weak_ptr<TaskLoop> g_ui_task_loop;
 static std::weak_ptr<TaskLoop> g_io_task_loop;
+// This is a strong pointer because it doesn't matter how long this |TaskRunner|
+// is alive with respect to the underlying |TaskLoop| it posts to, since that is
+// the point of |TaskRunner|s.
 static thread_local std::shared_ptr<TaskRunner> g_thread_task_runner;
 
 void SetUIThreadTaskLoop(std::weak_ptr<TaskLoop> ui_task_loop) {

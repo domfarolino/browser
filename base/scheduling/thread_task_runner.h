@@ -4,14 +4,15 @@
 #include <memory>
 
 #include "base/check.h"
-#include "base/scheduling/task_loop.h"
-#include "base/scheduling/task_runner.h"
 
 namespace base {
 
-void SetThreadTaskRunner(std::shared_ptr<TaskRunner>);
+class TaskLoop;
+class TaskRunner;
+
 void SetUIThreadTaskLoop(std::weak_ptr<TaskLoop>);
 void SetIOThreadTaskLoop(std::weak_ptr<TaskLoop>);
+void SetThreadTaskRunner(std::shared_ptr<TaskRunner>);
 
 std::shared_ptr<TaskLoop> GetUIThreadTaskLoop();
 std::shared_ptr<TaskLoop> GetIOThreadTaskLoop();
