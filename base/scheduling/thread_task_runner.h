@@ -3,8 +3,6 @@
 
 #include <memory>
 
-#include "base/check.h"
-
 namespace base {
 
 class TaskLoop;

@@ -3,7 +3,6 @@
 #include <memory>
 
 #include "base/check.h"
-#include "base/scheduling/task_runner.h"
 
 namespace base {
 
