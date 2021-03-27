@@ -74,7 +74,7 @@ TEST_P(TaskLoopTest, RunQuitRunQuit) {
 // TaskRunner.
 TEST_P(TaskLoopTest, GetThreadTaskRunner) {
   bool first_task_ran = false;
-  base::GetThreadTaskRunner()->PostTask(std::bind([&](Callback quit_closure){
+  base::GetCurrentTaskRunner()->PostTask(std::bind([&](Callback quit_closure){
     first_task_ran = true;
     quit_closure();
   }, task_loop->QuitClosure()));
