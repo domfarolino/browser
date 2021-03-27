@@ -2,8 +2,8 @@
 
 #include "base/build_config.h"
 #include "base/threading/simple_thread.h"
+#include "base/scheduling/current_scheduling_handles.h"
 #include "base/scheduling/task_loop.h"
-#include "base/scheduling/thread_task_runner.h"
 
 // These tests are general TaskLoop tests that should pass for all kinds of task
 // loops regardless of |base::ThreadType|.

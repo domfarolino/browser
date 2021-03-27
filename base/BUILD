@@ -16,10 +16,10 @@ cc_library(
     "build_config.h",
     "callback.h",
     "check.h",
+    "scheduling/current_scheduling_handles.h",
     "scheduling/task_loop.h",
     "scheduling/task_loop_for_io.h",
     "scheduling/task_loop_for_worker.h",
-    "scheduling/thread_task_runner.h",
     "scheduling/task_runner.h",
     "synchronization/condition_variable.h",
     "synchronization/mutex.h",
@@ -32,9 +32,9 @@ cc_library(
     ":linux": [],
   }),
   srcs = [
+    "scheduling/current_scheduling_handles.cc",
     "scheduling/task_loop.cc",
     "scheduling/task_loop_for_worker.cc",
-    "scheduling/thread_task_runner.cc",
     "threading/thread.cc",
   ] +
   select({

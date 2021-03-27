@@ -4,11 +4,11 @@
 
 #include "base/build_config.h"
 #include "base/check.h"
+#include "base/scheduling/current_scheduling_handles.h"
 #if defined(OS_MACOS)
 #include "base/scheduling/task_loop_for_io.h"
 #endif
 #include "base/scheduling/task_loop_for_worker.h"
-#include "base/scheduling/thread_task_runner.h"
 
 namespace base {
 
