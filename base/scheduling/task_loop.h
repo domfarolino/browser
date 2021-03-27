@@ -36,13 +36,15 @@ class TaskLoop : public Thread::Delegate,
 
   // Thread::Delegate implementation.
   // This method does two things:
-  //   1. Binds the result of |this->GetTaskRunner()| to the thread_local global
+  //   1. Depending on the type of TaskLoop |this| is, we may bind |this| to the
+  //      process-global TaskLoop handle corresponding to |type|. This is so
+  //      that from a process's UI thread, you can get a |TaskLoop| or
+  //      |TaskRunner| reference to the same process's IO thread, and vice
+  //      versa. We don't do this for ThreadType::WORKER threads/loops.
+  //   2. Binds the result of |this->GetTaskRunner()| to the thread_local global
   //      pointer. This allows all tasks running on the current thread to grab a
-  //      TaskRunner associated with |this| TaskLoop for convenience.
-  //   2. Depending on the type of TaskLoop |this| is, we may bind |this| to the
-  //      process-global TaskLoop handle corresponding to the type. This is so
-  //      that from one thread, you can easily get a |TaskLoop| or |TaskRunner|
-  //      reference for another thread.
+  //      TaskRunner associated with |this| TaskLoop for convenience. This is
+  //      done regardless of thread types, since it is a thread-local change.
   void BindToCurrentThread(ThreadType type) override;
   // Called on the thread that |this| is bound to.
   void Run() override = 0;
