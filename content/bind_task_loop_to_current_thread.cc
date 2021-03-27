@@ -17,7 +17,7 @@ void PostTasksBackToMainThread(std::shared_ptr<base::TaskRunner> main_thread_tas
 }
 
 int main() {
-  auto task_loop = base::TaskLoop::Create(base::ThreadType::WORKER);
+  auto task_loop = base::TaskLoop::CreateUnbound(base::ThreadType::WORKER);
   base::SimpleThread simple(std::bind(&PostTasksBackToMainThread, task_loop->GetTaskRunner()));
 
   task_loop->Run();

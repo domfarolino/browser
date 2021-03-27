@@ -31,9 +31,19 @@ class TaskLoop : public Thread::Delegate,
   TaskLoop(TaskLoop&&) = delete;
   TaskLoop& operator=(const TaskLoop&) = delete;
 
+  static std::shared_ptr<TaskLoop> CreateUnbound(ThreadType type);
   static std::shared_ptr<TaskLoop> Create(ThreadType type);
 
   // Thread::Delegate implementation.
+  // This method does two things:
+  //   1. Binds the result of |this->GetTaskRunner()| to the thread_local global
+  //      pointer. This allows all tasks running on the current thread to grab a
+  //      TaskRunner associated with |this| TaskLoop for convenience.
+  //   2. Depending on the type of TaskLoop |this| is, we may bind |this| to the
+  //      process-global TaskLoop handle corresponding to the type. This is so
+  //      that from one thread, you can easily get a |TaskLoop| or |TaskRunner|
+  //      reference for another thread.
+  void BindToCurrentThread(ThreadType type) override;
   // Called on the thread that |this| is bound to.
   void Run() override = 0;
   // Can be called from any thread.
@@ -66,14 +76,6 @@ class TaskLoop : public Thread::Delegate,
   bool quit_ = false;
 
  private:
-  // This is called when all subclasses are constructed. It does two things:
-  //   1. Binds the result of |this->GetTaskRunner()| to the thread_local global
-  //      pointer. This allows all tasks running on the current thread to grab a
-  //      TaskRunner associated with |this| TaskLoop.
-  //   2. Binds |this| to the process-global TaskLoop handle corresponding to
-  //      the type in |GetType()|.
-  void BindToCurrentThread(ThreadType type);
-
   std::weak_ptr<TaskLoop> GetWeakPtr() {
     return shared_from_this();
   }

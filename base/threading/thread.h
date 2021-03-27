@@ -40,6 +40,7 @@ class Thread {
   class Delegate {
    public:
     virtual ~Delegate() {}
+    virtual void BindToCurrentThread(ThreadType) = 0;
     virtual void Run() = 0;
     virtual std::shared_ptr<TaskRunner> GetTaskRunner() = 0;
     virtual void Quit() = 0;

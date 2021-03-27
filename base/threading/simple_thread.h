@@ -19,6 +19,7 @@ public:
     explicit SimpleThreadDelegate(std::function<void()> f) : f_(f) {}
 
     // Thread::Delegate implementation.
+    void BindToCurrentThread(ThreadType) override {}
     void Run() override {
       f_();
     }

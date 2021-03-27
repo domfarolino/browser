@@ -38,27 +38,29 @@ void TaskLoop::BindToCurrentThread(ThreadType type) {
 }
 
 // static
-std::shared_ptr<TaskLoop> TaskLoop::Create(ThreadType type) {
-  std::shared_ptr<TaskLoop> task_loop;
+std::shared_ptr<TaskLoop> TaskLoop::CreateUnbound(ThreadType type) {
   switch (type) {
     case ThreadType::WORKER:
-      task_loop = std::shared_ptr<TaskLoopForWorker>(new TaskLoopForWorker());
-      break;
+      return std::shared_ptr<TaskLoopForWorker>(new TaskLoopForWorker());
     case ThreadType::UI:
       NOTREACHED();
-      task_loop = std::shared_ptr<TaskLoopForWorker>();
-      break;
+      return std::shared_ptr<TaskLoopForWorker>();
     case ThreadType::IO:
 #if defined(OS_MACOS)
-      task_loop = std::shared_ptr<TaskLoopForIO>(new TaskLoopForIO());
-      break;
+      return std::shared_ptr<TaskLoopForIO>(new TaskLoopForIO());
 #else
       NOTREACHED();
-      task_loop = std::shared_ptr<TaskLoopForWorker>();
-      break;
+      return std::shared_ptr<TaskLoopForWorker>();
 #endif
   }
 
+  NOTREACHED();
+  return std::shared_ptr<TaskLoopForWorker>();
+}
+
+// static
+std::shared_ptr<TaskLoop> TaskLoop::Create(ThreadType type) {
+  std::shared_ptr<TaskLoop> task_loop = CreateUnbound(type);
   task_loop->BindToCurrentThread(type);
   return task_loop;
 }

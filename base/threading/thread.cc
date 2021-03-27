@@ -19,7 +19,7 @@ void Thread::Start() {
   // Give subclasses a chance to override their own |delegate_|.
   if (!delegate_) {
     delegate_.reset();
-    delegate_ = TaskLoop::Create(type_);
+    delegate_ = TaskLoop::CreateUnbound(type_);
   }
 
   CHECK(delegate_);
@@ -38,6 +38,7 @@ void Thread::Quit() {
 // it exits, the thread is terminated.
 void Thread::ThreadMain() {
   CHECK(delegate_);
+  delegate_->BindToCurrentThread(type_);
   delegate_->Run();
 }
 
