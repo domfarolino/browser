@@ -7,14 +7,13 @@
 #include "base/scheduling/task_loop.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/mutex.h"
-#include "base/threading/thread.h"
 
 namespace base {
 
 class TaskLoopForWorker : public TaskLoop {
 public:
-  TaskLoopForWorker() {}
-  ~TaskLoopForWorker() {}
+  TaskLoopForWorker() = default;
+  ~TaskLoopForWorker() = default;
 
   TaskLoopForWorker(TaskLoopForWorker&) = delete;
   TaskLoopForWorker(TaskLoopForWorker&&) = delete;

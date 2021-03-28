@@ -13,7 +13,6 @@
 #include "base/callback.h"
 #include "base/scheduling/task_loop.h"
 #include "base/synchronization/mutex.h"
-#include "base/threading/thread.h"
 
 namespace base {
 
