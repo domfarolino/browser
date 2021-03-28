@@ -16,11 +16,9 @@ class Core {
  public:
   ~Core() = default;
 
-  // TODO(domfarolino): Stop passing this in.
-  static void Init(base::TaskLoopForIO* task_loop);
+  static void Init();
   // Always returns the global |Core| object for the current process.
   static Core* Get();
-  static base::TaskLoopForIO* GetTaskLoop();
 
   static MageHandle SendInvitationToTargetNodeAndGetMessagePipe(int fd) {
     return Get()->node_->SendInvitationToTargetNodeAndGetMessagePipe(fd);

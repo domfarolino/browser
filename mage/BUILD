@@ -22,13 +22,3 @@ cc_library(
   deps = ["//base:base"],
   visibility = ["//visibility:public"],
 )
-
-# Workaround for debugging symbols. See
-# https://github.com/bazelbuild/bazel/issues/2537#issuecomment-281497449.
-genrule(
-  name = "mage_dsym",
-  srcs = [":mage"],
-  outs = ["mage.dSYM"],
-  output_to_bindir = True,
-  cmd = "dsymutil $(location :mage) -o $@"
-)

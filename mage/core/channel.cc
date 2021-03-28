@@ -1,12 +1,14 @@
 #include "mage/core/channel.h"
 
-#include <sys/socket.h>
 #include <stdio.h>
+#include <sys/socket.h>
 
 #include <string>
 #include <vector>
 
 #include "base/check.h"
+#include "base/scheduling/scheduling_handles.h"
+#include "base/scheduling/task_loop_for_io.h"
 #include "mage/core/core.h"
 #include "mage/core/endpoint.h"
 
@@ -15,7 +17,9 @@ namespace mage {
 Channel::Channel(int fd, Delegate* delegate) : SocketReader(fd), delegate_(delegate) {}
 
 void Channel::Start() {
-  Core::GetTaskLoop()->WatchSocket(this);
+  auto io_task_loop =
+    std::static_pointer_cast<base::TaskLoopForIO>(base::GetIOThreadTaskLoop());
+  io_task_loop->WatchSocket(this);
 }
 
 void Channel::SetRemoteNodeName(const std::string& name) {

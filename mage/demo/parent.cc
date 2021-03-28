@@ -22,7 +22,7 @@ int main() {
   }
 
   auto task_loop = base::TaskLoop::Create(base::ThreadType::IO);
-  mage::Core::Init(std::static_pointer_cast<base::TaskLoopForIO>(task_loop).get());
+  mage::Core::Init();
 
   // Spin up a new process, and have it access fds[1].
   mage::MageHandle local_message_pipe =

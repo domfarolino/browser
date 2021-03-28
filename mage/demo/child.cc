@@ -35,7 +35,7 @@ void OnInvitationAccepted(mage::MageHandle handle) {
 int main(int argc, char** argv) {
   printf("-------- Child process --------\n");
   auto task_loop = base::TaskLoop::Create(base::ThreadType::IO);
-  mage::Core::Init(std::static_pointer_cast<base::TaskLoopForIO>(task_loop).get());
+  mage::Core::Init();
 
   int fd = std::stoi(argv[1]);
   printf("File desc to read from is: %d\n", fd);
