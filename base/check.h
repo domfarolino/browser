@@ -3,8 +3,8 @@
 
 #include <assert.h>
 
+#include "base/scheduling/scheduling_handles.h"
 #include "base/threading/thread.h"
-#include "base/scheduling/current_scheduling_handles.h"
 
 namespace base {
 

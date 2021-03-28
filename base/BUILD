@@ -16,7 +16,7 @@ cc_library(
     "build_config.h",
     "callback.h",
     "check.h",
-    "scheduling/current_scheduling_handles.h",
+    "scheduling/scheduling_handles.h",
     "scheduling/task_loop.h",
     "scheduling/task_loop_for_io.h",
     "scheduling/task_loop_for_worker.h",
@@ -32,7 +32,7 @@ cc_library(
     ":linux": [],
   }),
   srcs = [
-    "scheduling/current_scheduling_handles.cc",
+    "scheduling/scheduling_handles.cc",
     "scheduling/task_loop.cc",
     "scheduling/task_loop_for_worker.cc",
     "threading/thread.cc",
