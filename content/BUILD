@@ -22,19 +22,3 @@ cc_binary(
   srcs = ["bind_task_loop_to_current_thread.cc"],
   deps = ["//base:base"],
 )
-cc_binary(
-  name = "mage_parent",
-  srcs = ["mage_parent.cc"],
-  deps = [
-    "//base:base",
-    "//mage:mage",
-  ],
-)
-cc_binary(
-  name = "mage_child",
-  srcs = ["mage_child.cc"],
-  deps = [
-    "//base:base",
-    "//mage:mage",
-  ],
-)
