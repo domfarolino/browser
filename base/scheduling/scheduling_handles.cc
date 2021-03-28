@@ -8,7 +8,7 @@ namespace base {
 
 // Process-global pointers.
 //
-// These are weak process-global pointers to underlying |TaskLoop| that we wish
+// These are weak process-global pointers to underlying |TaskLoop|s that we wish
 // to reference but not keep alive.
 static std::weak_ptr<TaskLoop> g_ui_task_loop;
 static std::weak_ptr<TaskLoop> g_io_task_loop;
@@ -16,8 +16,12 @@ static std::weak_ptr<TaskLoop> g_io_task_loop;
 // Thread-global pointers.
 //
 // These are pointers that are global only within a thread, so that the current
-// thread can reference it's current |TaskLoop| if it exists, and a
-// corresponding |TaskRunner|.
+// thread can reference:
+//   - The |TaskLoop| currently bound to the thread, if the loop exists (it
+//     might not exist if no TaskLoop has been bound yet, or during a shutdown
+//     sequence when the |TaskLoop| may have already been destroyed)
+//   - A |TaskRunner| associated with the above |TaskLoop|. This can used to
+//     post subsequent tasks back to the current thread.
 //
 // The |TaskLoop| is a weak pointer for the reasons mentioned above. The
 // |TaskRunner| pointer is strong because it doesn't matter how long it lives
