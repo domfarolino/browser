@@ -48,7 +48,7 @@ TEST_P(TaskLoopTest, PostTasksBeforeRun) {
   }, task_loop->QuitClosure()));
 
   task_loop->Run();
-  ASSERT_EQ(first_task_ran, true);
+  EXPECT_EQ(first_task_ran, true);
 }
 
 TEST_P(TaskLoopTest, RunQuitRunQuit) {
@@ -57,6 +57,7 @@ TEST_P(TaskLoopTest, RunQuitRunQuit) {
     first_task_ran = true;
     quit_closure();
   }, task_loop->QuitClosure()));
+
   task_loop->Run();
   EXPECT_EQ(first_task_ran, true);
 
@@ -65,21 +66,54 @@ TEST_P(TaskLoopTest, RunQuitRunQuit) {
     second_task_ran = true;
     quit_closure();
   }, task_loop->QuitClosure()));
+
   task_loop->Run();
   EXPECT_EQ(second_task_ran, true);
 }
 
-// Using base::GetThreadTaskRunner() can be used to post tasks to the TaskLoop
-// bound to the current thread without explicitly referencing it or its
-// TaskRunner.
-TEST_P(TaskLoopTest, GetThreadTaskRunner) {
+TEST_P(TaskLoopTest, NestedTasks) {
+  bool outer_task_ran = false;
+  bool inner_task_ran = false;
+
+  task_loop->PostTask([&](){
+    outer_task_ran = true;
+    task_loop->PostTask([&](){
+      inner_task_ran = true;
+      task_loop->Quit();
+    }); // Inner PostTask().
+  }); // Outer PostTask().
+
+  task_loop->Run();
+  EXPECT_EQ(outer_task_ran, true);
+  EXPECT_EQ(inner_task_ran, true);
+}
+
+TEST_P(TaskLoopTest, GetCurrentThreadTaskRunner) {
   bool first_task_ran = false;
-  base::GetCurrentTaskRunner()->PostTask(std::bind([&](Callback quit_closure){
-    first_task_ran = true;
-    quit_closure();
-  }, task_loop->QuitClosure()));
+  base::GetCurrentThreadTaskRunner()->PostTask(
+    std::bind([&](Callback quit_closure){
+      first_task_ran = true;
+      quit_closure();
+    }, task_loop->QuitClosure()));
+
   task_loop->Run();
   EXPECT_EQ(first_task_ran, true);
+}
+
+TEST_P(TaskLoopTest, NestedGetCurrentThreadTaskRunner) {
+  bool outer_task_ran = false;
+  bool inner_task_ran = false;
+  base::GetCurrentThreadTaskRunner()->PostTask([&](){
+    outer_task_ran = true;
+    base::GetCurrentThreadTaskRunner()->PostTask([&](){
+      inner_task_ran = true;
+      task_loop->Quit();
+    }); // Inner PostTask().
+  }); // Outer PostTask().
+
+  task_loop->Run();
+  EXPECT_EQ(outer_task_ran, true);
+  EXPECT_EQ(inner_task_ran, true);
 }
 
 #if defined(OS_MACOS)

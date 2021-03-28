@@ -10,12 +10,13 @@ class TaskRunner;
 
 void SetUIThreadTaskLoop(std::weak_ptr<TaskLoop>);
 void SetIOThreadTaskLoop(std::weak_ptr<TaskLoop>);
-void SetThreadTaskRunner(std::shared_ptr<TaskRunner>);
+void SetCurrentThreadTaskLoop(std::weak_ptr<TaskLoop>);
+void SetCurrentThreadTaskRunner(std::shared_ptr<TaskRunner>);
 
 std::shared_ptr<TaskLoop> GetUIThreadTaskLoop();
 std::shared_ptr<TaskLoop> GetIOThreadTaskLoop();
-std::shared_ptr<TaskLoop> GetCurrentTaskLoop();
-std::shared_ptr<TaskRunner> GetCurrentTaskRunner();
+std::shared_ptr<TaskLoop> GetCurrentThreadTaskLoop();
+std::shared_ptr<TaskRunner> GetCurrentThreadTaskRunner();
 
 }; // namespace base
 

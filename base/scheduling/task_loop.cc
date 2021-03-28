@@ -32,9 +32,10 @@ void TaskLoop::BindToCurrentThread(ThreadType type) {
       break;
   }
 
-  // Regardless of |type|, set the current thread's TaskRunner to
-  // |this->GetTaskRunner()|.
-  SetThreadTaskRunner(GetTaskRunner());
+  // Regardless of |type|, set the current thread's TaskLoop to |this|, and
+  // TaskRunner to |this->GetTaskRunner()|.
+  SetCurrentThreadTaskLoop(GetWeakPtr());
+  SetCurrentThreadTaskRunner(GetTaskRunner());
 }
 
 // static

@@ -3,12 +3,31 @@
 
 #include <assert.h>
 
+#include "base/threading/thread.h"
+#include "base/scheduling/current_scheduling_handles.h"
+
 namespace base {
 
 #define CHECK(condition) assert(condition)
 #define CHECK_EQ(actual, expected) CHECK(actual == expected)
 #define CHECK_GEQ(actual, expected) CHECK(actual >= expected)
 #define NOTREACHED() CHECK(false)
+
+// Threading and scheduling.
+#define CHECK_ON_THREAD(thread_type) \
+switch (thread_type) { \
+  case ThreadType::UI: \
+    CHECK(base::GetCurrentThreadTaskLoop()); \
+    CHECK_EQ(base::GetUIThreadTaskLoop(), base::GetCurrentThreadTaskLoop()); \
+    break; \
+  case ThreadType::IO: \
+    CHECK(base::GetCurrentThreadTaskLoop()); \
+    CHECK_EQ(base::GetIOThreadTaskLoop(), base::GetCurrentThreadTaskLoop()); \
+    break; \
+  case ThreadType::WORKER: \
+    NOTREACHED(); \
+    break; \
+}
 
 } // namespace base
 
