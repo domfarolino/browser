@@ -51,10 +51,13 @@ generated_magen_template = Template("""
 #include <vector>
 
 #include "base/check.h"
+#include "mage/core/endpoint.h"
 #include "mage/core/handles.h"
 #include "mage/core/message.h"
 
 namespace magen {
+
+class {{Interface}};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -75,6 +78,7 @@ class {{Interface}}_{{Method}}_Params {
 class {{Interface}}Proxy {
  public:
   void BindToHandle(mage::MageHandle local_handle) {
+    CHECK(!bound_);
     bound_ = true;
     local_handle_ = local_handle;
   }
@@ -114,6 +118,7 @@ class {{Interface}}Proxy {
 
 
     message.FinalizeSize();
+    mage::Core::SendMessage(local_handle_, std::move(message));
   }
 
  private:
@@ -123,11 +128,41 @@ class {{Interface}}Proxy {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
+ public:
+  void BindToHandle(mage::MageHandle local_handle, {{Interface}}* impl) {
+    CHECK(!bound_);
+    bound_ = true;
+    local_handle_ = local_handle;
+    impl_ = impl;
+
+    // Set outselves up as the official delegate for the underlying endpoint
+    // associated with |local_handle_|. That way any messages it receives, we'll
+    // be able to deserialize and forward to the implementation.
+    mage::Core::BindReceiverDelegateToEndpoint(local_handle, this);
+  }
+
+  // mage::Endpoint::ReceiverDelegate implementation.
+  // This is what deserializes the message and dispatches the correct method to
+  // the interface implementation.
+  void OnReceivedMessage(mage::Message message) override {
+    printf(\"[GEN]: ReceiverStub just received a message\\n\");
+  }
+
+ private:
+  bool bound_;
+  mage::MageHandle local_handle_;
+  {{Interface}}* impl_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+
 // The class that user implementations of the interface will implement.
 class {{Interface}} {
  public:
   // This is so that mage::Remotes can reference the proxy class.
   using Proxy = {{Interface}}Proxy;
+  using ReceiverStub = {{Interface}}ReceiverStub;
 
   virtual void {{Method}}(
   {%- for argument_pair in Arguments %}
@@ -135,6 +170,8 @@ class {{Interface}} {
   {%- endfor %}
   ) = 0;
 };
+
+////////////////////////////////////////////////////////////////////////////////
 
 
 

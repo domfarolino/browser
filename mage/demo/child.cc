@@ -12,20 +12,6 @@
 #include "mage/core/handles.h"
 #include "mage/demo/magen/demo.magen.h"  // Generated.
 
-/*
-class DemoImpl : public magen::Demo {
- public:
-  DemoImpl() {
-    printf("DemoImpl::ParentImpl\n");
-  }
-
-  void Method1() {
-    printf("DemoImpl::Method1()\n");
-  }
-};
-
-*/
-
 void OnInvitationAccepted(mage::MageHandle handle) {
   printf("OnInvitationAccepted: %d\n", handle);
   mage::Remote<magen::Demo> remote;

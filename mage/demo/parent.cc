@@ -3,12 +3,30 @@
 #include <unistd.h>
 
 #include <iostream>
+#include <string>
 #include <memory>
 
 #include "base/scheduling/task_loop_for_io.h"
+#include "mage/bindings/receiver.h"
 #include "mage/core/core.h"
 #include "mage/core/handles.h"
 #include "mage/demo/magen/demo.magen.h" // Generated.
+
+class DemoImpl : public magen::Demo {
+ public:
+  DemoImpl(mage::MageHandle handle) {
+    printf("DemoImpl::ctor binding to handle\n");
+    receiver_.Bind(handle, this);
+  }
+
+  // magen::Demo implementation.
+  void Method1(int a, std::string b, std::string c) override {
+    printf("DemoImpl::Method1()\n");
+  }
+
+ private:
+  mage::Receiver<magen::Demo> receiver_;
+};
 
 int main() {
   printf("-------- Parent process --------\n");
@@ -28,7 +46,9 @@ int main() {
   // Spin up a new process, and have it access fds[1].
   mage::MageHandle local_message_pipe =
     mage::Core::SendInvitationToTargetNodeAndGetMessagePipe(fds[0]);
-  printf("local_message_pipe: %d\n", local_message_pipe);
+  printf("Parent local_message_pipe for receiver: %d\n", local_message_pipe);
+
+  DemoImpl* demo = new DemoImpl(local_message_pipe);
 
   task_loop->Run();
   return 0;

@@ -29,12 +29,14 @@ class Node : public Channel::Delegate {
   void InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1, std::shared_ptr<Endpoint> ep2);
   MageHandle SendInvitationToTargetNodeAndGetMessagePipe(int fd);
   void AcceptInvitation(int fd);
+  void SendMessage(std::shared_ptr<Endpoint> local_endpoint, Message message);
 
   // Channel::Delegate implementation:
   void OnReceivedMessage(Message message) override;
 
   void OnReceivedInvitation(Message message);
   void OnReceivedAcceptInvitation(Message message);
+  void OnReceivedUserMessage(Message message);
 
  private:
   std::string name_;
@@ -46,12 +48,15 @@ class Node : public Channel::Delegate {
   using NodeName = std::string;
   using EndpointName = std::string;
 
-  // All endpoints whose address's "node name" is our |name_|
-  std::map<EndpointName, std::shared_ptr<Endpoint>> local_endpoints_;
+  // All endpoints whose address's "node name" is our |name_|.
+  std::map<NodeName, std::shared_ptr<Endpoint>> local_endpoints_;
 
-  // When we send a message from a (necessarily, local) endpoint to find the
-  // channel associated with its peer endpoint. Without this, we couldn't send
-  // remote messages. A node will never reference its own |name_| in this map.
+  // Used when we send a message from a (necessarily, local) endpoint in order
+  // to find the channel associated with its peer endpoint. Without this, we
+  // couldn't send remote messages. All node names in this map will never be our
+  // own |name_| since this is only used for remote nodes. Messages to an
+  // endpoint in the same node (that is, from an endpoint in Node A to its peer
+  // endpoint also in Node A) go through a different path.
   std::map<NodeName, std::unique_ptr<Channel>> node_channel_map_;
 
   // Maps |NodeNames| that we've sent invitations to and are awaiting

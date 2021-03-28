@@ -28,6 +28,7 @@ class Channel : public base::TaskLoopForIO::SocketReader {
                       std::string intended_endpint_peer_nae);
   void SendAcceptInvitation(std::string temporary_remote_node_name,
                             std::string actual_node_name);
+  void SendMessage(Message message);
 
   // base::TaskLoopForIO::SocketReader implementation:
   void OnCanReadFromSocket() override;

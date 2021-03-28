@@ -7,6 +7,7 @@
 #include "base/scheduling/task_loop_for_io.h"
 #include "mage/core/endpoint.h"
 #include "mage/core/handles.h"
+#include "mage/core/message.h"
 #include "mage/core/node.h"
 
 namespace mage {
@@ -27,14 +28,26 @@ class Core {
     Get()->async_invitation_handler_ = std::move(received_invitation_handler);
     Get()->node_->AcceptInvitation(fd);
   }
+  static void SendMessage(MageHandle local_handle, Message message) {
+    auto endpoint_it = Get()->handle_table_.find(local_handle);
+    CHECK_NE(endpoint_it, Get()->handle_table_.end());
+    Get()->node_->SendMessage(endpoint_it->second, std::move(message));
+  }
+  static void BindReceiverDelegateToEndpoint(MageHandle local_handle, Endpoint::ReceiverDelegate* delegate) {
+    auto endpoint_it = Get()->handle_table_.find(local_handle);
+    CHECK_NE(endpoint_it, Get()->handle_table_.end());
+    std::shared_ptr<Endpoint> endpoint = endpoint_it->second;
+    endpoint->RegisterDelegate(delegate);
+  }
 
   MageHandle GetNextMageHandle();
   void OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint);
+  void RegisterLocalHandle(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint);
 
  private:
   Core(): node_(new Node()) {}
 
-  // A map of endpoints registered with this process, by Handle
+  // A map of endpoints registered with this process, by MageHandle.
   std::map<MageHandle, std::shared_ptr<Endpoint>> handle_table_;
 
   // A map of all known endpoint channels, by node name.

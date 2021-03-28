@@ -97,13 +97,17 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
 
   message.FinalizeSize();
 
-  printf("Heeeereeeeee\n");
   std::vector<char>& payload_buffer = message.payload_buffer();
   for (char c : payload_buffer) {
     printf("%02x ", c);
   }
   printf("\n");
 
+  write(fd_, payload_buffer.data(), payload_buffer.size());
+}
+
+void Channel::SendMessage(Message message) {
+  std::vector<char>& payload_buffer = message.payload_buffer();
   write(fd_, payload_buffer.data(), payload_buffer.size());
 }
 

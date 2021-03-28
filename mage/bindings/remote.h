@@ -1,9 +1,6 @@
 #ifndef MAGE_BINDINGS_REMOTE_H_
 #define MAGE_BINDINGS_REMOTE_H_
 
-#include <string>
-#include <queue>
-
 #include "mage/core/handles.h"
 #include "mage/core/message.h"
 

@@ -3,6 +3,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 cc_library(
   name = "mage",
   hdrs = [
+    "bindings/receiver.h",
     "bindings/remote.h",
     "core/channel.h",
     "core/core.h",
