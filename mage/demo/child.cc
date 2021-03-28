@@ -29,6 +29,7 @@ class DemoImpl : public magen::Demo {
 void OnInvitationAccepted(mage::MageHandle handle) {
   printf("OnInvitationAccepted: %d\n", handle);
   mage::Remote<magen::Demo> remote;
+  remote.Bind(handle);
   remote->Method1(16, "this", "that");
 }
 

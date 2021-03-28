@@ -4,6 +4,7 @@
 #include <string>
 #include <queue>
 
+#include "mage/core/handles.h"
 #include "mage/core/message.h"
 
 namespace mage {
@@ -11,14 +12,23 @@ namespace mage {
 template <typename Interface>
 class Remote {
  public:
-  Remote() : proxy_(new typename Interface::Proxy()) {}
+  using InterfaceProxy = typename Interface::Proxy;
 
-  typename Interface::Proxy* operator-> () {
+  Remote() : proxy_(new InterfaceProxy()) {}
+
+  void Bind(MageHandle local_handle) {
+    proxy_->BindToHandle(local_handle);
+  }
+
+  // TODO(domfarolino): We probably want some way to unbind handles from
+  // mage::Remotes.
+
+  InterfaceProxy* operator-> () {
     return proxy_;
   }
 
  private:
-  typename Interface::Proxy* proxy_;
+  InterfaceProxy* proxy_;
 };
 
 }; // namspace mage

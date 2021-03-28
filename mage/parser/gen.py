@@ -47,10 +47,12 @@ def IsArrayType(magen_type):
 generated_magen_template = Template("""
 // This file is generated at build-time. Do not edit it.
 
-#include "mage/core/message.h"
-
 #include <string>
 #include <vector>
+
+#include "base/check.h"
+#include "mage/core/handles.h"
+#include "mage/core/message.h"
 
 namespace magen {
 
@@ -72,12 +74,19 @@ class {{Interface}}_{{Method}}_Params {
 // Instances of this class are what the mage::Remote<T> calls into to serialize and send messages.
 class {{Interface}}Proxy {
  public:
+  void BindToHandle(mage::MageHandle local_handle) {
+    bound_ = true;
+    local_handle_ = local_handle;
+  }
+
   {{Interface}}Proxy() {}
   void {{Method}}(
   {%- for argument_pair in Arguments %}
     {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
   {%- endfor %}
   ) {
+
+    CHECK(bound_);
 
     // Serialize the message data.
     mage::Message message(mage::MessageType::USER_MESSAGE);
@@ -106,6 +115,10 @@ class {{Interface}}Proxy {
 
     message.FinalizeSize();
   }
+
+ private:
+  bool bound_;
+  mage::MageHandle local_handle_; // Only set when |bound_| is true.
 };
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -8,6 +8,7 @@
 #include "base/scheduling/task_loop_for_io.h"
 #include "mage/core/core.h"
 #include "mage/core/handles.h"
+#include "mage/demo/magen/demo.magen.h" // Generated.
 
 int main() {
   printf("-------- Parent process --------\n");
