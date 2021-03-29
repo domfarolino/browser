@@ -1,6 +1,8 @@
 #ifndef MAGE_CORE_MESSAGE_H_
 #define MAGE_CORE_MESSAGE_H_
 
+#include <inttypes.h>
+
 #include <string>
 #include <vector>
 

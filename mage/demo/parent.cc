@@ -22,6 +22,7 @@ class DemoImpl : public magen::Demo {
   // magen::Demo implementation.
   void Method1(int a, std::string b, std::string c) override {
     printf("DemoImpl::Method1()\n");
+    printf("a: %d, b: %s, c: %s\n", a, b.c_str(), c.c_str());
   }
 
  private:

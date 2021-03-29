@@ -108,6 +108,14 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
 
 void Channel::SendMessage(Message message) {
   std::vector<char>& payload_buffer = message.payload_buffer();
+  /*
+  printf("message size:: %d\n", payload_buffer.size());
+  for (char c : payload_buffer) {
+    printf("%02x ", c);
+  }
+  printf("\n");
+  */
+
   write(fd_, payload_buffer.data(), payload_buffer.size());
 }
 

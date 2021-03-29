@@ -16,7 +16,7 @@ void OnInvitationAccepted(mage::MageHandle handle) {
   printf("OnInvitationAccepted: %d\n", handle);
   mage::Remote<magen::Demo> remote;
   remote.Bind(handle);
-  remote->Method1(16, "this", "that");
+  remote->Method1(1, "this", "that");
 }
 
 int main(int argc, char** argv) {

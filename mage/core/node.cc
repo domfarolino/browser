@@ -107,7 +107,6 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint, Message message
 }
 
 void Node::OnReceivedMessage(Message message) {
-  printf("Node::OnReceivedMessage!\n");
   switch (message.Type()) {
     case MessageType::SEND_INVITATION:
       OnReceivedInvitation(std::move(message));
@@ -178,6 +177,7 @@ void Node::OnReceivedInvitation(Message message) {
 }
 
 void Node::OnReceivedAcceptInvitation(Message message) {
+  printf("Node::OnReceivedAcceptInvitation!\n");
   auto params = message.Get<SendAcceptInvitationParams>(/*starting_index=*/0);
   std::string temporary_remote_node_name(
     params->temporary_remote_node_name.Get()->array_storage(),

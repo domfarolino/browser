@@ -57,7 +57,24 @@ generated_magen_template = Template("""
 
 namespace magen {
 
-class {{Interface}};
+class {{Interface}}Proxy;
+class {{Interface}}ReceiverStub;
+
+////////////////////////////////////////////////////////////////////////////////
+
+// The class that user implementations of the interface will implement.
+class {{Interface}} {
+ public:
+  // This is so that mage::Remotes can reference the proxy class.
+  using Proxy = {{Interface}}Proxy;
+  using ReceiverStub = {{Interface}}ReceiverStub;
+
+  virtual void {{Method}}(
+  {%- for argument_pair in Arguments %}
+    {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
+  {%- endfor %}
+  ) = 0;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -96,11 +113,10 @@ class {{Interface}}Proxy {
     mage::Message message(mage::MessageType::USER_MESSAGE);
     mage::MessageFragment<{{Interface}}_{{Method}}_Params> message_fragment(message);
     message_fragment.Allocate();
-    {{Interface}}_{{Method}}_Params* params = message_fragment.data();
 
 {%- for argument_pair in Arguments %}
   {% if not IsArrayType(argument_pair[0]) %}
-    params->{{ argument_pair[1] }} = {{ argument_pair[1] }};
+    message_fragment.data()->{{ argument_pair[1] }} = {{ argument_pair[1] }};
   {% else %}
     {
       // Create a new array message fragment.
@@ -110,12 +126,10 @@ class {{Interface}}Proxy {
       mage::MessageFragment<mage::ArrayHeader<char>> array(message);
       array.AllocateArray({{ argument_pair[1] }}.size());
       memcpy(array.data()->array_storage(), {{ argument_pair[1] }}.c_str(), {{ argument_pair[1] }}.size());
-      params->{{ argument_pair[1] }}.Set(array.data());
+      message_fragment.data()->{{ argument_pair[1] }}.Set(array.data());
     }
   {% endif %}
 {%- endfor %}
-
-
 
     message.FinalizeSize();
     mage::Core::SendMessage(local_handle_, std::move(message));
@@ -146,29 +160,38 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
   // This is what deserializes the message and dispatches the correct method to
   // the interface implementation.
   void OnReceivedMessage(mage::Message message) override {
-    printf(\"[GEN]: ReceiverStub just received a message\\n\");
+    // Get an appropriate view over |message|.
+    {{Interface}}_{{Method}}_Params* params = message.Get<{{Interface}}_{{Method}}_Params>(/*index=*/0);
+    CHECK(params);
+
+    // Initialize the variables for the method arguments.
+    {%- for argument_pair in Arguments %}
+      {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }};
+    {%- endfor %}
+
+    // Deserialize each argument into its corresponding variable above.
+    {%- for argument_pair in Arguments %}
+      {% if not IsArrayType(argument_pair[0]) %}
+        {{ argument_pair[1] }} = params->{{ argument_pair[1] }};
+      {% else %}
+        {{ argument_pair[1] }} = std::string(
+          params->{{ argument_pair[1] }}.Get()->array_storage(),
+          params->{{ argument_pair[1] }}.Get()->array_storage() + params->{{ argument_pair[1] }}.Get()->num_elements
+        );
+      {% endif %}
+    {%- endfor %}
+
+    impl_->{{Method}}(
+      {%- for argument_pair in Arguments %}
+        {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
+      {%- endfor %}
+    );
   }
 
  private:
   bool bound_;
   mage::MageHandle local_handle_;
   {{Interface}}* impl_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-
-// The class that user implementations of the interface will implement.
-class {{Interface}} {
- public:
-  // This is so that mage::Remotes can reference the proxy class.
-  using Proxy = {{Interface}}Proxy;
-  using ReceiverStub = {{Interface}}ReceiverStub;
-
-  virtual void {{Method}}(
-  {%- for argument_pair in Arguments %}
-    {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
-  {%- endfor %}
-  ) = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
