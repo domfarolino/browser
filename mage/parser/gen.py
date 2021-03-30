@@ -65,6 +65,7 @@ class {{Interface}}ReceiverStub;
 // The class that user implementations of the interface will implement.
 class {{Interface}} {
  public:
+  virtual ~{{Interface}}() = default;
   // This is so that mage::Remotes can reference the proxy class.
   using Proxy = {{Interface}}Proxy;
   using ReceiverStub = {{Interface}}ReceiverStub;

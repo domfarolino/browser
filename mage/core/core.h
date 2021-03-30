@@ -45,6 +45,8 @@ class Core {
   void RegisterLocalHandle(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint);
 
  private:
+  friend class MageTestWrapper;
+
   Core(): node_(new Node()) {}
 
   // A map of endpoints registered with this process, by MageHandle.

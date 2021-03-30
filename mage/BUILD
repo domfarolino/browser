@@ -23,3 +23,28 @@ cc_library(
   deps = ["//base:base"],
   visibility = ["//visibility:public"],
 )
+
+# This filegroup target consists of misc binaries that //mage:mage_tests depend
+# on being built.
+filegroup(
+  name = "mage_tests_misc",
+  srcs = [
+    "//mage/test:invitee_as_remote",
+    "//mage/test:inviter_as_remote",
+  ],
+)
+cc_test(
+  name = "mage_tests",
+  srcs = [
+    "core/mage_test.cc",
+  ],
+  copts = ["-Iexternal/gtest/include"],
+  deps = [
+    "//base:base",
+    "//mage:mage",
+    "//mage/test/magen:include",
+    "@gtest//:gtest",
+    "@gtest//:gtest_main",
+  ],
+  data = ["//mage:mage_tests_misc"],
+)

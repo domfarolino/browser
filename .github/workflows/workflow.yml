@@ -13,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        os: [macOS-latest]
 
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, which is the CWD for
@@ -32,7 +32,7 @@ jobs:
           ${{ runner.os }}-${{ env.cache-name }}-master
 
     - name: Build
-      run: bazel build base/base_tests
+      run: bazel build base/base_tests mage/mage_tests
 
     - name: Run tests
-      run: bazel test base/base_tests --test_output=all
+      run: bazel test base/base_tests mage/mage_tests --test_output=all

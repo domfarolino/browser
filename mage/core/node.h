@@ -39,6 +39,8 @@ class Node : public Channel::Delegate {
   void OnReceivedUserMessage(Message message);
 
  private:
+  friend class MageTestWrapper;
+
   std::string name_;
 
   // True once |this| accepts an invitation from an inviter node.
