@@ -48,8 +48,8 @@ enum class MageTestProcessType {
   kNone,
 };
 
-static const char kInviteeAsRemotePath[] = "./bazel-bin/mage/test/invitee_as_remote";
-static const char kInviterAsRemotePath[] = "./bazel-bin/mage/test/inviter_as_remote";
+static const char kInviteeAsRemotePath[] = "./mage/test/invitee_as_remote";
+static const char kInviterAsRemotePath[] = "./mage/test/inviter_as_remote";
 
 class ProcessLauncher {
  public:
@@ -70,10 +70,12 @@ class ProcessLauncher {
     if (rv == 0) { // Child.
       switch (type_) {
         case MageTestProcessType::kInviteeAsRemote:
-          execl(kInviteeAsRemotePath, "--mage-socket=", fd_as_string.c_str());
+          rv = execl(kInviteeAsRemotePath, "--mage-socket=", fd_as_string.c_str());
+          EXPECT_EQ(rv, 0);
           break;
         case MageTestProcessType::kInviterAsRemote:
-          execl(kInviterAsRemotePath, "--mage-socket=", fd_as_string.c_str());
+          rv = execl(kInviterAsRemotePath, "--mage-socket=", fd_as_string.c_str());
+          EXPECT_EQ(rv, 0);
           break;
         case MageTestProcessType::kNone:
           NOTREACHED();
@@ -186,6 +188,8 @@ TEST_F(MageTest, InviterAsReceiver) {
   std::shared_ptr<base::TaskLoop> task_loop_for_io =
     base::TaskLoop::Create(base::ThreadType::IO);
 
+  printf("*************** MageTest.InviterAsReceiver\n\n");
+  fflush(stdout);
   MageHandle message_pipe =
     mage::Core::SendInvitationToTargetNodeAndGetMessagePipe(
       launcher.GetLocalFd()
@@ -216,4 +220,5 @@ TEST_F(MageTest, InviteeAsReceiver) {
   }, std::placeholders::_1));
   task_loop_for_io->Run();
 }
+
 }; // namespace mage
