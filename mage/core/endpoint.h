@@ -80,7 +80,7 @@ class Endpoint {
   std::queue<Message> incoming_message_queue_;
 
   // TODO(domfarolino): Document this.
-  ReceiverDelegate* delegate_;
+  ReceiverDelegate* delegate_ = nullptr;
 };
 
 }; // namspace mage
