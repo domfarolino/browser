@@ -30,7 +30,7 @@ void Node::InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1, std::sh
          name_.c_str(), ep2->name.c_str());
 }
 
-MageHandle Node::SendInvitationToTargetNodeAndGetMessagePipe(int fd) {
+MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
   // This node wishes to invite another fresh peer node to the network of
   // processes. The sequence of events here looks like so:
   //   Endpoints:

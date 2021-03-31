@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
   mage::Core::Init();
 
   int fd = std::stoi(argv[1]);
-  mage::MageHandle message_pipe = mage::Core::SendInvitationToTargetNodeAndGetMessagePipe(fd);
+  mage::MageHandle message_pipe = mage::Core::SendInvitationAndGetMessagePipe(fd);
 
   // Nasty sleep until we accept async invitations on both ends.
   base::Thread::sleep_for(std::chrono::milliseconds(1500));

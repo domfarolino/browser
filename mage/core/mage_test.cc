@@ -159,7 +159,7 @@ TEST_F(MageTest, SendInvitationUnitTest) {
     base::TaskLoop::Create(base::ThreadType::IO);
 
   MageHandle message_pipe =
-    mage::Core::SendInvitationToTargetNodeAndGetMessagePipe(
+    mage::Core::SendInvitationAndGetMessagePipe(
       launcher.GetLocalFd()
     );
 
@@ -191,7 +191,7 @@ TEST_F(MageTest, InviterAsReceiver) {
   printf("*************** MageTest.InviterAsReceiver\n\n");
   fflush(stdout);
   MageHandle message_pipe =
-    mage::Core::SendInvitationToTargetNodeAndGetMessagePipe(
+    mage::Core::SendInvitationAndGetMessagePipe(
       launcher.GetLocalFd()
     );
 

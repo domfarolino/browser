@@ -26,11 +26,10 @@ MageHandle Core::GetNextMageHandle() {
 }
 
 void Core::OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint) {
-  printf("Core::OnReceivedInvitation\n");
   MageHandle local_handle = GetNextMageHandle();
   handle_table_.insert({local_handle, std::move(local_endpoint)});
-  CHECK(async_invitation_handler_);
-  async_invitation_handler_(local_handle);
+  CHECK(finished_accepting_invitation_callback_);
+  finished_accepting_invitation_callback_(local_handle);
 }
 
 void Core::RegisterLocalHandle(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint) {

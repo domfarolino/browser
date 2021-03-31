@@ -21,11 +21,11 @@ class Core {
   // Always returns the global |Core| object for the current process.
   static Core* Get();
 
-  static MageHandle SendInvitationToTargetNodeAndGetMessagePipe(int fd) {
-    return Get()->node_->SendInvitationToTargetNodeAndGetMessagePipe(fd);
+  static MageHandle SendInvitationAndGetMessagePipe(int fd) {
+    return Get()->node_->SendInvitationAndGetMessagePipe(fd);
   }
-  static void AcceptInvitation(int fd, std::function<void(MageHandle)> received_invitation_handler) {
-    Get()->async_invitation_handler_ = std::move(received_invitation_handler);
+  static void AcceptInvitation(int fd, std::function<void(MageHandle)> finished_accepting_invitation_callback) {
+    Get()->finished_accepting_invitation_callback_ = std::move(finished_accepting_invitation_callback);
     Get()->node_->AcceptInvitation(fd);
   }
   static void SendMessage(MageHandle local_handle, Message message) {
@@ -57,7 +57,7 @@ class Core {
 
   MageHandle next_available_handle_ = 1;
 
-  std::function<void(MageHandle)> async_invitation_handler_;
+  std::function<void(MageHandle)> finished_accepting_invitation_callback_;
 
   std::unique_ptr<Node> node_;
 };

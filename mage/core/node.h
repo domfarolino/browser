@@ -27,7 +27,7 @@ class Node : public Channel::Delegate {
   }
 
   void InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1, std::shared_ptr<Endpoint> ep2);
-  MageHandle SendInvitationToTargetNodeAndGetMessagePipe(int fd);
+  MageHandle SendInvitationAndGetMessagePipe(int fd);
   void AcceptInvitation(int fd);
   void SendMessage(std::shared_ptr<Endpoint> local_endpoint, Message message);
 
