@@ -31,6 +31,7 @@ filegroup(
   srcs = [
     "//mage/test:invitee_as_remote",
     "//mage/test:inviter_as_remote",
+    "//mage/test:inviter_as_remote_block_on_acceptance",
   ],
 )
 cc_test(

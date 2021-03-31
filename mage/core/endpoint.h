@@ -33,16 +33,39 @@ class Endpoint {
 
   // TODO(domfarolino): Don't keep this inline.
   void AcceptMessage(Message message) {
+    if (!delegate_) {
+      printf("Endpoint has accepted a message. Now queueing it\n");
+      incoming_message_queue_.push(std::move(message));
+      return;
+    }
+
     printf("Endpoint has accepted a message. Now forwarding it\n");
-    // TODO(domfarolino): Support message queueing via
-    // |incoming_message_queue_|. But for now, we always rely on their being a
-    // local delegate that we can forward the |message| to.
-    CHECK(delegate_);
     delegate_->OnReceivedMessage(std::move(message));
   }
 
+  // The messages in |incoming_message_queue_| are queued in this endpoint and
+  // are waiting to be dispatched to |delegate_| once it is bound. However if
+  // this endpoint is being represented by a remote endpoint, someone will want
+  // to take these queued messages from us, deliver them to the remote endpoint,
+  // and delete us. Once the messages are delivered to the remote endpoint, they
+  // are either queued (and might go through this same path), or delivered to
+  // its bound |delegate_|.
+  std::queue<Message> TakeQueuedMessages() {
+    // TODO(domfarolino): We probably want to check that we're not currently
+    // bound to a delegate etc.
+    // TODO(domfarolino): We should also probably set some state so that any
+    // more usage of |this| will crash, since after this call, we should be
+    // deleted.
+    return std::move(incoming_message_queue_);
+  }
+
   void RegisterDelegate(ReceiverDelegate* delegate) {
+    CHECK(!delegate_);
     delegate_ = delegate;
+  }
+
+  void UnregisterDelegate() {
+    // TODO(domfarolino): Support unregistering a delegate.
   }
 
   std::string name;
@@ -54,10 +77,9 @@ class Endpoint {
   // This is used when |delegate_| is null, that is, when this endpoint is not
   // bound to a local interface. We queue the messages here, and then later once
   // bound, these messages will be forwarded, in order, to |delegate_|.
-  std::queue<std::unique_ptr<Message>> incoming_message_queue_;
+  std::queue<Message> incoming_message_queue_;
 
   // TODO(domfarolino): Document this.
-  // TODO(domfarolino): This should not be a raw pointer.
   ReceiverDelegate* delegate_;
 };
 

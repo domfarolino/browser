@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 
+#include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop_for_io.h"
 #include "mage/bindings/remote.h"
 #include "mage/core/core.h"
@@ -19,14 +20,16 @@ int main(int argc, char** argv) {
   int fd = std::stoi(argv[1]);
   mage::MageHandle message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(fd, [&](){
-      // Asynchronously quit the test now that we know that below message, that
-      // was queued synchronously, has been sent to the remote process.
+      mage::Remote<magen::TestInterface> remote;
+      remote.Bind(message_pipe);
+      remote->Method1(1, .5, "message");
+
+      // Quit the loop now that our work is done.
       base::GetCurrentThreadTaskLoop()->Quit();
     });
-  mage::Remote<magen::TestInterface> remote;
-  remote.Bind(message_pipe);
-  remote->Method1(1, .5, "message");
 
+  // This will spin the loop until the lambda above is invoked. This process
+  // will exit after the above mage message is sent.
   task_loop->Run();
   return 0;
 }

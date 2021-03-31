@@ -4,6 +4,7 @@
 #include <map>
 #include <memory>
 
+#include "base/callback.h"
 #include "base/scheduling/task_loop_for_io.h"
 #include "mage/core/endpoint.h"
 #include "mage/core/handles.h"
@@ -21,7 +22,9 @@ class Core {
   // Always returns the global |Core| object for the current process.
   static Core* Get();
 
-  static MageHandle SendInvitationAndGetMessagePipe(int fd) {
+  static MageHandle SendInvitationAndGetMessagePipe(
+      int fd, base::Callback callback = base::Callback()) {
+    Get()->remote_has_accepted_invitation_callback_ = std::move(callback);
     return Get()->node_->SendInvitationAndGetMessagePipe(fd);
   }
   static void AcceptInvitation(int fd, std::function<void(MageHandle)> finished_accepting_invitation_callback) {
@@ -41,6 +44,7 @@ class Core {
   }
 
   MageHandle GetNextMageHandle();
+  void OnReceivedAcceptInvitation();
   void OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint);
   void RegisterLocalHandle(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint);
 
@@ -57,6 +61,13 @@ class Core {
 
   MageHandle next_available_handle_ = 1;
 
+  // This is optionally supplied when sending an invitation. It reports back
+  // when the remote process has accepted the invitation. Guaranteed to be
+  // called asynchronously. Mostly used for tests.
+  base::Callback remote_has_accepted_invitation_callback_;
+  // This is mandatorily supplied by the invitee when attempting to accept an
+  // invitation. Accepting an invitation is asynchronous since we have to wait
+  // for the invitation to arrive. Guaranteed to be called asynchronously.
   std::function<void(MageHandle)> finished_accepting_invitation_callback_;
 
   std::unique_ptr<Node> node_;

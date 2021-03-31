@@ -50,8 +50,9 @@ class Node : public Channel::Delegate {
   using NodeName = std::string;
   using EndpointName = std::string;
 
-  // All endpoints whose address's "node name" is our |name_|.
-  std::map<NodeName, std::shared_ptr<Endpoint>> local_endpoints_;
+  // All endpoints that are local to this node, that is, whose address's
+  // "node name" is our |name_|.
+  std::map<EndpointName, std::shared_ptr<Endpoint>> local_endpoints_;
 
   // Used when we send a message from a (necessarily, local) endpoint in order
   // to find the channel associated with its peer endpoint. Without this, we
@@ -76,7 +77,7 @@ class Node : public Channel::Delegate {
   // to hold messages destined to peers that belong to nodes we don't know yet.
   // We may also be able to hold these queues on the local |Endpoint|s
   // themselves.
-  // std::map<NodeName, std::map<EndpointName, std::queue<std::unique_ptr<Message>>>> pending_outgoing_endpoint_messages_;
+  // std::map<NodeName, std::map<EndpointName, std::queue<Message>>> pending_outgoing_endpoint_messages_;
 };
 
 }; // namespace mage

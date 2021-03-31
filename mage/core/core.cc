@@ -25,6 +25,11 @@ MageHandle Core::GetNextMageHandle() {
   return next_available_handle_++;
 }
 
+void Core::OnReceivedAcceptInvitation() {
+  if (remote_has_accepted_invitation_callback_)
+    remote_has_accepted_invitation_callback_();
+}
+
 void Core::OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint) {
   MageHandle local_handle = GetNextMageHandle();
   handle_table_.insert({local_handle, std::move(local_endpoint)});

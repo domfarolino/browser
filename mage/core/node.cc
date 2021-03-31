@@ -86,7 +86,7 @@ MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
 }
 
 void Node::AcceptInvitation(int fd) {
-  CHECK_EQ(has_accepted_invitation_, false);
+  CHECK(!has_accepted_invitation_);
 
   std::unique_ptr<Channel> channel(new Channel(fd, this));
   channel->Start();
@@ -96,14 +96,28 @@ void Node::AcceptInvitation(int fd) {
 }
 
 void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint, Message message) {
-  // TODO(domfarolino): For now we do not support sending messages to intra-node
-  // peers.
-  auto dummy = local_endpoints_.find(local_endpoint->peer_address.node_name);
-  CHECK_EQ(dummy, local_endpoints_.end());
+  // If we're sending a message, one of the following, but not both, must be true:
+  //   1.) The peer endpoint is already in the remote node, in which case we can
+  //       access the remote endpoint via the Channel in |node_channel_map_|.
+  //   2.) The peer endpoint is local, held in |pending_invitations_| because we
+  //       have not yet received the accept invitation message yet.
+  std::string peer_node_name = local_endpoint->peer_address.node_name;
+  std::string peer_endpoint_name = local_endpoint->peer_address.endpoint_name;
+  auto endpoint_it = local_endpoints_.find(peer_endpoint_name);
+  auto channel_it = node_channel_map_.find(peer_node_name);
 
-  auto channel_it = node_channel_map_.find(local_endpoint->peer_address.node_name);
-  CHECK_NE(channel_it, node_channel_map_.end());
-  channel_it->second->SendMessage(std::move(message));
+  // The peer endpoint can either be local or remote, but it can't be both.
+  CHECK_NE((endpoint_it == local_endpoints_.end()),
+           (channel_it == node_channel_map_.end()));
+
+  bool peer_is_local = (endpoint_it != local_endpoints_.end());
+  if (peer_is_local) {
+    std::shared_ptr<Endpoint> local_peer_endpoint = endpoint_it->second;
+    CHECK(local_peer_endpoint);
+    local_peer_endpoint->AcceptMessage(std::move(message));
+  } else {
+    channel_it->second->SendMessage(std::move(message));
+  }
 }
 
 void Node::OnReceivedMessage(Message message) {
@@ -177,7 +191,6 @@ void Node::OnReceivedInvitation(Message message) {
 }
 
 void Node::OnReceivedAcceptInvitation(Message message) {
-  printf("Node::OnReceivedAcceptInvitation!\n");
   auto params = message.Get<SendAcceptInvitationParams>(/*starting_index=*/0);
   std::string temporary_remote_node_name(
     params->temporary_remote_node_name.Get()->array_storage(),
@@ -187,34 +200,25 @@ void Node::OnReceivedAcceptInvitation(Message message) {
     params->actual_node_name.Get()->array_storage(),
     params->actual_node_name.Get()->array_storage() +
         params->actual_node_name.Get()->num_elements);
+  printf("Node::OnReceivedAcceptInvitation from: %s (actually %s)\n", temporary_remote_node_name.c_str(), actual_node_name.c_str());
 
-  printf("Just received ACCEPT_INVITATION from: %s (actually %s)\n", temporary_remote_node_name.c_str(), actual_node_name.c_str());
+  // We should only get ACCEPT_INVITATION messages from nodes that we have a
+  // pending invitation for.
+  auto remote_endpoint_it = pending_invitations_.find(temporary_remote_node_name);
+  CHECK_NE(remote_endpoint_it, pending_invitations_.end());
+  std::shared_ptr<Endpoint> remote_endpoint = remote_endpoint_it->second;
 
-  auto it = pending_invitations_.find(temporary_remote_node_name);
-  CHECK_NE(it, pending_invitations_.end());
-
-  // TODO(domfarolino): This asserts that no messages have been queued for the
-  // stand-in remote endpoint. Long-term, this is wrong. We should support the
-  // ability to queue messages for a remote endpoint that we don't yet know the
-  // name of. However in early development, this is simpler.
-  // TODO(domfarolino): Support this?
-  // CHECK_EQ(it->second->incoming_message_queue.size(), 0);
-
-  // In order to acknowledge the invitation acceptance, we must do three things:
+  // In order to acknowledge the invitation acceptance, we must do five things:
   //   1.) Update our local endpoint's peer address to point to the remote
   //       endpoint that we now know the full address of.
-  auto local_endpoint_it = local_endpoints_.find(it->second->peer_address.endpoint_name);
+  auto local_endpoint_it = local_endpoints_.find(remote_endpoint->peer_address.endpoint_name);
   CHECK_NE(local_endpoint_it, local_endpoints_.end());
-  local_endpoint_it->second->peer_address.node_name = actual_node_name;
-
-  // 1.5. Delete the local endpoint's peer endpoint that should exist in |local_endpoints_|.
-  auto local_peer  = local_endpoints_.find(local_endpoint_it->second->peer_address.endpoint_name);
-  CHECK_NE(local_peer, local_endpoints_.end());
-  local_endpoints_.erase(local_endpoint_it->second->peer_address.endpoint_name);
+  std::shared_ptr<Endpoint> local_endpoint = local_endpoint_it->second;
+  local_endpoint->peer_address.node_name = actual_node_name;
+  printf("Our local endpoint now recognizes its peer as: (%s, %s)\n", local_endpoint_it->second->peer_address.node_name.c_str(), local_endpoint_it->second->peer_address.endpoint_name.c_str());
 
   //   2.) Remove the pending invitation from |pending_invitations_|.
   pending_invitations_.erase(temporary_remote_node_name);
-  printf("Our local endpoint now recognizes its peer as: (%s, %s)\n", local_endpoint_it->second->peer_address.node_name.c_str(), local_endpoint_it->second->peer_address.endpoint_name.c_str());
 
   //   3.) Update |node_channel_map_| to correctly be keyed off of
   //       |actual_node_name|.
@@ -223,9 +227,26 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   std::unique_ptr<Channel> channel = std::move(node_channel_it->second);
   node_channel_map_.erase(temporary_remote_node_name);
   node_channel_map_.insert({actual_node_name, std::move(channel)});
+
+  //   4.) Forward any messages that were queued in |remote_endpoint| so that
+  //       the remote node's endpoint gets them.
+  std::queue<Message> messages_to_forward = remote_endpoint->TakeQueuedMessages();
+  while (!messages_to_forward.empty()) {
+    printf("    Forwarding a message\n");
+    node_channel_map_[actual_node_name]->SendMessage(messages_to_forward.front());
+    messages_to_forward.pop();
+  }
+
+  //   5.) Erase |remote_endpoint|. This is important, because this Endpoint
+  // should no longer be used now that it is done proxying. If we leave this Endpoint in |local_endpoints_|, the next time we go to send a message to the remote endpoint, |SendMessage()| will get confused because the remote endpoint will be both local and remote at the same time, which is obviously wrong.
+  CHECK_NE(local_endpoints_.find(remote_endpoint->name), local_endpoints_.end());
+  local_endpoints_.erase(remote_endpoint->name);
+
+  Core::Get()->OnReceivedAcceptInvitation();
 }
 
 void Node::OnReceivedUserMessage(Message message) {
+  printf("Node::OnReceivedUserMessage\n");
   // 1. Extract the endpoint that the message is bound for.
   // TODO(domfarolino): Do this by extracting the intended endpoint name from
   // the message. The hacky way of doing it below only works because we only
