@@ -27,8 +27,8 @@ void Channel::SetRemoteNodeName(const std::string& name) {
 }
 
 void Channel::SendInvitation(std::string inviter_name, std::string intended_endpoint_name, std::string intended_endpoint_peer_name) {
-  Message invitation_message(MessageType::SEND_INVITATION);
-  MessageFragment<SendInvitationParams> params(invitation_message);
+  Message message(MessageType::SEND_INVITATION);
+  MessageFragment<SendInvitationParams> params(message);
   params.Allocate();
 
   // Serialize inviter name.
@@ -48,14 +48,8 @@ void Channel::SendInvitation(std::string inviter_name, std::string intended_endp
          intended_endpoint_peer_name.c_str(),
          intended_endpoint_peer_name.size());
 
-  invitation_message.FinalizeSize();
-
-  std::vector<char>& payload_buffer = invitation_message.payload_buffer();
-  for (char c : payload_buffer) {
-    printf("%02x ", c);
-  }
-  printf("\n");
-  write(fd_, payload_buffer.data(), payload_buffer.size());
+  message.FinalizeSize();
+  SendMessage(std::move(message));
 }
 
 void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
@@ -73,24 +67,15 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
          actual_node_name.size());
 
   message.FinalizeSize();
-
-  std::vector<char>& payload_buffer = message.payload_buffer();
-  for (char c : payload_buffer) {
-    printf("%02x ", c);
-  }
-  printf("\n");
-  write(fd_, payload_buffer.data(), payload_buffer.size());
+  SendMessage(std::move(message));
 }
 
 void Channel::SendMessage(Message message) {
   std::vector<char>& payload_buffer = message.payload_buffer();
-  /*
-  printf("message size:: %d\n", payload_buffer.size());
   for (char c : payload_buffer) {
     printf("%02x ", c);
   }
   printf("\n");
-  */
 
   write(fd_, payload_buffer.data(), payload_buffer.size());
 }
