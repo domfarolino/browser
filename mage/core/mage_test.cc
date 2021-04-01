@@ -25,9 +25,17 @@ class TestInterfaceImpl : public magen::TestInterface {
   }
 
   void Method1(int in_int, double in_double, std::string in_string) {
+    printf("TestInterfaceImpl::Method1\n");
     received_int = in_int;
     received_double = in_double;
     received_string = in_string;
+    quit_closure_();
+  }
+
+  void SendMoney(int in_amount, std::string in_currency) {
+    printf("TestInterfaceImpl::SendMoney\n");
+    received_amount = in_amount;
+    received_currency = in_currency;
     quit_closure_();
   }
 
@@ -35,6 +43,10 @@ class TestInterfaceImpl : public magen::TestInterface {
   int received_int = 0;
   double received_double = 0.0;
   std::string received_string;
+
+  // Set by |Method2()| above.
+  int received_amount = 0;
+  std::string received_currency;
 
  private:
   mage::Receiver<magen::TestInterface> receiver_;
@@ -207,6 +219,10 @@ TEST_F(MageTest, InviterAsReceiver) {
   EXPECT_EQ(impl->received_int, 1);
   EXPECT_EQ(impl->received_double, .5);
   EXPECT_EQ(impl->received_string, "message");
+
+  task_loop_for_io->Run();
+  EXPECT_EQ(impl->received_amount, 1000);
+  EXPECT_EQ(impl->received_currency, "JPY");
 }
 
 // In this test, the parent process is the invitee and a mage::Receiver.
@@ -227,6 +243,12 @@ TEST_F(MageTest, InviteeAsReceiver) {
     EXPECT_EQ(impl->received_int, 1);
     EXPECT_EQ(impl->received_double, .5);
     EXPECT_EQ(impl->received_string, "message");
+
+    // Let another message come in from the remote inviter.
+    task_loop_for_io->Run();
+    EXPECT_EQ(impl->received_amount, 1000);
+    EXPECT_EQ(impl->received_currency, "JPY");
+
     task_loop_for_io->Quit();
   }, std::placeholders::_1));
 
@@ -261,6 +283,12 @@ TEST_F(MageTest, InviteeAsReceiverBlockOnAcceptance) {
     EXPECT_EQ(impl->received_int, 1);
     EXPECT_EQ(impl->received_double, .5);
     EXPECT_EQ(impl->received_string, "message");
+
+    // Let another message come in from the remote inviter.
+    task_loop_for_io->Run();
+    EXPECT_EQ(impl->received_amount, 1000);
+    EXPECT_EQ(impl->received_currency, "JPY");
+
     task_loop_for_io->Quit();
   }, std::placeholders::_1));
 

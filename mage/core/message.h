@@ -65,8 +65,18 @@ enum MessageType : int {
 };
 
 struct MessageHeader {
+  // The *overall* message size, including the MessageHeader.
   int size;
+  // All message types that are not |MessageType::USER_MESSAGE| are considered
+  // "control" messages, in that they don't target a particular endpoint, but
+  // are destined for the node itself. |Node| uses this member to distinguish
+  // control messages from user messages, so they can be handled correctly.
   MessageType type;
+  // When |type == MessageType::USER_MESSAGE|, this message will correspond to a
+  // mage method within an interface. This member identifies which mage method
+  // in an interface this message corresponds to, so it can be deserialized and
+  // dispatched correctly to the interface implementation.
+  int user_message_id;
 };
 
 class Message final {

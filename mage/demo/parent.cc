@@ -34,6 +34,7 @@ int main() {
   mage::Remote<magen::Demo> remote;
   remote.Bind(local_message_pipe);
   remote->Method1(1, "dom", "farolino");
+  remote->SendName("domfarolino", true);
 
   task_loop->Run();
   return 0;

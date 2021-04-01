@@ -26,6 +26,7 @@ int main(int argc, char** argv) {
   mage::Remote<magen::TestInterface> remote;
   remote.Bind(message_pipe);
   remote->Method1(1, .5, "message");
+  remote->SendMoney(1000, "JPY");
 
   task_loop->Run();
   return 0;

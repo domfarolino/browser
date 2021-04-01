@@ -180,6 +180,7 @@ class {{Interface}}Proxy {
   {% endif %}
 {%- endfor %}
 
+    message.GetMutableMessageHeader().user_message_id = {{Interface}}_{{Method.name}}_ID;
     message.FinalizeSize();
     mage::Core::SendMessage(local_handle_, std::move(message));
   }
@@ -210,32 +211,47 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
   // This is what deserializes the message and dispatches the correct method to
   // the interface implementation.
   void OnReceivedMessage(mage::Message message) override {
-    // Get an appropriate view over |message|.
-    {{Interface}}_{{Methods[0].name}}_Params* params = message.GetView<{{Interface}}_{{Methods[0].name}}_Params>();
-    CHECK(params);
+    int user_message_id = message.GetMutableMessageHeader().user_message_id;
 
-    // Initialize the variables for the method arguments.
-    {%- for argument_pair in Methods[0].arguments %}
-      {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }};
-    {%- endfor %}
+    // Here is where we determine which mage method this message is for.
+    {%- for Method in Methods %}
+      if (user_message_id == {{Interface}}_{{Method.name}}_ID) {
+        // Get an appropriate view over |message|.
+        {{Interface}}_{{Method.name}}_Params* params = message.GetView<{{Interface}}_{{Method.name}}_Params>();
+        CHECK(params);
 
-    // Deserialize each argument into its corresponding variable above.
-    {%- for argument_pair in Methods[0].arguments %}
-      {% if not IsArrayType(argument_pair[0]) %}
-        {{ argument_pair[1] }} = params->{{ argument_pair[1] }};
-      {% else %}
-        {{ argument_pair[1] }} = std::string(
-          params->{{ argument_pair[1] }}.Get()->array_storage(),
-          params->{{ argument_pair[1] }}.Get()->array_storage() + params->{{ argument_pair[1] }}.Get()->num_elements
+        // Initialize the variables for the method arguments.
+        {%- for argument_pair in Method.arguments %}
+          {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }};
+        {%- endfor %}
+
+        // Deserialize each argument into its corresponding variable above.
+        {%- for argument_pair in Method.arguments %}
+          {% if not IsArrayType(argument_pair[0]) %}
+            {{ argument_pair[1] }} = params->{{ argument_pair[1] }};
+          {% else %}
+            {{ argument_pair[1] }} = std::string(
+              params->{{ argument_pair[1] }}.Get()->array_storage(),
+              params->{{ argument_pair[1] }}.Get()->array_storage() + params->{{ argument_pair[1] }}.Get()->num_elements
+            );
+          {% endif %}
+        {%- endfor %}
+
+        impl_->{{Method.name}}(
+          {%- for argument_pair in Method.arguments %}
+            {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
+          {%- endfor %}
         );
-      {% endif %}
+
+        return;
+      }
     {%- endfor %}
 
-    impl_->{{Methods[0].name}}(
-      {%- for argument_pair in Methods[0].arguments %}
-        {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
-      {%- endfor %}
-    );
+    // If we get here, that means |message|'s |user_message_id| did not match
+    // method in {{Interface}}, so the message cannot be deserialized and
+    // dispatched. This can only happen when we received a message for the wrong
+    // mage interface.
+    NOTREACHED();
   }
 
  private:

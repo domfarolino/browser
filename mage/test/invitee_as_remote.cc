@@ -17,6 +17,7 @@ void OnInvitationAccepted(mage::MageHandle handle) {
   mage::Remote<magen::TestInterface> remote;
   remote.Bind(handle);
   remote->Method1(1, .5, "message");
+  remote->SendMoney(1000, "JPY");
 
   // Stop the loop and kill the process.
   base::GetCurrentThreadTaskLoop()->Quit();
