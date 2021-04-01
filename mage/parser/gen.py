@@ -1,32 +1,64 @@
 from jinja2 import Template
 
 import sys
+
+######################################################################## HELPERS
+class Method:
+  def __init__(self, name, arguments):
+    self.name = name
+    self.arguments = arguments
+
+def GetInterfaceName(interface_descriptor_string):
+  return interface_descriptor_string.split()[1]
+
+def GetListOfMethods(method_descriptors):
+  return_list = []
+  for method_descriptor in method_descriptors:
+    method_descriptor = method_descriptor.replace(',', '')
+    # Pull the method name
+    split = method_descriptor.split()
+    method_name = split[0]
+    split = split[1:]
+
+    # Pull the types and names
+    types = split[::2]
+    names = split[1::2]
+    print(types, names)
+    # See https://stackoverflow.com/questions/13651965/ for why we have to wrap
+    # list(zip(...)) below.
+    return_list.append(Method(method_name, list(zip(types, names))));
+  return return_list
+#################################################################### END HELPERS
+
 print(sys.argv[1:]) # For debugging
 
+################################################################## START PARSING
 # Parse the source.
 source_location = sys.argv[1:][0]
 source = open(source_location, "r")
 
 source_text = source.read()
 source_text = source_text.replace("(", " ")
-source_text = source_text.replace(")", "")
-source_text = ''.join(e for e in source_text if (e.isalnum() or e.isspace()))
-print(source_text)
-source_text_split = source_text.split()
-print(source_text_split)
+source_text = source_text.replace(")", " ")
 
-source_interface_name = source_text_split[1]
-source_interface_method_name = source_text_split[2]
-arguments = source_text_split[3:]
-arguments = zip(arguments[::2], arguments[1::2])
-# it = iter(source_text_split[3:])
-# arguments = zip(it, it)
-#for argument_pair in arguments:
-  # print(argument_pair)
-print(arguments)
+separate_interface_from_methods = source_text.split("{")
+assert len(separate_interface_from_methods) == 2
+
+interface_descriptor = [separate_interface_from_methods[0]] + separate_interface_from_methods[1].split(";")
+for i in range(len(interface_descriptor)):
+  interface_descriptor[i] = interface_descriptor[i].strip(' \n\t')
+
+assert interface_descriptor[-1] == '}'
+interface_descriptor.pop()
+print(interface_descriptor)
+interface_name = GetInterfaceName(interface_descriptor[0])
+list_of_methods = GetListOfMethods(interface_descriptor[1:])
+print(list_of_methods)
+#################################################################### END PARSING
 
 source.close()
 
+##################################################### HELPERS USED IN TEMPLATING
 def GetNativeType(magen_type):
   if magen_type == "string":
     return "std::string"
@@ -41,6 +73,7 @@ def IsArrayType(magen_type):
   if magen_type == "string":
     return True
   return False
+################################################# END HELPERS USED IN TEMPLATING
 
 # Generate a C++ header out of the parsed source parameters.
 
@@ -70,26 +103,30 @@ class {{Interface}} {
   using Proxy = {{Interface}}Proxy;
   using ReceiverStub = {{Interface}}ReceiverStub;
 
-  virtual void {{Method}}(
-  {%- for argument_pair in Arguments %}
-    {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
+  {%- for Method in Methods %}
+    virtual void {{Method.name}}(
+    {%- for argument_pair in Method.arguments %}
+        {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
+    {%- endfor %}
+    ) = 0;
   {%- endfor %}
-  ) = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/* For each method on the interface we want to generate the following kind of class*/
-// These classes carry the arguments
-class {{Interface}}_{{Method}}_Params {
+// For each method on the interface we want to generate the following kind of
+// class which is used when serializing and deserializing the message arguments.
+
+{%- for Method in Methods %}
+class {{Interface}}_{{Method.name}}_Params {
  public:
-  {{Interface}}_{{Method}}_Params() : bytes(sizeof(*this)) {}
+  {{Interface}}_{{Method.name}}_Params() : bytes(sizeof(*this)) {}
   int bytes;
-{%- for argument_pair in Arguments %}
+{%- for argument_pair in Method.arguments %}
   {{ GetMagenParamsType(argument_pair[0]) }} {{ argument_pair[1] }};
 {%- endfor %}
 };
-
+{%- endfor %}
 ////////////////////////////////////////////////////////////////////////////////
 
 // Instances of this class are what the mage::Remote<T> calls into to serialize and send messages.
@@ -102,8 +139,10 @@ class {{Interface}}Proxy {
   }
 
   {{Interface}}Proxy() {}
-  void {{Method}}(
-  {%- for argument_pair in Arguments %}
+
+  {%- for Method in Methods %}
+  void {{Method.name}}(
+  {%- for argument_pair in Method.arguments %}
     {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
   {%- endfor %}
   ) {
@@ -112,10 +151,10 @@ class {{Interface}}Proxy {
 
     // Serialize the message data.
     mage::Message message(mage::MessageType::USER_MESSAGE);
-    mage::MessageFragment<{{Interface}}_{{Method}}_Params> message_fragment(message);
+    mage::MessageFragment<{{Interface}}_{{Method.name}}_Params> message_fragment(message);
     message_fragment.Allocate();
 
-{%- for argument_pair in Arguments %}
+{%- for argument_pair in Method.arguments %}
   {% if not IsArrayType(argument_pair[0]) %}
     message_fragment.data()->{{ argument_pair[1] }} = {{ argument_pair[1] }};
   {% else %}
@@ -135,6 +174,7 @@ class {{Interface}}Proxy {
     message.FinalizeSize();
     mage::Core::SendMessage(local_handle_, std::move(message));
   }
+  {%- endfor %}
 
  private:
   bool bound_;
@@ -162,16 +202,16 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
   // the interface implementation.
   void OnReceivedMessage(mage::Message message) override {
     // Get an appropriate view over |message|.
-    {{Interface}}_{{Method}}_Params* params = message.Get<{{Interface}}_{{Method}}_Params>(/*index=*/0);
+    {{Interface}}_{{Methods[0].name}}_Params* params = message.Get<{{Interface}}_{{Methods[0].name}}_Params>(/*index=*/0);
     CHECK(params);
 
     // Initialize the variables for the method arguments.
-    {%- for argument_pair in Arguments %}
+    {%- for argument_pair in Methods[0].arguments %}
       {{ GetNativeType(argument_pair[0]) }} {{ argument_pair[1] }};
     {%- endfor %}
 
     // Deserialize each argument into its corresponding variable above.
-    {%- for argument_pair in Arguments %}
+    {%- for argument_pair in Methods[0].arguments %}
       {% if not IsArrayType(argument_pair[0]) %}
         {{ argument_pair[1] }} = params->{{ argument_pair[1] }};
       {% else %}
@@ -182,8 +222,8 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
       {% endif %}
     {%- endfor %}
 
-    impl_->{{Method}}(
-      {%- for argument_pair in Arguments %}
+    impl_->{{Methods[0].name}}(
+      {%- for argument_pair in Methods[0].arguments %}
         {{ argument_pair[1] }}{% if not loop.last %},{% endif %}
       {%- endfor %}
     );
@@ -202,9 +242,8 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
 } // namespace magen.
 """)
 generated_magen_template = generated_magen_template.render(
-                             Interface=source_interface_name,
-                             Method=source_interface_method_name,
-                             Arguments=list(arguments), # https://stackoverflow.com/questions/13651965/.
+                             Interface=interface_name,
+                             Methods=list_of_methods,
                              GetNativeType=GetNativeType,
                              GetMagenParamsType=GetMagenParamsType,
                              IsArrayType=IsArrayType,

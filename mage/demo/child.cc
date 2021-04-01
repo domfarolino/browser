@@ -25,6 +25,10 @@ class DemoImpl : public magen::Demo {
     printf("DemoImpl::Method1()\n");
     printf("  a: %d, b: %s, c: %s\n", a, b.c_str(), c.c_str());
   }
+  void SendName(std::string name, bool is_first) override {
+    printf("DemoImpl::SendName()\n");
+    printf("  name: %s, is_first: %d\n", name.c_str(), is_first);
+  }
 
  private:
   mage::Receiver<magen::Demo> receiver_;
