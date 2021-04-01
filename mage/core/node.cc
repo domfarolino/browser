@@ -137,7 +137,7 @@ void Node::OnReceivedMessage(Message message) {
 }
 
 void Node::OnReceivedInvitation(Message message) {
-  auto params = message.Get<SendInvitationParams>(/*starting_index=*/0);
+  SendInvitationParams* params = message.GetView<SendInvitationParams>();
 
   // Deserialize
   std::string inviter_name(params->inviter_name, params->inviter_name + 15);
@@ -184,7 +184,7 @@ void Node::OnReceivedInvitation(Message message) {
 }
 
 void Node::OnReceivedAcceptInvitation(Message message) {
-  auto params = message.Get<SendAcceptInvitationParams>(/*starting_index=*/0);
+  SendAcceptInvitationParams* params = message.GetView<SendAcceptInvitationParams>();
   std::string temporary_remote_node_name(
     params->temporary_remote_node_name,
     params->temporary_remote_node_name + 15);
@@ -228,7 +228,7 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   std::queue<Message> messages_to_forward = remote_endpoint->TakeQueuedMessages();
   while (!messages_to_forward.empty()) {
     printf("    Forwarding a message\n");
-    node_channel_map_[actual_node_name]->SendMessage(messages_to_forward.front());
+    node_channel_map_[actual_node_name]->SendMessage(std::move(messages_to_forward.front()));
     messages_to_forward.pop();
   }
 

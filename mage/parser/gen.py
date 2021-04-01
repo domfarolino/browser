@@ -93,6 +93,15 @@ namespace magen {
 class {{Interface}}Proxy;
 class {{Interface}}ReceiverStub;
 
+// We give each message, which corresponds to each method of the {{Interface}}
+// interface, an ID that is unique within the interface. This allows
+// {{Interface}}ReceiverStub::OnReceivedMessage() to distinguish between the
+// messages, and go down deserialization path and invoke the right method on the
+// interface implementation.
+{%- for Method in Methods %}
+static const int {{Interface}}_{{Method.name}}_ID = {{loop.index0}};
+{%- endfor %}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // The class that user implementations of the interface will implement.
@@ -202,7 +211,7 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
   // the interface implementation.
   void OnReceivedMessage(mage::Message message) override {
     // Get an appropriate view over |message|.
-    {{Interface}}_{{Methods[0].name}}_Params* params = message.Get<{{Interface}}_{{Methods[0].name}}_Params>(/*index=*/0);
+    {{Interface}}_{{Methods[0].name}}_Params* params = message.GetView<{{Interface}}_{{Methods[0].name}}_Params>();
     CHECK(params);
 
     // Initialize the variables for the method arguments.

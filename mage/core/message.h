@@ -71,44 +71,62 @@ struct MessageHeader {
 
 class Message final {
  public:
-  Message(MessageType type) : type_(type) {
+  Message(MessageType type) {
     int num_bytes_to_allocate = sizeof(MessageHeader);
     payload_buffer_.resize(num_bytes_to_allocate + payload_buffer_.size());
-    auto header = Get<MessageHeader>(0);
-    // We'll write the final size in |FinalizeSize()|.
-    header->type = type_;
+
+    // Set the MessageHeader's type to |type|. We'll finalize the header's size
+    // in |FinalizeSize()|.
+    GetMutableMessageHeader().type = type;
   }
 
+  Message(const Message&) = delete;
+  Message operator=(const Message&) = delete;
+  Message(Message&& other) {
+    payload_buffer_ = std::move(other.payload_buffer_);
+  }
+
+  // This method will always start reading at the first byte after the
+  // MessageHeader in memory. In order to read or maniupulate the MessageHeader,
+  // use |GetMutableMessageHeader()|.
   template <typename MessageFragment>
   MessageFragment* Get(int starting_index) {
+    CHECK_GEQ(starting_index, 0);
     return reinterpret_cast<MessageFragment*>(payload_buffer_.data() +
                                               starting_index);
   }
 
+  template <typename MessageFragment>
+  MessageFragment* GetView() {
+    return Get<MessageFragment>(/*starting_index=*/sizeof(MessageHeader));
+  }
+
+  MessageHeader& GetMutableMessageHeader() {
+    return *Get<MessageHeader>(/*starting_index=*/0);
+  }
+
   // Must be called before actually sending the message.
   void FinalizeSize() {
-    Get<MessageHeader>(/*starting_index=*/0)->size = payload_buffer_.size();
+    GetMutableMessageHeader().size = payload_buffer_.size();
   }
 
-  void TakeBuffer(std::vector<char>& incoming_buffer) {
+  void ConsumeBuffer(std::vector<char>&& incoming_buffer) {
     payload_buffer_ = std::move(incoming_buffer);
-  }
-
-  MessageType Type() {
-    return type_;
   }
 
   std::vector<char>& payload_buffer() {
     return payload_buffer_;
   }
 
-  // Serializes the given message type
-  static std::unique_ptr<Message> Deserialize(int fd) {
-    NOTREACHED();
+  int Size() {
+    return GetMutableMessageHeader().size;
+  }
+
+  MessageType Type() {
+    return GetMutableMessageHeader().type;
   }
 
  private:
-  MessageType type_;
   std::vector<char> payload_buffer_;
 };
 

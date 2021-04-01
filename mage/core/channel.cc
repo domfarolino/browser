@@ -81,37 +81,47 @@ void Channel::SendMessage(Message message) {
 }
 
 void Channel::OnCanReadFromSocket() {
-  size_t header_size = sizeof(MessageHeader);
-  char buffer[header_size];
-  struct iovec iov = {buffer, header_size};
-  char cmsg_buffer[CMSG_SPACE(header_size)];
-  struct msghdr msg = {};
-  msg.msg_iov = &iov;
-  msg.msg_iovlen = 1;
-  msg.msg_control = cmsg_buffer;
-  msg.msg_controllen = sizeof(cmsg_buffer);
+  std::vector<char> full_message_buffer;
 
-  recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
-
-  // Pull the message header.
-  MessageHeader* header = reinterpret_cast<MessageHeader*>(buffer);
-  Message message(header->type);
-  printf("message type; %d\n", header->type);
-
+  // Read the message header.
   {
-    size_t message_size = header->size - sizeof(MessageHeader);
-    char buffer[message_size];
-    struct iovec iov = {buffer, message_size};
-    char cmsg_buffer[CMSG_SPACE(message_size)];
+    size_t header_size = sizeof(MessageHeader);
+    char buffer[header_size];
+    struct iovec iov = {buffer, header_size};
+    char cmsg_buffer[CMSG_SPACE(header_size)];
     struct msghdr msg = {};
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
     msg.msg_control = cmsg_buffer;
     msg.msg_controllen = sizeof(cmsg_buffer);
+
     recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
-    std::vector<char> byte_buffer(buffer, buffer + message_size);
-    message.TakeBuffer(byte_buffer);
+    std::vector<char> tmp_header_buffer(buffer, buffer + header_size);
+    full_message_buffer = std::move(tmp_header_buffer);
   }
+
+  // Pull out the message header.
+  MessageHeader* header = reinterpret_cast<MessageHeader*>(full_message_buffer.data());
+  full_message_buffer.resize(header->size);
+
+  // Read the message body.
+  {
+    size_t body_size = header->size - sizeof(MessageHeader);
+    char buffer[body_size];
+    struct iovec iov = {buffer, body_size};
+    char cmsg_buffer[CMSG_SPACE(body_size)];
+    struct msghdr msg = {};
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = cmsg_buffer;
+    msg.msg_controllen = sizeof(cmsg_buffer);
+
+    recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
+    memcpy(full_message_buffer.data() + sizeof(MessageHeader), buffer, body_size);
+  }
+
+  Message message(header->type);
+  message.ConsumeBuffer(std::move(full_message_buffer));
 
   std::vector<char>& payload_buffer = message.payload_buffer();
   for (char c : payload_buffer) {
@@ -120,7 +130,7 @@ void Channel::OnCanReadFromSocket() {
   printf("\n");
 
   CHECK(delegate_);
-  delegate_->OnReceivedMessage(message);
+  delegate_->OnReceivedMessage(std::move(message));
 }
 
 }; // namespace mage
