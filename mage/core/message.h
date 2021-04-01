@@ -228,15 +228,15 @@ struct Pointer {
 };
 
 struct SendInvitationParams {
-  Pointer<ArrayHeader<char>> inviter_name;
-  Pointer<ArrayHeader<char>> temporary_remote_node_name;
-  Pointer<ArrayHeader<char>> intended_endpoint_name;
-  Pointer<ArrayHeader<char>> intended_endpoint_peer_name;
+  char inviter_name[15];
+  char temporary_remote_node_name[15];
+  char intended_endpoint_name[15];
+  char intended_endpoint_peer_name[15];
 };
 
 struct SendAcceptInvitationParams {
-  Pointer<ArrayHeader<char>> temporary_remote_node_name;
-  Pointer<ArrayHeader<char>> actual_node_name;
+  char temporary_remote_node_name[15];
+  char actual_node_name[15];
 };
 
 }; // namspace mage

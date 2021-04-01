@@ -32,36 +32,21 @@ void Channel::SendInvitation(std::string inviter_name, std::string intended_endp
   params.Allocate();
 
   // Serialize inviter name.
-  {
-    MessageFragment<ArrayHeader<char>> array(invitation_message);
-    array.AllocateArray(inviter_name.size());
-    memcpy(array.data()->array_storage(), inviter_name.c_str(), inviter_name.size());
-    params.data()->inviter_name.Set(array.data());
-  }
+  memcpy(params.data()->inviter_name, inviter_name.c_str(),
+         inviter_name.size());
 
-  // Serialize temporary node name.
-  {
-    MessageFragment<ArrayHeader<char>> array(invitation_message);
-    array.AllocateArray(remote_node_name_.size());
-    memcpy(array.data()->array_storage(), remote_node_name_.c_str(), remote_node_name_.size());
-    params.data()->temporary_remote_node_name.Set(array.data());
-  }
+  // Serialize temporary remote node name.
+  memcpy(params.data()->temporary_remote_node_name, remote_node_name_.c_str(),
+         remote_node_name_.size());
 
   // Serialize intended endpoint name.
-  {
-    MessageFragment<ArrayHeader<char>> array(invitation_message);
-    array.AllocateArray(intended_endpoint_name.size());
-    memcpy(array.data()->array_storage(), intended_endpoint_name.c_str(), intended_endpoint_name.size());
-    params.data()->intended_endpoint_name.Set(array.data());
-  }
+  memcpy(params.data()->intended_endpoint_name, intended_endpoint_name.c_str(),
+         intended_endpoint_name.size());
 
-  // Serialize intended endpoint name.
-  {
-    MessageFragment<ArrayHeader<char>> array(invitation_message);
-    array.AllocateArray(intended_endpoint_peer_name.size());
-    memcpy(array.data()->array_storage(), intended_endpoint_peer_name.c_str(), intended_endpoint_peer_name.size());
-    params.data()->intended_endpoint_peer_name.Set(array.data());
-  }
+  // Serialize intended endpoint peer name.
+  memcpy(params.data()->intended_endpoint_peer_name,
+         intended_endpoint_peer_name.c_str(),
+         intended_endpoint_peer_name.size());
 
   invitation_message.FinalizeSize();
 
@@ -80,20 +65,12 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
   params.Allocate();
 
   // Serialize temporary node name.
-  {
-    MessageFragment<ArrayHeader<char>> array(message);
-    array.AllocateArray(temporary_remote_node_name.size());
-    memcpy(array.data()->array_storage(), temporary_remote_node_name.c_str(), temporary_remote_node_name.size());
-    params.data()->temporary_remote_node_name.Set(array.data());
-  }
+  memcpy(params.data()->temporary_remote_node_name,
+         temporary_remote_node_name.c_str(), temporary_remote_node_name.size());
 
   // Serialize actual node name.
-  {
-    MessageFragment<ArrayHeader<char>> array(message);
-    array.AllocateArray(actual_node_name.size());
-    memcpy(array.data()->array_storage(), actual_node_name.c_str(), actual_node_name.size());
-    params.data()->actual_node_name.Set(array.data());
-  }
+  memcpy(params.data()->actual_node_name, actual_node_name.c_str(),
+         actual_node_name.size());
 
   message.FinalizeSize();
 
@@ -102,7 +79,6 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
     printf("%02x ", c);
   }
   printf("\n");
-
   write(fd_, payload_buffer.data(), payload_buffer.size());
 }
 
@@ -135,6 +111,7 @@ void Channel::OnCanReadFromSocket() {
   // Pull the message header.
   MessageHeader* header = reinterpret_cast<MessageHeader*>(buffer);
   Message message(header->type);
+  printf("message type; %d\n", header->type);
 
   {
     size_t message_size = header->size - sizeof(MessageHeader);

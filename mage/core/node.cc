@@ -140,22 +140,15 @@ void Node::OnReceivedInvitation(Message message) {
   auto params = message.Get<SendInvitationParams>(/*starting_index=*/0);
 
   // Deserialize
-  std::string inviter_name(
-    params->inviter_name.Get()->array_storage(),
-    params->inviter_name.Get()->array_storage() +
-        params->inviter_name.Get()->num_elements);
+  std::string inviter_name(params->inviter_name, params->inviter_name + 15);
   std::string temporary_remote_node_name(
-    params->temporary_remote_node_name.Get()->array_storage(),
-    params->temporary_remote_node_name.Get()->array_storage() +
-        params->temporary_remote_node_name.Get()->num_elements);
-  std::string intended_endpoint_name(
-    params->intended_endpoint_name.Get()->array_storage(),
-    params->intended_endpoint_name.Get()->array_storage() +
-        params->intended_endpoint_name.Get()->num_elements);
+    params->temporary_remote_node_name,
+    params->temporary_remote_node_name + 15);
+  std::string intended_endpoint_name(params->intended_endpoint_name,
+                                     params->intended_endpoint_name + 15);
   std::string intended_endpoint_peer_name(
-    params->intended_endpoint_peer_name.Get()->array_storage(),
-    params->intended_endpoint_peer_name.Get()->array_storage() +
-        params->intended_endpoint_peer_name.Get()->num_elements);
+    params->intended_endpoint_peer_name,
+    params->intended_endpoint_peer_name + 15);
 
   printf("Node::OnReceivedSendInvitation\n");
   printf("  inviter_name:                %s\n", inviter_name.c_str());
@@ -193,14 +186,13 @@ void Node::OnReceivedInvitation(Message message) {
 void Node::OnReceivedAcceptInvitation(Message message) {
   auto params = message.Get<SendAcceptInvitationParams>(/*starting_index=*/0);
   std::string temporary_remote_node_name(
-    params->temporary_remote_node_name.Get()->array_storage(),
-    params->temporary_remote_node_name.Get()->array_storage() +
-        params->temporary_remote_node_name.Get()->num_elements);
-  std::string actual_node_name(
-    params->actual_node_name.Get()->array_storage(),
-    params->actual_node_name.Get()->array_storage() +
-        params->actual_node_name.Get()->num_elements);
-  printf("Node::OnReceivedAcceptInvitation from: %s (actually %s)\n", temporary_remote_node_name.c_str(), actual_node_name.c_str());
+    params->temporary_remote_node_name,
+    params->temporary_remote_node_name + 15);
+  std::string actual_node_name(params->actual_node_name,
+                               params->actual_node_name + 15);
+
+  printf("Node::OnReceivedAcceptInvitation from: %s (actually %s)\n",
+         temporary_remote_node_name.c_str(), actual_node_name.c_str());
 
   // We should only get ACCEPT_INVITATION messages from nodes that we have a
   // pending invitation for.
@@ -215,7 +207,10 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   CHECK_NE(local_endpoint_it, local_endpoints_.end());
   std::shared_ptr<Endpoint> local_endpoint = local_endpoint_it->second;
   local_endpoint->peer_address.node_name = actual_node_name;
-  printf("Our local endpoint now recognizes its peer as: (%s, %s)\n", local_endpoint_it->second->peer_address.node_name.c_str(), local_endpoint_it->second->peer_address.endpoint_name.c_str());
+
+  printf("Our local endpoint now recognizes its peer as: (%s, %s)\n",
+         local_endpoint_it->second->peer_address.node_name.c_str(),
+         local_endpoint_it->second->peer_address.endpoint_name.c_str());
 
   //   2.) Remove the pending invitation from |pending_invitations_|.
   pending_invitations_.erase(temporary_remote_node_name);
