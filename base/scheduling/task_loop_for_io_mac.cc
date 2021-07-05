@@ -43,41 +43,70 @@ void TaskLoopForIOMac::Run() {
                       nullptr);
 
     // At this point we had to have read at least one event from the kernel.
-    CHECK_GEQ(rv, 1);
+    CHECK_GE(rv, 1);
 
     if (quit_)
       break;
 
-    for (int i = 0; i < rv; ++i) {
-      auto* event = &events_[i];
-
-      if (event->filter == EVFILT_READ) {
-        int fd = event->ident;
-
-        mutex_.lock();
-        auto* socket_reader = async_socket_readers_[fd];
-        mutex_.unlock();
-
-        CHECK(socket_reader);
-        socket_reader->OnCanReadFromSocket();
-      } else if (event->filter == EVFILT_MACHPORT) {
-        mutex_.lock();
-        CHECK(queue_.size());
-        Callback cb = std::move(queue_.front());
-        queue_.pop();
-        mutex_.unlock();
-
-        ExecuteTask(std::move(cb));
-      } else {
-        NOTREACHED();
-      }
-    } // for.
+    ProcessQueuedEvents(rv);
 
   } // while (true).
 
   // We need to reset |quit_| when |Run()| actually completes, so that we can
   // call |Run()| again later.
   quit_ = false;
+}
+
+void TaskLoopForIOMac::RunUntilIdle() {
+  while (true) {
+    events_.resize(event_count_);
+
+    // We want an immediate answer from the kernal as to how many events we
+    // have. If we have none, we'll just quit. Otherwise, we'll process them all
+    // normally.
+    timespec timeout{0, 0};
+    int rv = kevent64(kqueue_, nullptr, 0, events_.data(), events_.size(), 0,
+                      &timeout);
+
+    if (quit_ || rv == 0)
+      break;
+
+    ProcessQueuedEvents(rv);
+
+  } // while (true).
+
+  // We need to reset |quit_| when |Run()| actually completes, so that we can
+  // call |Run()| again later.
+  quit_ = false;
+}
+
+void TaskLoopForIOMac::ProcessQueuedEvents(int num_events) {
+  CHECK_GE(num_events, 1);
+
+  for (int i = 0; i < num_events; ++i) {
+    auto* event = &events_[i];
+
+    if (event->filter == EVFILT_READ) {
+      int fd = event->ident;
+
+      mutex_.lock();
+      auto* socket_reader = async_socket_readers_[fd];
+      mutex_.unlock();
+
+      CHECK(socket_reader);
+      socket_reader->OnCanReadFromSocket();
+    } else if (event->filter == EVFILT_MACHPORT) {
+      mutex_.lock();
+      CHECK(queue_.size());
+      Callback cb = std::move(queue_.front());
+      queue_.pop();
+      mutex_.unlock();
+
+      ExecuteTask(std::move(cb));
+    } else {
+      NOTREACHED();
+    }
+  } // for.
 }
 
 void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {
@@ -96,7 +125,7 @@ void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {
   // kernel.
   int rv = kevent64(kqueue_, events.data(), events.size(), nullptr, 0, 0,
                     nullptr);
-  CHECK_GEQ(rv, 0);
+  CHECK_GE(rv, 0);
 
   mutex_.lock();
   async_socket_readers_[fd] = socket_reader;

@@ -64,6 +64,12 @@ class TaskLoop : public Thread::Delegate,
   // Can be called from any thread.
   void PostTask(Callback cb) override = 0;
 
+  // Called on the thread that |this| is bound to. Just like |Run()|, except it
+  // runs the loop until the underlying event queue is empty or until a task
+  // quits the loop. Once empty or quit, this method returns as opposed to
+  // waiting indefinitely.
+  virtual void RunUntilIdle() = 0;
+
   virtual Callback QuitClosure();
 
  protected:
