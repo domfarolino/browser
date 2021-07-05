@@ -196,6 +196,22 @@ TEST_P(TaskLoopTest, RunUntilIdleEarlyQuit) {
   EXPECT_EQ(second_task_ran, true);
 }
 
+TEST_P(TaskLoopTest, RunUntilIdleDoesNotSnapshotTheEventQueueSize) {
+  bool outer_task_ran = false;
+  bool continuation_task_ran = false;
+
+  task_loop->PostTask([&](){
+    outer_task_ran = true;
+    task_loop->PostTask([&](){
+      continuation_task_ran = true;
+    }); // Inner PostTask().
+  }); // Outer PostTask().
+
+  task_loop->RunUntilIdle();
+  EXPECT_EQ(outer_task_ran, true);
+  EXPECT_EQ(continuation_task_ran, true);
+}
+
 #if defined(OS_MACOS)
 INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
                          TaskLoopTest,
