@@ -3,7 +3,7 @@
 namespace base {
 
 void TaskLoopForWorker::Run() {
-  while (1) {
+  while (true) {
     cv_.wait(mutex_, [&]() -> bool{
       bool can_skip_waiting = (queue_.empty() == false || quit_);
       return can_skip_waiting;
@@ -25,6 +25,27 @@ void TaskLoopForWorker::Run() {
 
   // We need to reset |quit_| when |Run()| actually completes, so that we can
   // call |Run()| again later.
+  quit_ = false;
+}
+
+void TaskLoopForWorker::RunUntilIdle() {
+  while (true) {
+    mutex_.lock();
+    if (quit_ || queue_.empty()) {
+      mutex_.unlock();
+      break;
+    }
+
+    CHECK(queue_.size());
+    Callback cb = std::move(queue_.front());
+    queue_.pop();
+    mutex_.unlock();
+
+    ExecuteTask(std::move(cb));
+  }
+
+  // We need to reset |quit_| when |RunUntilIdle()| actually completes, so that
+  // we can call |RunUntilIdle()| again later.
   quit_ = false;
 }
 

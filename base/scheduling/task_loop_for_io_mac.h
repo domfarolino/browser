@@ -52,11 +52,15 @@ class TaskLoopForIOMac : public TaskLoop {
   // Can be called from any thread.
   void PostTask(Callback cb) override;
 
+  void RunUntilIdle() override;
+
   // Can be called from any thread.
   void WatchSocket(SocketReader* reader);
   // Can be called from any thread (it is *implicitly* thread-safe).
   void MachWakeup();
  private:
+
+  void ProcessQueuedEvents(int num_events);
 
   // The kqueue that drives the task loop.
   int kqueue_;
