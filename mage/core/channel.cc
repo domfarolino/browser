@@ -14,11 +14,46 @@
 
 namespace mage {
 
+namespace {
+
+// Helper function to print the full human-readable contents of a mage::Message.
+void PrintFullMessageContents(Message& message) {
+  std::vector<char>& payload_buffer = message.payload_buffer();
+
+  MessageHeader* header = reinterpret_cast<MessageHeader*>(payload_buffer.data());
+  printf("+------- Message Header -------+\n");
+  printf("| int size = %d\n", header->size);
+  switch (header->type) {
+    case MessageType::SEND_INVITATION:
+      printf("| MessageType type = SEND_INVITATION\n");
+      break;
+    case MessageType::ACCEPT_INVITATION:
+      printf("| MessageType type = ACCEPT_INVITATION\n");
+      break;
+    case MessageType::USER_MESSAGE:
+      printf("| MessageType type = USER_MESSAGE\n");
+      break;
+  }
+  printf("| int user_message_id = %d\n", header->user_message_id);
+  printf("+-------- Message Body --------+\n");
+
+  printf("|");
+  for (size_t i = sizeof(MessageHeader); i < payload_buffer.size(); ++i) {
+    printf("%02x ", payload_buffer[i]);
+  }
+  printf("\n");
+
+  printf("+-------- End Message --------+\n");
+}
+
+}; // namespace
+
 Channel::Channel(int fd, Delegate* delegate) : SocketReader(fd), delegate_(delegate) {}
 
 void Channel::Start() {
   auto io_task_loop =
     std::static_pointer_cast<base::TaskLoopForIO>(base::GetIOThreadTaskLoop());
+  CHECK(io_task_loop);
   io_task_loop->WatchSocket(this);
 }
 
@@ -71,12 +106,9 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
 }
 
 void Channel::SendMessage(Message message) {
-  std::vector<char>& payload_buffer = message.payload_buffer();
-  for (char c : payload_buffer) {
-    printf("%02x ", c);
-  }
-  printf("\n");
+  PrintFullMessageContents(message);
 
+  std::vector<char>& payload_buffer = message.payload_buffer();
   write(fd_, payload_buffer.data(), payload_buffer.size());
 }
 
@@ -102,6 +134,7 @@ void Channel::OnCanReadFromSocket() {
 
   // Pull out the message header.
   MessageHeader* header = reinterpret_cast<MessageHeader*>(full_message_buffer.data());
+  CHECK_GE(header->size, full_message_buffer.size());
   full_message_buffer.resize(header->size);
 
   // Read the message body.
@@ -123,11 +156,7 @@ void Channel::OnCanReadFromSocket() {
   Message message(header->type);
   message.ConsumeBuffer(std::move(full_message_buffer));
 
-  std::vector<char>& payload_buffer = message.payload_buffer();
-  for (char c : payload_buffer) {
-    printf("%02x ", c);
-  }
-  printf("\n");
+  PrintFullMessageContents(message);
 
   CHECK(delegate_);
   delegate_->OnReceivedMessage(std::move(message));

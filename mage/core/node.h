@@ -26,6 +26,7 @@ class Node : public Channel::Delegate {
     printf("Node name_: %s\n", name_.c_str());
   }
 
+  std::vector<MageHandle> CreateMessagePipes();
   void InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1, std::shared_ptr<Endpoint> ep2);
   MageHandle SendInvitationAndGetMessagePipe(int fd);
   void AcceptInvitation(int fd);
@@ -39,7 +40,7 @@ class Node : public Channel::Delegate {
   void OnReceivedUserMessage(Message message);
 
  private:
-  friend class MageTestWrapper;
+  friend class MageTest;
 
   std::string name_;
 

@@ -22,6 +22,12 @@ class Core {
   // Always returns the global |Core| object for the current process.
   static Core* Get();
 
+  static std::vector<MageHandle> CreateMessagePipes() {
+    std::vector<MageHandle> return_handles = Get()->node_->CreateMessagePipes();
+    CHECK_NE(Get()->handle_table_.find(return_handles[0]), Get()->handle_table_.end());
+    CHECK_NE(Get()->handle_table_.find(return_handles[1]), Get()->handle_table_.end());
+    return return_handles;
+  }
   static MageHandle SendInvitationAndGetMessagePipe(
       int fd, base::Callback callback = base::Callback()) {
     Get()->remote_has_accepted_invitation_callback_ = std::move(callback);
@@ -49,7 +55,7 @@ class Core {
   void RegisterLocalHandle(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint);
 
  private:
-  friend class MageTestWrapper;
+  friend class MageTest;
 
   Core(): node_(new Node()) {}
 

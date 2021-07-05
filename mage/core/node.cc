@@ -8,6 +8,17 @@
 
 namespace mage {
 
+std::vector<MageHandle> Node::CreateMessagePipes() {
+  std::shared_ptr<Endpoint> endpoint_1(new Endpoint()),
+                            endpoint_2(new Endpoint());
+  InitializeAndEntangleEndpoints(endpoint_1, endpoint_2);
+  MageHandle handle_1 = Core::Get()->GetNextMageHandle(),
+             handle_2 = Core::Get()->GetNextMageHandle();
+  Core::Get()->RegisterLocalHandle(handle_1, endpoint_1);
+  Core::Get()->RegisterLocalHandle(handle_2, endpoint_2);
+  return {handle_1, handle_2};
+}
+
 void Node::InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1, std::shared_ptr<Endpoint> ep2) {
   // Initialize the endpoints.
   ep1->name = util::RandomString();

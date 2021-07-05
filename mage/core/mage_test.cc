@@ -1,5 +1,3 @@
-#include "gtest/gtest.h"
-
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -8,6 +6,7 @@
 
 #include "base/callback.h"
 #include "base/scheduling/task_loop_for_io.h"
+#include "gtest/gtest.h"
 #include "mage/bindings/receiver.h"
 #include "mage/bindings/remote.h"
 #include "mage/core/core.h"
@@ -18,6 +17,8 @@ namespace mage {
 
 namespace {
 
+// A cconcrete implementation of a mage test-only interface. This hooks in with
+// the test fixture by invoking callbacks.
 class TestInterfaceImpl : public magen::TestInterface {
  public:
   TestInterfaceImpl(MageHandle message_pipe, base::Callback quit_closure) : quit_closure_(std::move(quit_closure)) {
@@ -115,8 +116,18 @@ class ProcessLauncher {
 
 }; // namespace
 
-class MageTestWrapper {
+class MageTest : public testing::Test {
  public:
+  void SetUp() override {
+    mage::Core::Init();
+    EXPECT_TRUE(mage::Core::Get());
+  }
+
+  void TearDown() override {
+    // TODO(domfarolino): Maybe we should have a way to shutdown mage cleanly.
+  }
+
+ protected:
   std::map<MageHandle, std::shared_ptr<Endpoint>>& CoreHandleTable() {
     return mage::Core::Get()->handle_table_;
   }
@@ -130,41 +141,26 @@ class MageTestWrapper {
   }
 };
 
-class MageTest : public testing::Test {
- public:
-  void SetUp() override {
-    mage::Core::Init();
-    EXPECT_TRUE(mage::Core::Get());
-  }
-
-  void TearDown() override {
-    // TODO(domfarolino): Maybe we should have a way to shutdown mage cleanly.
-  }
-
- protected:
-  MageTestWrapper wrapper;
-};
-
 TEST_F(MageTest, CoreInitStateUnitTest) {
-  EXPECT_EQ(wrapper.CoreHandleTable().size(), 0);
-  EXPECT_EQ(wrapper.NodeLocalEndpoints().size(), 0);
+  EXPECT_EQ(CoreHandleTable().size(), 0);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 0);
 }
 
 TEST_F(MageTest, InitializeAndEntangleEndpointsUnitTest) {
   std::shared_ptr<Endpoint> local(new Endpoint()), remote(new Endpoint());
-  wrapper.Node().InitializeAndEntangleEndpoints(local, remote);
+  Node().InitializeAndEntangleEndpoints(local, remote);
 
-  EXPECT_EQ(wrapper.CoreHandleTable().size(), 0);
-  EXPECT_EQ(wrapper.NodeLocalEndpoints().size(), 2);
+  EXPECT_EQ(CoreHandleTable().size(), 0);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 2);
 
   EXPECT_EQ(local->name.size(), 15);
   EXPECT_EQ(remote->name.size(), 15);
   EXPECT_NE(local->name, remote->name);
 
-  // Both are pointing to the same node.
+  // Both endpoints address the same node name.
   EXPECT_EQ(local->peer_address.node_name, remote->peer_address.node_name);
 
-  // Both are pointing at each other.
+  // Both endpoints address each other.
   EXPECT_EQ(local->peer_address.endpoint_name, remote->name);
   EXPECT_EQ(remote->peer_address.endpoint_name, local->name);
 }
@@ -180,8 +176,8 @@ TEST_F(MageTest, SendInvitationUnitTest) {
     );
 
   EXPECT_NE(message_pipe, 0);
-  EXPECT_EQ(wrapper.CoreHandleTable().size(), 1);
-  EXPECT_EQ(wrapper.NodeLocalEndpoints().size(), 2);
+  EXPECT_EQ(CoreHandleTable().size(), 1);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 2);
 
   // Test that we can queue messages.
   mage::Remote<magen::TestInterface> remote;
@@ -189,6 +185,7 @@ TEST_F(MageTest, SendInvitationUnitTest) {
   remote->Method1(1, .4, "test");
 }
 
+/*
 TEST_F(MageTest, AcceptInvitationUnitTest) {
   ProcessLauncher launcher(MageTestProcessType::kNone);
   std::shared_ptr<base::TaskLoop> task_loop_for_io =
@@ -198,8 +195,8 @@ TEST_F(MageTest, AcceptInvitationUnitTest) {
 
   // Invitation is asynchronous, so until we receive and formally accept the
   // information, there is no impact on our mage state.
-  EXPECT_EQ(wrapper.CoreHandleTable().size(), 0);
-  EXPECT_EQ(wrapper.NodeLocalEndpoints().size(), 0);
+  EXPECT_EQ(CoreHandleTable().size(), 0);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 0);
 }
 
 // In this test, the parent process is the inviter and a mage::Receiver.
@@ -297,4 +294,38 @@ TEST_F(MageTest, InviteeAsReceiverBlockOnAcceptance) {
   task_loop_for_io->Run();
 }
 
+TEST_F(MageTest, InProcess) {
+  std::shared_ptr<base::TaskLoop> task_loop_for_io =
+    base::TaskLoop::Create(base::ThreadType::IO);
+
+  std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
+  EXPECT_EQ(mage_handles.size(), 2);
+
+  MageHandle local_handle = mage_handles[0], remote_handle = mage_handles[1];
+  mage::Remote<magen::TestInterface> remote;
+  std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(remote_handle, task_loop_for_io->QuitClosure()));
+
+  remote->Method1(101, .78, "some text");
+  remote->SendMoney(5000, "USD");
+  task_loop_for_io->Run();
+  EXPECT_EQ(impl->received_int, 1);
+  EXPECT_EQ(impl->received_double, .5);
+  EXPECT_EQ(impl->received_string, "message");
+
+  // task_loop_for_io->Run();
+  EXPECT_EQ(impl->received_amount, 1000);
+  EXPECT_EQ(impl->received_currency, "JPY");
+}
+
+TEST_F(MageTest, InProcessQueuedMessagesDispatchSynchronously) {}
+*/
+
 }; // namespace mage
+
+/*
+  Spec
+   - In process works
+     - Test the local path
+   - In process use remote before receiver bound
+
+*/

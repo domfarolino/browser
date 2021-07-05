@@ -101,7 +101,7 @@ class Message final {
   // use |GetMutableMessageHeader()|.
   template <typename MessageFragment>
   MessageFragment* Get(int starting_index) {
-    CHECK_GEQ(starting_index, 0);
+    CHECK_GE(starting_index, 0);
     return reinterpret_cast<MessageFragment*>(payload_buffer_.data() +
                                               starting_index);
   }
