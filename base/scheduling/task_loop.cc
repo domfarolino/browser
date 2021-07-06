@@ -8,6 +8,7 @@
 #if defined(OS_MACOS)
 #include "base/scheduling/task_loop_for_io.h"
 #endif
+#include "base/scheduling/task_loop_for_ui.h"
 #include "base/scheduling/task_loop_for_worker.h"
 
 namespace base {
@@ -16,7 +17,6 @@ void TaskLoop::BindToCurrentThread(ThreadType type) {
   // Depending on |type|, create a process-global pointer to |this|.
   switch (type) {
     case ThreadType::UI:
-      NOTREACHED();
       CHECK(!GetUIThreadTaskLoop());
       SetUIThreadTaskLoop(GetWeakPtr());
       CHECK(GetUIThreadTaskLoop());
@@ -41,11 +41,8 @@ void TaskLoop::BindToCurrentThread(ThreadType type) {
 // static
 std::shared_ptr<TaskLoop> TaskLoop::CreateUnbound(ThreadType type) {
   switch (type) {
-    case ThreadType::WORKER:
-      return std::shared_ptr<TaskLoopForWorker>(new TaskLoopForWorker());
     case ThreadType::UI:
-      NOTREACHED();
-      return std::shared_ptr<TaskLoopForWorker>();
+      return std::shared_ptr<TaskLoopForUI>(new TaskLoopForUI());
     case ThreadType::IO:
 #if defined(OS_MACOS)
       return std::shared_ptr<TaskLoopForIO>(new TaskLoopForIO());
@@ -53,6 +50,8 @@ std::shared_ptr<TaskLoop> TaskLoop::CreateUnbound(ThreadType type) {
       NOTREACHED();
       return std::shared_ptr<TaskLoopForWorker>();
 #endif
+    case ThreadType::WORKER:
+      return std::shared_ptr<TaskLoopForWorker>(new TaskLoopForWorker());
   }
 
   NOTREACHED();
