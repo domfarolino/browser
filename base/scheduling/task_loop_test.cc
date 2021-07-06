@@ -215,11 +215,11 @@ TEST_P(TaskLoopTest, RunUntilIdleDoesNotSnapshotTheEventQueueSize) {
 #if defined(OS_MACOS)
 INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
                          TaskLoopTest,
-                         testing::Values(ThreadType::WORKER, ThreadType::IO));
+                         testing::Values(ThreadType::UI, ThreadType::IO, ThreadType::WORKER));
 #else
 INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
                          TaskLoopTest,
-                         testing::Values(ThreadType::WORKER));
+                         testing::Values(ThreadType::UI, ThreadType::WORKER));
 #endif
 
 }; // namespace base

@@ -19,6 +19,7 @@ cc_library(
     "scheduling/scheduling_handles.h",
     "scheduling/task_loop.h",
     "scheduling/task_loop_for_io.h",
+    "scheduling/task_loop_for_ui.h",
     "scheduling/task_loop_for_worker.h",
     "scheduling/task_runner.h",
     "synchronization/condition_variable.h",
