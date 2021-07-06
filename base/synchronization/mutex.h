@@ -71,9 +71,10 @@ class Mutex {
   }
 
  private:
-    ThreadMode mode_;
-    std::mutex cpp_mutex_;
-    pthread_mutex_t pthread_mutex_;
+  ThreadMode mode_;
+
+  std::mutex cpp_mutex_;
+  pthread_mutex_t pthread_mutex_;
 };
 
 } // namespace base
