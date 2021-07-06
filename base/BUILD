@@ -55,7 +55,10 @@ cc_test(
     "threading/simple_thread_test.cc",
   ] +
   select({
-    ":mac": ["scheduling/task_loop_for_io_test.cc"],
+    ":mac": [
+      "scheduling/task_loop_for_io_test.cc",
+      "scheduling/scheduling_handles_test.cc"
+    ],
     # TODO(domfarolino): Enable the task loop for IO tests on linux once an IO task loop is implemented there.
     ":linux": [],
   }),
