@@ -18,6 +18,8 @@ namespace {
 
 // Helper function to print the full human-readable contents of a mage::Message.
 void PrintFullMessageContents(Message& message) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
+
   std::vector<char>& payload_buffer = message.payload_buffer();
 
   MessageHeader* header = reinterpret_cast<MessageHeader*>(payload_buffer.data());
@@ -48,9 +50,12 @@ void PrintFullMessageContents(Message& message) {
 
 }; // namespace
 
-Channel::Channel(int fd, Delegate* delegate) : SocketReader(fd), delegate_(delegate) {}
+Channel::Channel(int fd, Delegate* delegate) : SocketReader(fd), delegate_(delegate) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
+}
 
 void Channel::Start() {
+  CHECK_ON_THREAD(base::ThreadType::IO);
   auto io_task_loop =
     std::static_pointer_cast<base::TaskLoopForIO>(base::GetIOThreadTaskLoop());
   CHECK(io_task_loop);
@@ -58,10 +63,12 @@ void Channel::Start() {
 }
 
 void Channel::SetRemoteNodeName(const std::string& name) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
   remote_node_name_ = name;
 }
 
 void Channel::SendInvitation(std::string inviter_name, std::string intended_endpoint_name, std::string intended_endpoint_peer_name) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
   Message message(MessageType::SEND_INVITATION);
   MessageFragment<SendInvitationParams> params(message);
   params.Allocate();
@@ -89,6 +96,7 @@ void Channel::SendInvitation(std::string inviter_name, std::string intended_endp
 
 void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
                                    std::string actual_node_name) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
   Message message(MessageType::ACCEPT_INVITATION);
   MessageFragment<SendAcceptInvitationParams> params(message);
   params.Allocate();
@@ -106,6 +114,7 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
 }
 
 void Channel::SendMessage(Message message) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
   PrintFullMessageContents(message);
 
   std::vector<char>& payload_buffer = message.payload_buffer();
@@ -113,6 +122,7 @@ void Channel::SendMessage(Message message) {
 }
 
 void Channel::OnCanReadFromSocket() {
+  CHECK_ON_THREAD(base::ThreadType::IO);
   std::vector<char> full_message_buffer;
 
   // Read the message header.

@@ -119,11 +119,16 @@ class ProcessLauncher {
 class MageTest : public testing::Test {
  public:
   void SetUp() override {
+    main_thread = base::TaskLoop::Create(base::ThreadType::UI);
+    io_thread.Start();
+
     mage::Core::Init();
-    EXPECT_TRUE(mage::Core::Get());
+    ASSERT_TRUE(mage::Core::Get());
   }
 
   void TearDown() override {
+    main_thread.reset();
+    io_thread.Stop();
     // TODO(domfarolino): Maybe we should have a way to shutdown mage cleanly.
   }
 
@@ -139,6 +144,9 @@ class MageTest : public testing::Test {
   mage::Node& Node() {
     return *mage::Core::Get()->node_.get();
   }
+
+  std::shared_ptr<base::TaskLoop> main_thread;
+  base::Thread io_thread;
 };
 
 TEST_F(MageTest, CoreInitStateUnitTest) {

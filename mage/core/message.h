@@ -10,7 +10,51 @@
 
 namespace mage {
 
+namespace {
+
+// The pointer helpers below were pulled from Chromium.
+// Pointers are encoded as relative offsets. The offsets are relative to the
+// address of where the offset value is stored, such that the pointer may be
+// recovered with the expression:
+//
+//   ptr = reinterpret_cast<char*>(offset) + *offset
+//
+// A null pointer is encoded as an offset value of 0.
+//
+inline void EncodePointer(const void* ptr, uint64_t* offset) {
+  if (!ptr) {
+    *offset = 0;
+    return;
+  }
+
+  const char* p_obj = reinterpret_cast<const char*>(ptr);
+  const char* p_slot = reinterpret_cast<const char*>(offset);
+  CHECK(p_obj > p_slot);
+
+  *offset = static_cast<uint64_t>(p_obj - p_slot);
+}
+
+// Note: This function doesn't validate the encoded pointer value.
+inline const void* DecodePointer(const uint64_t* offset) {
+  if (!*offset)
+    return nullptr;
+  return reinterpret_cast<const char*>(offset) + *offset;
+}
+
+template <typename T>
+struct Pointer {
+  void Set(T* ptr) { EncodePointer(ptr, &offset); }
+  const T* Get() const { return static_cast<const T*>(DecodePointer(&offset)); }
+  T* Get() {
+    return static_cast<T*>(const_cast<void*>(DecodePointer(&offset)));
+  }
+
+  uint64_t offset = 0;
+};
+
 static const int kInvalidFragmentStartingIndex = -1;
+
+}; // namespace
 
 enum MessageType : int {
   // This sends the maiden message to a new peer node along with a bootstrap
@@ -81,20 +125,11 @@ struct MessageHeader {
 
 class Message final {
  public:
-  Message(MessageType type) {
-    int num_bytes_to_allocate = sizeof(MessageHeader);
-    payload_buffer_.resize(num_bytes_to_allocate + payload_buffer_.size());
-
-    // Set the MessageHeader's type to |type|. We'll finalize the header's size
-    // in |FinalizeSize()|.
-    GetMutableMessageHeader().type = type;
-  }
+  Message(MessageType type);
 
   Message(const Message&) = delete;
   Message operator=(const Message&) = delete;
-  Message(Message&& other) {
-    payload_buffer_ = std::move(other.payload_buffer_);
-  }
+  Message(Message&& other);
 
   // This method will always start reading at the first byte after the
   // MessageHeader in memory. In order to read or maniupulate the MessageHeader,
@@ -213,46 +248,6 @@ class MessageFragment<ArrayHeader<T>> {
  private:
   Message& message_;
   int starting_index_;
-};
-
-// The pointer helpers below were pulled from Chromium.
-// Pointers are encoded as relative offsets. The offsets are relative to the
-// address of where the offset value is stored, such that the pointer may be
-// recovered with the expression:
-//
-//   ptr = reinterpret_cast<char*>(offset) + *offset
-//
-// A null pointer is encoded as an offset value of 0.
-//
-inline void EncodePointer(const void* ptr, uint64_t* offset) {
-  if (!ptr) {
-    *offset = 0;
-    return;
-  }
-
-  const char* p_obj = reinterpret_cast<const char*>(ptr);
-  const char* p_slot = reinterpret_cast<const char*>(offset);
-  CHECK(p_obj > p_slot);
-
-  *offset = static_cast<uint64_t>(p_obj - p_slot);
-}
-
-// Note: This function doesn't validate the encoded pointer value.
-inline const void* DecodePointer(const uint64_t* offset) {
-  if (!*offset)
-    return nullptr;
-  return reinterpret_cast<const char*>(offset) + *offset;
-}
-
-template <typename T>
-struct Pointer {
-  void Set(T* ptr) { EncodePointer(ptr, &offset); }
-  const T* Get() const { return static_cast<const T*>(DecodePointer(&offset)); }
-  T* Get() {
-    return static_cast<T*>(const_cast<void*>(DecodePointer(&offset)));
-  }
-
-  uint64_t offset = 0;
 };
 
 struct SendInvitationParams {
