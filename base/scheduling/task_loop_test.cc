@@ -217,6 +217,7 @@ INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
                          TaskLoopTest,
                          testing::Values(ThreadType::UI, ThreadType::IO, ThreadType::WORKER));
 #else
+// ThreadType::IO is only supported on macos for now.
 INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
                          TaskLoopTest,
                          testing::Values(ThreadType::UI, ThreadType::WORKER));
