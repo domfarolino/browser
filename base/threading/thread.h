@@ -35,6 +35,7 @@ enum class ThreadType {
 class Thread {
  public:
   Thread(ThreadType type = ThreadType::WORKER);
+  ~Thread();
 
   // This is what the thread uses to actually run.
   class Delegate {

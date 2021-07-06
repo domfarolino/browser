@@ -15,6 +15,11 @@ Thread::Thread(ThreadType type) : type_(type) {
   pthread_attr_init(&attributes_);
 }
 
+Thread::~Thread() {
+  Quit();
+  join();
+}
+
 void Thread::Start() {
   // Give subclasses a chance to override their own |delegate_|.
   if (!delegate_) {
