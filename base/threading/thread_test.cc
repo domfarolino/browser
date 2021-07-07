@@ -100,6 +100,41 @@ TEST_P(ThreadTest, StartJoinStartJoin) {
   EXPECT_TRUE(second_task_ran);
 }
 
+TEST_P(ThreadTest, StopBeforeRestartImmediatelyQuitsDelegate) {
+  // Start and stop the thread normally to get the delegate initialized.
+  thread->Start();
+  thread->Stop();
+
+  thread->Stop();
+  bool task_ran = false;
+  thread->GetTaskRunner()->PostTask([&](){
+    task_ran = true;
+  });
+
+  thread->Start();
+  // Should not timeout because the extra Stop() above will immediately stop
+  // the thread.
+  thread->join();
+  EXPECT_FALSE(task_ran);
+}
+
+TEST_P(ThreadTest, StopBeforeFirstStartWillNeverBeHonored) {
+  std::shared_ptr<TaskLoop> main_task_loop = TaskLoop::Create(ThreadType::WORKER);
+  thread->Stop();
+
+  thread->Start();
+  thread->GetTaskRunner()->PostTask([&](){
+    main_task_loop->Quit();
+  });
+
+  main_task_loop->Run();
+  // This test will only finish (and thus not timeout) if the task we posted
+  // above is called. That task is called because the Stop() before the first
+  // Start() has no effect. If Stop()s before the first Start() immediately
+  // stopped the thread once it was started, then Quit() on the TaskLoop would
+  // never be called and this test would timeout.
+}
+
 // This test ensures that |base::Thread::Stop()| is idempotent; that is, if you
 // call it multiple times and then post a real task, you don't have to call
 // |base::Thread::Start()| as many times just to finally get to the next task.
