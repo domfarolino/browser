@@ -49,7 +49,7 @@ class Thread {
 
   void Start();
   std::shared_ptr<TaskRunner> GetTaskRunner();
-  void Quit();
+  void Stop();
 
   // This method is run for the duration of the physical thread's lifetime. When
   // it exits, the thread is terminated.
@@ -73,6 +73,8 @@ class Thread {
   ThreadType type_;
   pthread_t id_;
   pthread_attr_t attributes_;
+
+  bool started_ = false;
 };
 
 } // namespace base

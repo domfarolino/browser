@@ -16,11 +16,13 @@ Thread::Thread(ThreadType type) : type_(type) {
 }
 
 Thread::~Thread() {
-  Quit();
-  join();
+  Stop();
 }
 
 void Thread::Start() {
+  CHECK(!started_);
+  started_ = true;
+
   // Give subclasses a chance to override their own |delegate_|.
   if (!delegate_) {
     delegate_.reset();
@@ -35,8 +37,15 @@ std::shared_ptr<TaskRunner> Thread::GetTaskRunner() {
   return delegate_->GetTaskRunner();
 }
 
-void Thread::Quit() {
-  delegate_->Quit();
+void Thread::Stop() {
+  // We can't CHECK(started_) here because Stop() should be idempotent.
+  started_ = false;
+
+  // |delegate_| might be null if |Start()| has never been called.
+  if (delegate_)
+    delegate_->Quit();
+
+  join();
 }
 
 // This method is run for the duration of the physical thread's lifetime. When
@@ -54,6 +63,9 @@ void Thread::sleep_for(std::chrono::milliseconds ms) {
 
 void Thread::join() {
   pthread_join(id_, nullptr);
+
+  // TODO(domfarolino): Document this.
+  started_ = false;
 }
 
 // static
