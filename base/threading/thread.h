@@ -48,31 +48,53 @@ class Thread {
   };
 
   void Start();
+  // May return null if the |delegate_| does not provide task runners or has
+  // already quit itself and terminated its backing thread.
   std::shared_ptr<TaskRunner> GetTaskRunner();
-  void Quit();
-
-  // This method is run for the duration of the physical thread's lifetime. When
-  // it exits, the thread is terminated.
-  void ThreadMain();
+  void Stop();
 
   // C++ thread similar methods.
   static void sleep_for(std::chrono::milliseconds ms);
   void join();
 
+  void RegisterDelegateResetCallbackForTesting(Callback cb);
+
  protected:
+  // These methods run on the newly-created thread.
+  // This method is run for the duration of the backing thread's lifetime. When
+  // it exits, the thread is terminated.
   static void* ThreadFunc(void* in);
+  // This method invokes |Delegate::Run()| on the the backing physical thread.
+  void ThreadMain();
 
   // NOTE: Never hand out any std::shared_ptr copies of this member! This is
   // only a std::shared_ptr so that it can produce std::weak_ptrs of itself.
   // The intention is to have |delegate_| be uniquely owned by |this|, but to be
   // able to create many new |TaskRunner| objects that all weakly reference
   // |delegate_|. See the documentation above |TaskRunner| for more information.
+  // This member is access both on the thread owning |this|, and the backing
+  // thread that |this| manages. It is set and reset in the following ways:
+  //   - Start() => creates a new |delegate_|
+  //   - ThreadFunc() => when |delegate_->Run()| finishes, |delegate_| is
+  //     reset/destroyed. This means that |delegate_| is reset after calls to
+  //     Stop()/join().
+  // TODO(domfarolino): Add a mutex to synchronize access to this variable.
   std::shared_ptr<Delegate> delegate_;
 
  private:
   ThreadType type_;
   pthread_t id_;
   pthread_attr_t attributes_;
+
+  // Only ever accessed on the thread owning |this|. NEVER accessed on the
+  // backing thread that |this| manages / represents. This is not always true
+  // when |delegate_| is set and false when |delegate_| is not set. If the
+  // backing thread that we manage terminates itself, |delegate_| will be reset
+  // but |started_via_api_| will be true. It is only reset in |join()|, because
+  // we require a call to Stop()/join() before calling Start() again.
+  bool started_via_api_ = false;
+
+  Callback delegate_reset_callback_for_testing_;
 };
 
 } // namespace base
