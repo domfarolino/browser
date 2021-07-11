@@ -50,13 +50,14 @@ void PrintFullMessageContents(Message& message) {
 
 }; // namespace
 
-Channel::Channel(int fd, Delegate* delegate) : SocketReader(fd), delegate_(delegate) {
+Channel::Channel(int fd, Delegate* delegate) : SocketReader(fd),
+                                               delegate_(delegate) {
   CHECK_ON_THREAD(base::ThreadType::IO);
 }
 
 void Channel::Start() {
   CHECK_ON_THREAD(base::ThreadType::IO);
-  auto io_task_loop =
+  std::shared_ptr<base::TaskLoopForIO> io_task_loop =
     std::static_pointer_cast<base::TaskLoopForIO>(base::GetIOThreadTaskLoop());
   CHECK(io_task_loop);
   io_task_loop->WatchSocket(this);

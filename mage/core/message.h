@@ -10,51 +10,7 @@
 
 namespace mage {
 
-namespace {
-
-// The pointer helpers below were pulled from Chromium.
-// Pointers are encoded as relative offsets. The offsets are relative to the
-// address of where the offset value is stored, such that the pointer may be
-// recovered with the expression:
-//
-//   ptr = reinterpret_cast<char*>(offset) + *offset
-//
-// A null pointer is encoded as an offset value of 0.
-//
-inline void EncodePointer(const void* ptr, uint64_t* offset) {
-  if (!ptr) {
-    *offset = 0;
-    return;
-  }
-
-  const char* p_obj = reinterpret_cast<const char*>(ptr);
-  const char* p_slot = reinterpret_cast<const char*>(offset);
-  CHECK(p_obj > p_slot);
-
-  *offset = static_cast<uint64_t>(p_obj - p_slot);
-}
-
-// Note: This function doesn't validate the encoded pointer value.
-inline const void* DecodePointer(const uint64_t* offset) {
-  if (!*offset)
-    return nullptr;
-  return reinterpret_cast<const char*>(offset) + *offset;
-}
-
-template <typename T>
-struct Pointer {
-  void Set(T* ptr) { EncodePointer(ptr, &offset); }
-  const T* Get() const { return static_cast<const T*>(DecodePointer(&offset)); }
-  T* Get() {
-    return static_cast<T*>(const_cast<void*>(DecodePointer(&offset)));
-  }
-
-  uint64_t offset = 0;
-};
-
 static const int kInvalidFragmentStartingIndex = -1;
-
-}; // namespace
 
 enum MessageType : int {
   // This sends the maiden message to a new peer node along with a bootstrap
@@ -250,14 +206,119 @@ class MessageFragment<ArrayHeader<T>> {
   int starting_index_;
 };
 
+// CS101 Lesson: Traditionally, a pointer is a stack-allocated variable (and
+// therefore its size is statically known) that simply holds the address of
+// often (but not always) a heap-allocated variable. It can hold the *actual*
+// physical address of the value it points to because that address is stable --
+// it will not change on its own.
+//
+// When it comes to message serialization and deserialization, a given message
+// will hold both static- and variable-sized values, and therefore it is
+// convenient to represent the message parameters as a struct of members, each
+// of which represents a message parameter either fixed-size of dynamic-size.
+// This requires the members that represent dynamic-sized to basically be
+// pointers, pointing to some arbitrary location in the message payload buffer
+// where the actual value of the message parameter can be found. We can't use
+// traditional pointers that store the address of a variable though because the
+// contents of the message buffer is copied across process, so message parameter
+// *addresses* will not remain stable.
+//
+// To get around this, we use a different pointer-like mechanism. Structs are
+// used to represent a bag of message parameters, and members of these structs
+// that themselves represent an "array-like" parameter (string, array, etc) are
+// of type `Pointer`, which is just another struct that holds an `offset`
+// integer instead of an actual address. The value of `offset` represents the
+// number of bytes in front of the address of `offset` that the actual value of
+// the parameter is stored in. For example, imagine a message with the following
+// parameters:
+//   - string str
+//   - int a
+//   - int b
+// The struct that would be generate for this message would look like:
+//
+// struct MESSAGE_PARAMS {
+//   mage::Pointer<ArrayHeader<char>> str;
+//   mage::Pointer<ArrayHeader<char>> str_2;
+//   int a;
+// };
+//
+// In memory, the struct would look like so (assuming 4-byte integers just for
+// drawing simplicity):
+// +------------+
+// |str_offset1 |\
+// +------------+ \
+// |str_offset2 |  |
+// +------------+  | 4 bytes to store `str`'s offset
+// |str_offset3 |  |
+// +------------+ /
+// |str_offset4 |/
+// +------------+
+// |str2_offset1|\
+// +------------+ \
+// |str2_offset2|  |
+// +------------+  | 4 bytes to store value of `str_2`'s offset
+// |str2_offset3|  |
+// +------------+ /
+// |str2_offset4|/
+// +------------+
+// |     a1     |\
+// +------------+ \
+// |     a2     |  |
+// +------------+  | 4 bytes to store value of `a`
+// |     a3     |  |
+// +------------+ /
+// |     a4     |/
+// +------------+
+//
+// When the serialization code attempts to encode the contents of `str`, it will:
+//   1. Expand the dynamically-sized backing payload buffer by the number of
+//      characters needed to support the actual value of `str`.
+//   2. Grab the address of the first available slot at the end of the payload
+//      buffer
+//   3. Find the *difference* (an integer) between the addresses of the following:
+//        a. The first available slot at the end of the buffer
+//        b. Where `str`'s `offset` variable is stored (i.e., `str_offset1`)
+//   4. Set the value of `str`'s `offset` variable to the integer difference
+//      computed in (3).
+// This way, we avoid encoding the actual addresses of anything in the pointer
+// variables, but instead just encode the *relative* offset between variables,
+// which will remain stable across processes as long as the message buffer is
+// correctly copied.
+//
+// When it comes time to encode `str_2` we do the exact same thing. Note that we
+// don't need to know how long `str` is or where it ends, we simply grab the
+// first available slot on the end of the backing payload buffer after expanding
+// it enough to fit the actual runtime contents of `str_2` and so on.
+template <typename T>
+struct Pointer {
+  void Set(T* ptr);
+  const T* Get();
+  T* Get();
+
+  uint64_t offset = 0;
+};
+
 struct SendInvitationParams {
   char inviter_name[15];
+  // This is the remote node name that the inviter has generated for the target
+  // recipient. The target recipient is responsible for generating its own node
+  // name though. We tell the target what we've temporarily named it (via this
+  // parameter) and then in the invitation acceptance message, it sends its
+  // actual name back to us. In order to understand why we even tell the target
+  // its temporary name at all, see the comments below in
+  // `SendAcceptInvitationParams`.
   char temporary_remote_node_name[15];
   char intended_endpoint_name[15];
   char intended_endpoint_peer_name[15];
 };
 
 struct SendAcceptInvitationParams {
+  // We have to tell the inviter what our *real* name is. However, the inviter
+  // may have sent invitations to multiple nodes, so it might not know which one
+  // is responding it we just send our *actual* name which it has never seen
+  // before. Therefore we identify ourself with the temporary node name that we
+  // know the inviter is aware of. It will take our actual node name and update
+  // its map of nodes.
   char temporary_remote_node_name[15];
   char actual_node_name[15];
 };

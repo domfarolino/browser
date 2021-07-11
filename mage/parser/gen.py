@@ -104,10 +104,12 @@ static const int {{Interface}}_{{Method.name}}_ID = {{loop.index0}};
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// The class that user implementations of the interface will implement.
+// This is the abstract class that user implementations of the interface will
+// implement.
 class {{Interface}} {
  public:
   virtual ~{{Interface}}() = default;
+
   // This is so that mage::Remotes can reference the proxy class.
   using Proxy = {{Interface}}Proxy;
   using ReceiverStub = {{Interface}}ReceiverStub;
@@ -138,7 +140,8 @@ class {{Interface}}_{{Method.name}}_Params {
 {%- endfor %}
 ////////////////////////////////////////////////////////////////////////////////
 
-// Instances of this class are what the mage::Remote<T> calls into to serialize and send messages.
+// Instances of this class are what mage::Remote<magen::{{Interface}}> objects
+// send their messages to. Message serialization is handled by this class.
 class {{Interface}}Proxy {
  public:
   void BindToHandle(mage::MageHandle local_handle) {
@@ -147,6 +150,7 @@ class {{Interface}}Proxy {
     local_handle_ = local_handle;
   }
 
+  // TODO(domfarolino): Can we just make this `= default;`?
   {{Interface}}Proxy() {}
 
   {%- for Method in Methods %}
