@@ -26,6 +26,7 @@ cc_library(
     "synchronization/mutex.h",
     "synchronization/synchronization_helpers.h",
     "threading/thread.h",
+    "threading/thread_checker.h",
     "threading/simple_thread.h",
   ] +
   select({
@@ -37,6 +38,7 @@ cc_library(
     "scheduling/task_loop.cc",
     "scheduling/task_loop_for_worker.cc",
     "threading/thread.cc",
+    "threading/thread_checker.cc",
   ] +
   select({
     ":mac": ["scheduling/task_loop_for_io_mac.cc"],
@@ -53,6 +55,7 @@ cc_test(
     "build_config_test.cc",
     "scheduling/task_loop_test.cc",
     "threading/simple_thread_test.cc",
+    "threading/thread_checker_test.cc",
     "threading/thread_test.cc",
   ] +
   select({
