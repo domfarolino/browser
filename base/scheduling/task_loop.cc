@@ -17,12 +17,12 @@ void TaskLoop::BindToCurrentThread(ThreadType type) {
   // Depending on |type|, create a process-global pointer to |this|.
   switch (type) {
     case ThreadType::UI:
-      CHECK(!GetUIThreadTaskLoop() || GetUIThreadTaskLoop().get() == this);
+      CHECK(!GetUIThreadTaskLoop());
       SetUIThreadTaskLoop(GetWeakPtr());
       CHECK(GetUIThreadTaskLoop());
       break;
     case ThreadType::IO:
-      CHECK(!GetIOThreadTaskLoop() || GetIOThreadTaskLoop().get() == this);
+      CHECK(!GetIOThreadTaskLoop());
       SetIOThreadTaskLoop(GetWeakPtr());
       CHECK(GetIOThreadTaskLoop());
       break;
