@@ -14,7 +14,7 @@ class ThreadTest : public testing::Test,
  public:
   ThreadTest() = default;
 
-  // Provides meaningful param names instead of /0 and /1.
+  // Provides meaningful param names instead of /0 and /1 etc.
   static std::string DescribeParams(
       const ::testing::TestParamInfo<ParamType>& info) {
     switch (info.param) {
@@ -78,6 +78,48 @@ TEST_P(ThreadTest, StartStopStartStop) {
   thread->Stop();
 }
 
+///////////////// GetTaskRunner() Tests /////////////////
+TEST_P(ThreadTest, GetTaskRunnerBeforeStart) {
+  EXPECT_FALSE(thread->GetTaskRunner());
+  ASSERT_DEATH({ thread->GetTaskRunner()->PostTask([](){}); }, "");
+}
+
+TEST_P(ThreadTest, GetTaskRunnerAfterThreadTerminates) {
+  std::shared_ptr<TaskLoop> delegate_reset_waiter =
+    TaskLoop::Create(ThreadType::WORKER);
+  thread->RegisterDelegateResetCallbackForTesting(
+    delegate_reset_waiter->QuitClosure());
+
+  thread->Start();
+  thread->GetTaskRunner()->PostTask([](){
+    base::GetCurrentThreadTaskLoop()->Quit();
+  });
+
+  // We'll run / "wait" until we get confirmation that the delegate has been
+  // reset.
+  delegate_reset_waiter->Run();
+
+  // At this point we know that the thread's delegate has been "quit" and the
+  // underlying thread has been entirely terminated. Delegate should be reset
+  // and therefore unable to produce task runners.
+  EXPECT_FALSE(thread->GetTaskRunner());
+}
+
+//////////////// END GetTaskRunner() Tests /////////////////
+
+TEST_P(ThreadTest, StartAfterThreadTerminatesButBeforeJoinOrStop) {
+  thread->Start();
+  thread->GetTaskRunner()->PostTask([](){
+    base::GetCurrentThreadTaskLoop()->Quit();
+  });
+
+  base::Thread::sleep_for(std::chrono::milliseconds(300));
+  // At this point we know that the thread's delegate has been "quit" and the
+  // underlying thread has been entirely terminated.
+
+  ASSERT_DEATH({ thread->Start(); }, "!started_");
+}
+
 TEST_P(ThreadTest, StartJoinStartJoin) {
   thread->Start();
 
@@ -100,39 +142,20 @@ TEST_P(ThreadTest, StartJoinStartJoin) {
   EXPECT_TRUE(second_task_ran);
 }
 
-TEST_P(ThreadTest, StopBeforeRestartImmediatelyQuitsDelegate) {
-  // Start and stop the thread normally to get the delegate initialized.
-  thread->Start();
+TEST_P(ThreadTest, StopBeforeFirstStartHasNoEffect) {
   thread->Stop();
 
-  thread->Stop();
-  bool task_ran = false;
+  thread->Start();
   thread->GetTaskRunner()->PostTask([&](){
-    task_ran = true;
+    base::GetCurrentThreadTaskLoop()->Quit();
   });
 
-  thread->Start();
-  // Should not timeout because the extra Stop() above will immediately stop
-  // the thread.
   thread->join();
-  EXPECT_FALSE(task_ran);
-}
-
-TEST_P(ThreadTest, StopBeforeFirstStartWillNeverBeHonored) {
-  std::shared_ptr<TaskLoop> main_task_loop = TaskLoop::Create(ThreadType::WORKER);
-  thread->Stop();
-
-  thread->Start();
-  thread->GetTaskRunner()->PostTask([&](){
-    main_task_loop->Quit();
-  });
-
-  main_task_loop->Run();
   // This test will only finish (and thus not timeout) if the task we posted
   // above is called. That task is called because the Stop() before the first
   // Start() has no effect. If Stop()s before the first Start() immediately
-  // stopped the thread once it was started, then Quit() on the TaskLoop would
-  // never be called and this test would timeout.
+  // stopped the thread once it was started, then our task would never run, the
+  // thread would never stop, join() would hang, and this test would timeout.
 }
 
 // This test ensures that |base::Thread::Stop()| is idempotent; that is, if you
@@ -149,23 +172,13 @@ TEST_P(ThreadTest, StopIsIdempotent) {
   thread->Stop();
   thread->Stop();
 
+  thread->Start();
   bool task_ran = false;
   thread->GetTaskRunner()->PostTask([&](){
     task_ran = true;
     base::GetCurrentThreadTaskLoop()->Quit();
   });
 
-  // Start the thread. Its underlying TaskLoop should immediately quit because
-  // it has had its Quit() method invoked.
-  thread->Start();
-  thread->join();
-  EXPECT_FALSE(task_ran);
-
-  // Start the thread again. Its underlying TaskLoop should run the queued task
-  // now that its Quit() method has not been invoked since the last time. We
-  // observe the effects of the task running by checking the |task_ran|
-  // variable.
-  thread->Start();
   thread->join();
   EXPECT_TRUE(task_ran);
 }
