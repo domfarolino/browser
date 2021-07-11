@@ -45,7 +45,8 @@ std::shared_ptr<TaskRunner> Thread::GetTaskRunner() {
 void Thread::Stop() {
   // We can't CHECK(started_via_api_) here because Stop() should be idempotent.
   // If |started_via_api_| is false then we don't want to do anything here
-  // because that means we've already called Stop() or join(), in which case:
+  // because that means we've already called Stop() or join() (or we've never
+  // called Start()), in which case:
   //   - |delegate_| has already been reset, so there is nothing to Quit()
   //   - The backing thread has already been terminated, so there is nothing to join
   if (!started_via_api_) {

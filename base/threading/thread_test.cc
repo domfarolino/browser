@@ -27,12 +27,12 @@ class ThreadTest : public testing::Test,
     }
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     CHECK(!thread);
     thread = std::unique_ptr<Thread>(new Thread(GetParam()));
   }
 
-  virtual void TearDown() override {
+  void TearDown() override {
     thread.reset();
   }
 
@@ -78,13 +78,12 @@ TEST_P(ThreadTest, StartStopStartStop) {
   thread->Stop();
 }
 
-///////////////// GetTaskRunner() Tests /////////////////
 TEST_P(ThreadTest, GetTaskRunnerBeforeStart) {
   EXPECT_FALSE(thread->GetTaskRunner());
   ASSERT_DEATH({ thread->GetTaskRunner()->PostTask([](){}); }, "");
 }
 
-TEST_P(ThreadTest, GetTaskRunnerAfterThreadTerminates) {
+TEST_P(ThreadTest, StartAfterThreadTerminatesButBeforeJoinOrStop) {
   std::shared_ptr<TaskLoop> delegate_reset_waiter =
     TaskLoop::Create(ThreadType::WORKER);
   thread->RegisterDelegateResetCallbackForTesting(
@@ -103,20 +102,9 @@ TEST_P(ThreadTest, GetTaskRunnerAfterThreadTerminates) {
   // underlying thread has been entirely terminated. Delegate should be reset
   // and therefore unable to produce task runners.
   EXPECT_FALSE(thread->GetTaskRunner());
-}
 
-//////////////// END GetTaskRunner() Tests /////////////////
-
-TEST_P(ThreadTest, StartAfterThreadTerminatesButBeforeJoinOrStop) {
-  thread->Start();
-  thread->GetTaskRunner()->PostTask([](){
-    base::GetCurrentThreadTaskLoop()->Quit();
-  });
-
-  base::Thread::sleep_for(std::chrono::milliseconds(300));
-  // At this point we know that the thread's delegate has been "quit" and the
-  // underlying thread has been entirely terminated.
-
+  // Calling |Start()| should fail because neither |Stop()| nor |join()| have
+  // been called yet.
   ASSERT_DEATH({ thread->Start(); }, "!started_");
 }
 

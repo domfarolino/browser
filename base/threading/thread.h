@@ -61,10 +61,10 @@ class Thread {
 
  protected:
   // These methods run on the newly-created thread.
-  // This method is run for the duration of the underlying thread's lifetime.
-  // When it exits, the thread is terminated.
+  // This method is run for the duration of the backing thread's lifetime. When
+  // it exits, the thread is terminated.
   static void* ThreadFunc(void* in);
-  // This method invokes |Delegate::Run()|.
+  // This method invokes |Delegate::Run()| on the the backing physical thread.
   void ThreadMain();
 
   // NOTE: Never hand out any std::shared_ptr copies of this member! This is
@@ -78,6 +78,7 @@ class Thread {
   //   - ThreadFunc() => when |delegate_->Run()| finishes, |delegate_| is
   //     reset/destroyed. This means that |delegate_| is reset after calls to
   //     Stop()/join().
+  // TODO(domfarolino): Add a mutex to synchronize access to this variable.
   std::shared_ptr<Delegate> delegate_;
 
  private:
