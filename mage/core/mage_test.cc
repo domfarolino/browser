@@ -129,7 +129,7 @@ class MageTest : public testing::Test {
   void TearDown() override {
     main_thread.reset();
     io_thread.Stop();
-    // TODO(domfarolino): Maybe we should have a way to shutdown mage cleanly.
+    // TODO(domfarolino): Do we need to have a way to shutdown mage cleanly?
   }
 
  protected:
