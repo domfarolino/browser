@@ -155,8 +155,6 @@ void TaskLoopForIOMac::UnwatchSocket(SocketReader* socket_reader) {
   // kernel.
   int rv = kevent64(kqueue_, events.data(), events.size(), nullptr, 0, 0,
                     nullptr);
-  if (rv < 0)
-    printf("rv: %d, errno %d\n", rv, errno);
   CHECK_GE(rv, 0);
 
   mutex_.lock();
