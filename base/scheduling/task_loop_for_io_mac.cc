@@ -27,6 +27,10 @@ TaskLoopForIOMac::TaskLoopForIOMac() : kqueue_(kqueue()) {
   CHECK_EQ(kr, KERN_SUCCESS);
 }
 
+TaskLoopForIOMac::~TaskLoopForIOMac() {
+  CHECK(async_socket_readers_.empty());
+}
+
 void TaskLoopForIOMac::Run() {
   while (true) {
     // The last task that ran may have introduced a new |SocketReader| that
@@ -128,8 +132,35 @@ void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {
   CHECK_GE(rv, 0);
 
   mutex_.lock();
+  // A socket reader can only be registered once.
+  CHECK_EQ(async_socket_readers_.find(fd), async_socket_readers_.end());
   async_socket_readers_[fd] = socket_reader;
   event_count_++;
+  mutex_.unlock();
+}
+
+void TaskLoopForIOMac::UnwatchSocket(SocketReader* socket_reader) {
+  CHECK(socket_reader);
+  int fd = socket_reader->Socket();
+  std::vector<kevent64_s> events;
+
+  kevent64_s new_event{};
+  new_event.ident = fd;
+  new_event.flags = EV_DELETE;
+  new_event.filter = EVFILT_READ;
+  events.push_back(new_event);
+
+  // Invoke kevent64 not to listen to events, but to supply a changelist of
+  // event filters that we're interested in being notified about from the
+  // kernel.
+  int rv = kevent64(kqueue_, events.data(), events.size(), nullptr, 0, 0,
+                    nullptr);
+  CHECK_GE(rv, 0);
+
+  mutex_.lock();
+  CHECK(!async_socket_readers_.empty());
+  async_socket_readers_.erase(fd);
+  event_count_--;
   mutex_.unlock();
 }
 

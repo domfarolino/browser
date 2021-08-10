@@ -75,12 +75,15 @@ class TaskLoopForIOTestBase : public testing::Test {
 
 class TestSocketReader : public base::TaskLoopForIO::SocketReader {
  public:
-  using MessageCallback = std::function<void(std::string)>;
-  TestSocketReader(int fd) :
-    base::TaskLoopForIO::SocketReader::SocketReader(fd) {}
-
-  void SetCallback(MessageCallback callback) {
-    callback_ = std::move(callback);
+  TestSocketReader(int fd, TaskLoopForIOTestBase& callback_object) :
+    base::TaskLoopForIO::SocketReader::SocketReader(fd),
+    callback_object_(callback_object) {
+    std::static_pointer_cast<base::TaskLoopForIO>(
+      base::GetIOThreadTaskLoop())->WatchSocket(this);
+  }
+  ~TestSocketReader() {
+    std::static_pointer_cast<base::TaskLoopForIO>(
+      base::GetIOThreadTaskLoop())->UnwatchSocket(this);
   }
 
   void OnCanReadFromSocket() override {
@@ -95,11 +98,11 @@ class TestSocketReader : public base::TaskLoopForIO::SocketReader {
 
     recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
     std::string message(buffer, buffer + kMessageLength);
-    callback_(message);
+    callback_object_.OnMessageRead(message);
   }
 
  private:
-  MessageCallback callback_;
+  TaskLoopForIOTestBase& callback_object_;
 };
 
 // This should be used directly when you want to write a message from another
@@ -121,12 +124,7 @@ void WriteMessages(int fd, std::vector<std::string> messages) {
 TEST_F(TaskLoopForIOTestBase, BasicSocketReading) {
   SetExpectedMessageCount(1);
 
-  TestSocketReader* socket_reader = new TestSocketReader(fds[0]);
-  TestSocketReader::MessageCallback callback =
-    std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
-              std::placeholders::_1);
-  socket_reader->SetCallback(std::move(callback));
-  task_loop_for_io->WatchSocket(socket_reader);
+  std::unique_ptr<TestSocketReader> reader(new TestSocketReader(fds[0], *this));
 
   std::vector<std::string> messages_to_write = {kFirstMessage};
   base::SimpleThread simple_thread(WriteMessages, fds[1], messages_to_write);
@@ -150,13 +148,7 @@ TEST_F(TaskLoopForIOTestBase, WriteToSocketBeforeListening) {
   // written, the test will continue.
   task_loop_for_io->Run();
 
-  TestSocketReader* socket_reader = new TestSocketReader(fds[0]);
-  TestSocketReader::MessageCallback callback =
-    std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
-              std::placeholders::_1);
-  socket_reader->SetCallback(std::move(callback));
-  task_loop_for_io->WatchSocket(socket_reader);
-
+  std::unique_ptr<TestSocketReader> reader(new TestSocketReader(fds[0], *this));
   task_loop_for_io->Run();
   EXPECT_EQ(messages_read.size(), 1);
   EXPECT_EQ(messages_read[0], kFirstMessage);
@@ -165,7 +157,7 @@ TEST_F(TaskLoopForIOTestBase, WriteToSocketBeforeListening) {
 TEST_F(TaskLoopForIOTestBase, QueueingMessagesOnMultipleSockets) {
   SetExpectedMessageCount(4);
 
-  // Set up the second SocketReader, but do not register it.
+  // Set up the file descriptors but do not register socket readers yet.
   int moreFds[2];
   EXPECT_EQ(socketpair(AF_UNIX, SOCK_STREAM, 0, moreFds), 0);
   EXPECT_EQ(fcntl(moreFds[0], F_SETFL, O_NONBLOCK), 0);
@@ -186,18 +178,15 @@ TEST_F(TaskLoopForIOTestBase, QueueingMessagesOnMultipleSockets) {
   EXPECT_EQ(messages_read.size(), 0);
 
   // Create and register SocketReaders to listen to the above messages.
-  TestSocketReader* reader_1 = new TestSocketReader(fds[0]);
-  TestSocketReader* reader_2 = new TestSocketReader(moreFds[0]);
-  TestSocketReader::MessageCallback callback =
-    std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
-              std::placeholders::_1);
-  reader_1->SetCallback(std::move(callback));
-  reader_2->SetCallback(std::move(callback));
-  task_loop_for_io->WatchSocket(reader_1);
-  task_loop_for_io->WatchSocket(reader_2);
+  std::unique_ptr<TestSocketReader> reader_1(new TestSocketReader(fds[0], *this));
+  std::unique_ptr<TestSocketReader> reader_2(new TestSocketReader(moreFds[0], *this));
 
   task_loop_for_io->Run(); // Process the queued messages.
   EXPECT_EQ(messages_read.size(), 4);
+
+  // Close out reader while its file descriptor is still valid.
+  reader_2.reset();
+
   // The ordering looks funky here because our task loop services each file
   // descriptor evenly, instead of starving one of them by reading all of the
   // other's events.
@@ -214,12 +203,7 @@ TEST_F(TaskLoopForIOTestBase, InterleaveTaskAndMessages) {
   int num_tasks = 0;
 
   // Set up the SocketReader.
-  TestSocketReader* reader_1 = new TestSocketReader(fds[0]);
-  TestSocketReader::MessageCallback callback =
-    std::bind(&TaskLoopForIOTestBase::OnMessageRead, this,
-              std::placeholders::_1);
-  reader_1->SetCallback(std::move(callback));
-  task_loop_for_io->WatchSocket(reader_1);
+  std::unique_ptr<TestSocketReader> reader(new TestSocketReader(fds[0], *this));
 
   // Write the first message & post the first task.
   WriteMessages(fds[1], {kFirstMessage});

@@ -37,7 +37,7 @@ class TaskLoopForIOMac : public TaskLoop {
   };
 
   TaskLoopForIOMac();
-  ~TaskLoopForIOMac() = default;
+  ~TaskLoopForIOMac();
 
   TaskLoopForIOMac(TaskLoopForIOMac&) = delete;
   TaskLoopForIOMac(TaskLoopForIOMac&&) = delete;
@@ -56,6 +56,8 @@ class TaskLoopForIOMac : public TaskLoop {
 
   // Can be called from any thread.
   void WatchSocket(SocketReader* reader);
+  void UnwatchSocket(SocketReader* reader);
+
   // Can be called from any thread (it is *implicitly* thread-safe).
   void MachWakeup();
  private:
