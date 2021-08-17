@@ -48,27 +48,68 @@ void PrintFullMessageContents(Message& message) {
   printf("+-------- End Message --------+\n");
 }
 
+bool IsOnIOThread() {
+  return base::GetCurrentThreadTaskLoop() == base::GetIOThreadTaskLoop();
+}
+
 }; // namespace
 
-Channel::Channel(int fd, Delegate* delegate) : SocketReader(fd),
-                                               delegate_(delegate) {
+Channel::Channel(int fd, Delegate* delegate) :
+    SocketReader(fd),
+    delegate_(delegate),
+    io_task_loop_(*std::static_pointer_cast<base::TaskLoopForIO>(
+      base::GetIOThreadTaskLoop())) {
+  // Don't do anything here as we may not be on the IO thread.
+  // CHECK_ON_THREAD(base::ThreadType::IO);
+}
+
+Channel::~Channel() {
   CHECK_ON_THREAD(base::ThreadType::IO);
+  // io_task_loop_.UnwatchSocket(this);
+}
+
+void Channel::DestroyOnIOThread() {
+  if (!IsOnIOThread()) {
+    io_task_loop_.GetTaskRunner()->PostTask(
+      std::bind(&Channel::DestroyOnIOThread, this));
+    return;
+  }
+
+  delete this;
 }
 
 void Channel::Start() {
+  if (!IsOnIOThread()) {
+    io_task_loop_.GetTaskRunner()->PostTask(
+      std::bind(&Channel::Start, this));
+    return;
+  }
+
   CHECK_ON_THREAD(base::ThreadType::IO);
-  std::shared_ptr<base::TaskLoopForIO> io_task_loop =
-    std::static_pointer_cast<base::TaskLoopForIO>(base::GetIOThreadTaskLoop());
-  CHECK(io_task_loop);
-  io_task_loop->WatchSocket(this);
+  io_task_loop_.WatchSocket(this);
 }
 
 void Channel::SetRemoteNodeName(const std::string& name) {
+  if (!IsOnIOThread()) {
+    io_task_loop_.GetTaskRunner()->PostTask(
+      std::bind(&Channel::SetRemoteNodeName, this, name));
+    return;
+  }
+
   CHECK_ON_THREAD(base::ThreadType::IO);
   remote_node_name_ = name;
 }
 
-void Channel::SendInvitation(std::string inviter_name, std::string intended_endpoint_name, std::string intended_endpoint_peer_name) {
+void Channel::SendInvitation(std::string inviter_name,
+                             std::string intended_endpoint_name,
+                             std::string intended_endpoint_peer_name) {
+  if (!IsOnIOThread()) {
+    io_task_loop_.GetTaskRunner()->PostTask(
+      std::bind(&Channel::SendInvitation, this, inviter_name,
+                intended_endpoint_name, intended_endpoint_peer_name));
+    return;
+  }
+
   CHECK_ON_THREAD(base::ThreadType::IO);
   Message message(MessageType::SEND_INVITATION);
   MessageFragment<SendInvitationParams> params(message);

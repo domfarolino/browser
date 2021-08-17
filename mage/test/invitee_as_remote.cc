@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 
+#include "base/check.h"
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop_for_io.h"
 #include "mage/bindings/remote.h"
@@ -27,6 +28,7 @@ int main(int argc, char** argv) {
   auto task_loop = base::TaskLoop::Create(base::ThreadType::IO);
   mage::Core::Init();
 
+  CHECK_EQ(argc, 2);
   int fd = std::stoi(argv[1]);
   mage::Core::AcceptInvitation(fd, &OnInvitationAccepted);
 

@@ -9,12 +9,18 @@
 
 namespace mage {
 
-Core* g_core;
+Core* g_core = nullptr;
 
 void Core::Init() {
   srand(getpid());
 
+  CHECK(!g_core);
   g_core = new Core();
+}
+
+void Core::ShutdownCleanly() {
+  delete g_core;
+  g_core = nullptr;
 }
 
 Core* Core::Get() {

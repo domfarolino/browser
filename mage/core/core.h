@@ -16,9 +16,9 @@ namespace mage {
 // A global singleton for processes that initializes mage.
 class Core {
  public:
-  ~Core() = default;
-
   static void Init();
+  static void ShutdownCleanly();
+
   // Always returns the global |Core| object for the current process.
   static Core* Get();
 

@@ -10,6 +10,8 @@ namespace mage {
 
 class Message;
 
+// The underlying implementation of cross-node (typically cross-process)
+// communication via socket primitives. Always runs on the IO thread.
 class Channel : public base::TaskLoopForIO::SocketReader {
  public:
   class Delegate {
@@ -19,13 +21,14 @@ class Channel : public base::TaskLoopForIO::SocketReader {
   };
 
   Channel(int fd, Delegate* delegate);
-  virtual ~Channel() = default;
+  virtual ~Channel();
+  void DestroyOnIOThread();
 
   void Start();
   void SetRemoteNodeName(const std::string& name);
   void SendInvitation(std::string inviter_name,
                       std::string intended_endpoint_name,
-                      std::string intended_endpint_peer_nae);
+                      std::string intended_endpoint_peer_name);
   void SendAcceptInvitation(std::string temporary_remote_node_name,
                             std::string actual_node_name);
   void SendMessage(Message message);
@@ -40,6 +43,15 @@ class Channel : public base::TaskLoopForIO::SocketReader {
 
   // The |Delegate| owns |this|, so this pointer will never be null.
   Delegate* delegate_;
+
+  // Reference because |this| will always have a shorter lifetime than the task
+  // loop. This is enforced by the fact that we register ourselves as a
+  // SocketReader upon construction and unregister ourselves upon destruction,
+  // and if the loop destructs with lingering socket readers, it will CHECK. We
+  // could make this more explicit by introducing a task loop destruction
+  // observer mechanism for us to listen to and clean up in response to, but for
+  // now this works.
+  base::TaskLoopForIO& io_task_loop_;
 };
 
 }; // namespace mage

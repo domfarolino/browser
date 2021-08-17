@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include <string>
+#include <memory>
 
 #include "base/callback.h"
 #include "base/scheduling/task_loop_for_io.h"
@@ -17,7 +18,7 @@ namespace mage {
 
 namespace {
 
-// A cconcrete implementation of a mage test-only interface. This hooks in with
+// A concrete implementation of a mage test-only interface. This hooks in with
 // the test fixture by invoking callbacks.
 class TestInterfaceImpl : public magen::TestInterface {
  public:
@@ -25,18 +26,32 @@ class TestInterfaceImpl : public magen::TestInterface {
     receiver_.Bind(message_pipe, this);
   }
 
+  void PRINT_THREAD() {
+    if (base::GetIOThreadTaskLoop() == base::GetCurrentThreadTaskLoop()) {
+      printf("THREADTYPE::IO\n");
+    } else if (base::GetUIThreadTaskLoop() == base::GetCurrentThreadTaskLoop()) {
+      printf("THREADTYPE::UI\n");
+    }
+  }
+
   void Method1(int in_int, double in_double, std::string in_string) {
+    PRINT_THREAD();
     printf("TestInterfaceImpl::Method1\n");
+
     received_int = in_int;
     received_double = in_double;
     received_string = in_string;
+    printf("[FROMIO]: Quit()\n");
     quit_closure_();
   }
 
   void SendMoney(int in_amount, std::string in_currency) {
+    PRINT_THREAD();
     printf("TestInterfaceImpl::SendMoney\n");
+
     received_amount = in_amount;
     received_currency = in_currency;
+    printf("[FROMIO]: Quit()\n");
     quit_closure_();
   }
 
@@ -52,6 +67,7 @@ class TestInterfaceImpl : public magen::TestInterface {
  private:
   mage::Receiver<magen::TestInterface> receiver_;
 
+  // Can be called any number of times.
   base::Callback quit_closure_;
 };
 
@@ -62,13 +78,13 @@ enum class MageTestProcessType {
   kNone,
 };
 
-static const char kInviteeAsRemotePath[] = "./mage/test/invitee_as_remote";
+static const char kInviteeAsRemotePath[] = "./bazel-bin/mage/test/invitee_as_remote";
 static const char kInviterAsRemotePath[] = "./mage/test/inviter_as_remote";
 static const char kInviterAsRemoteBlockOnAcceptancePath[] = "./mage/test/inviter_as_remote_block_on_acceptance";
 
 class ProcessLauncher {
  public:
-  ProcessLauncher(MageTestProcessType type) : type_(type) {
+  ProcessLauncher() : type_(MageTestProcessType::kNone) {
     EXPECT_EQ(socketpair(AF_UNIX, SOCK_STREAM, 0, fds_), 0);
     EXPECT_EQ(fcntl(fds_[0], F_SETFL, O_NONBLOCK), 0);
     EXPECT_EQ(fcntl(fds_[1], F_SETFL, O_NONBLOCK), 0);
@@ -79,7 +95,9 @@ class ProcessLauncher {
     // Can we kill the child process too?
   }
 
-  void Start() {
+  void Launch(MageTestProcessType type) {
+    type_ = type;
+
     std::string fd_as_string = std::to_string(GetRemoteFd());
     pid_t rv = fork();
     if (rv == 0) { // Child.
@@ -87,6 +105,12 @@ class ProcessLauncher {
         case MageTestProcessType::kInviteeAsRemote:
           rv = execl(kInviteeAsRemotePath, "--mage-socket=", fd_as_string.c_str());
           EXPECT_EQ(rv, 0);
+          printf("errono: %d\n", errno);
+
+          char cwd[1024];
+          getcwd(cwd, sizeof(cwd));
+          printf("getcwd(): %s\n", cwd);
+
           break;
         case MageTestProcessType::kInviterAsRemote:
           rv = execl(kInviterAsRemotePath, "--mage-socket=", fd_as_string.c_str());
@@ -118,18 +142,30 @@ class ProcessLauncher {
 
 class MageTest : public testing::Test {
  public:
+  MageTest(): io_thread(base::ThreadType::IO) {}
+
   void SetUp() override {
+    launcher = std::unique_ptr<ProcessLauncher>(new ProcessLauncher());
     main_thread = base::TaskLoop::Create(base::ThreadType::UI);
     io_thread.Start();
+    io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
+    main_thread->Run();
 
     mage::Core::Init();
-    ASSERT_TRUE(mage::Core::Get());
+    EXPECT_TRUE(mage::Core::Get());
   }
 
   void TearDown() override {
-    main_thread.reset();
+    mage::Core::ShutdownCleanly();
+    // TODO(domfarolino): We should consider introducing
+    // {TaskLoop,Thread}::{Quit,Stop}WhenIdle(), so we don't have to use this
+    // manual post-task-and-wait technique to verify that the IO thread is
+    // "finished".
+    io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
+    main_thread->Run(); // Waits for tasks to drain on the IO thread.
     io_thread.Stop();
-    // TODO(domfarolino): Do we need to have a way to shutdown mage cleanly?
+    main_thread.reset();
+    launcher.reset();
   }
 
  protected:
@@ -145,6 +181,7 @@ class MageTest : public testing::Test {
     return *mage::Core::Get()->node_.get();
   }
 
+  std::unique_ptr<ProcessLauncher> launcher;
   std::shared_ptr<base::TaskLoop> main_thread;
   base::Thread io_thread;
 };
@@ -174,13 +211,9 @@ TEST_F(MageTest, InitializeAndEntangleEndpointsUnitTest) {
 }
 
 TEST_F(MageTest, SendInvitationUnitTest) {
-  ProcessLauncher launcher(MageTestProcessType::kNone);
-  std::shared_ptr<base::TaskLoop> task_loop_for_io =
-    base::TaskLoop::Create(base::ThreadType::IO);
-
   MageHandle message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
-      launcher.GetLocalFd()
+      launcher->GetLocalFd()
     );
 
   EXPECT_NE(message_pipe, 0);
@@ -193,13 +226,8 @@ TEST_F(MageTest, SendInvitationUnitTest) {
   remote->Method1(1, .4, "test");
 }
 
-/*
 TEST_F(MageTest, AcceptInvitationUnitTest) {
-  ProcessLauncher launcher(MageTestProcessType::kNone);
-  std::shared_ptr<base::TaskLoop> task_loop_for_io =
-    base::TaskLoop::Create(base::ThreadType::IO);
-
-  mage::Core::AcceptInvitation(launcher.GetLocalFd(), std::bind([](){}));
+  mage::Core::AcceptInvitation(launcher->GetLocalFd(), std::bind([](){}));
 
   // Invitation is asynchronous, so until we receive and formally accept the
   // information, there is no impact on our mage state.
@@ -209,27 +237,27 @@ TEST_F(MageTest, AcceptInvitationUnitTest) {
 
 // In this test, the parent process is the inviter and a mage::Receiver.
 TEST_F(MageTest, InviterAsReceiver) {
-  ProcessLauncher launcher(MageTestProcessType::kInviteeAsRemote);
-  launcher.Start();
-  std::shared_ptr<base::TaskLoop> task_loop_for_io =
-    base::TaskLoop::Create(base::ThreadType::IO);
+  launcher->Launch(MageTestProcessType::kInviteeAsRemote);
 
   MageHandle message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
-      launcher.GetLocalFd()
+      launcher->GetLocalFd()
     );
 
-  std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(message_pipe, task_loop_for_io->QuitClosure()));
-  task_loop_for_io->Run();
+  std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(message_pipe, main_thread->QuitClosure()));
+  printf("[FROMUI]: Run()\n");
+  main_thread->Run();
   EXPECT_EQ(impl->received_int, 1);
   EXPECT_EQ(impl->received_double, .5);
   EXPECT_EQ(impl->received_string, "message");
 
-  task_loop_for_io->Run();
+  printf("[FROMUI]: Run()\n");
+  main_thread->Run();
   EXPECT_EQ(impl->received_amount, 1000);
   EXPECT_EQ(impl->received_currency, "JPY");
 }
 
+/*
 // In this test, the parent process is the invitee and a mage::Receiver.
 TEST_F(MageTest, InviteeAsReceiver) {
   ProcessLauncher launcher(MageTestProcessType::kInviterAsRemote);
