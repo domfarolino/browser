@@ -60,10 +60,8 @@ class TaskLoopForIOMac : public TaskLoop {
 
   // Can be called from any thread (it is *implicitly* thread-safe).
   void MachWakeup();
+
  private:
-
-  void ProcessQueuedEvents(int num_events);
-
   // The kqueue that drives the task loop.
   int kqueue_;
 

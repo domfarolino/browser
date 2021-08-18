@@ -76,7 +76,44 @@ void TaskLoopForIOMac::Run() {
     if (quit_ || (quit_when_idle_ && rv == 0))
       break;
 
-    ProcessQueuedEvents(rv);
+    CHECK_GE(rv, 1);
+
+    // Process any queued events (the number of which is `rv`).
+    for (int i = 0; i < rv; ++i) {
+      auto* event = &events_[i];
+
+      if (event->filter == EVFILT_READ) {
+        int fd = event->ident;
+
+        mutex_.lock();
+        auto* socket_reader = async_socket_readers_[fd];
+        mutex_.unlock();
+
+        CHECK(socket_reader);
+        socket_reader->OnCanReadFromSocket();
+      } else if (event->filter == EVFILT_MACHPORT) {
+        mutex_.lock();
+
+        // If the queue is empty but we have a MACHPORT event to process, this
+        // must just be a |QuitWhenIdle()| waking us up with no actual work to do.
+        // We'll do nothing.
+        if (queue_.empty()) {
+          CHECK(quit_when_idle_);
+          mutex_.unlock();
+          continue;
+        }
+
+        CHECK(queue_.size());
+        Callback cb = std::move(queue_.front());
+        queue_.pop();
+        mutex_.unlock();
+
+        ExecuteTask(std::move(cb));
+      } else {
+        NOTREACHED();
+      }
+    } // for.
+
 
   } // while (true).
 
@@ -84,45 +121,6 @@ void TaskLoopForIOMac::Run() {
   // call |Run()| again later.
   quit_ = false;
   quit_when_idle_ = false;
-}
-
-void TaskLoopForIOMac::ProcessQueuedEvents(int num_events) {
-  CHECK_GE(num_events, 1);
-
-  for (int i = 0; i < num_events; ++i) {
-    auto* event = &events_[i];
-
-    if (event->filter == EVFILT_READ) {
-      int fd = event->ident;
-
-      mutex_.lock();
-      auto* socket_reader = async_socket_readers_[fd];
-      mutex_.unlock();
-
-      CHECK(socket_reader);
-      socket_reader->OnCanReadFromSocket();
-    } else if (event->filter == EVFILT_MACHPORT) {
-      mutex_.lock();
-
-      // If the queue is empty but we have a MACHPORT event to process, this
-      // must just be a |QuitWhenIdle()| waking us up with no actual work to do.
-      // We'll do nothing.
-      if (queue_.empty()) {
-        CHECK(quit_when_idle_);
-        mutex_.unlock();
-        continue;
-      }
-
-      CHECK(queue_.size());
-      Callback cb = std::move(queue_.front());
-      queue_.pop();
-      mutex_.unlock();
-
-      ExecuteTask(std::move(cb));
-    } else {
-      NOTREACHED();
-    }
-  } // for.
 }
 
 void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {
