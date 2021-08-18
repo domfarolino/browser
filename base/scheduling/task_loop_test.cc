@@ -135,10 +135,20 @@ TEST_P(TaskLoopTest, NestedGetCurrentThreadTaskRunner) {
 ///////////////// These tests exercise |TaskLoop::RunUntilIdle()| and
 ////////////////  |TaskLoop::QuitWhenIdle()|
 
+TEST_P(TaskLoopTest, RunUntilIdleImmediatelyQuits) {
+  // Loop should immediately quit. Test should not time out.
+  task_loop->RunUntilIdle();
+}
+
 TEST_P(TaskLoopTest, QuitBeforeRunUntilIdle) {
   task_loop->Quit();
   // Loop should immediately quit. Test should not time out.
   task_loop->RunUntilIdle();
+}
+
+TEST_P(TaskLoopTest, QuitWhenIdleImmediatelyQuits) {
+  task_loop->QuitWhenIdle();
+  task_loop->Run();
 }
 
 TEST_P(TaskLoopTest, PostTasksBeforeRunUntilIdle) {
