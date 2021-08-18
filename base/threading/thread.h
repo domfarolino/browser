@@ -84,6 +84,8 @@ class Thread {
   std::shared_ptr<Delegate> delegate_;
 
  private:
+  void StopImpl(bool wait_for_idle);
+
   ThreadType type_;
   pthread_t id_;
   pthread_attr_t attributes_;
