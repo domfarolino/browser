@@ -68,6 +68,11 @@ std::shared_ptr<TaskRunner> TaskLoop::GetTaskRunner() {
   return std::shared_ptr<TaskRunner>(new TaskRunner(GetWeakPtr()));
 }
 
+void TaskLoop::RunUntilIdle() {
+  QuitWhenIdle();
+  Run();
+}
+
 Callback TaskLoop::QuitClosure() {
   return std::bind(&TaskLoop::Quit, this);
 }

@@ -52,7 +52,7 @@ class TaskLoopForIOMac : public TaskLoop {
   // Can be called from any thread.
   void PostTask(Callback cb) override;
 
-  void RunUntilIdle() override;
+  void QuitWhenIdle() override;
 
   // Can be called from any thread.
   void WatchSocket(SocketReader* reader);

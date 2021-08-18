@@ -28,7 +28,7 @@ public:
   // Can be called from any thread.
   void PostTask(Callback cb) override;
 
-  void RunUntilIdle() override;
+  void QuitWhenIdle() override;
 
 private:
   // This |TaskLoop| implementation only responds to user-posted tasks, so we

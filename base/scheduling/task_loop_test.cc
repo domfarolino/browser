@@ -13,6 +13,19 @@ namespace base {
 class TaskLoopTest : public testing::Test,
                      public testing::WithParamInterface<ThreadType> {
  public:
+  // Provides meaningful param names instead of /0 and /1 etc.
+  static std::string DescribeParams(
+      const ::testing::TestParamInfo<ParamType>& info) {
+    switch (info.param) {
+      case base::ThreadType::UI:
+        return "UI";
+      case base::ThreadType::IO:
+        return "IO";
+      case base::ThreadType::WORKER:
+        return "WORKER";
+    }
+  }
+
   TaskLoopTest() : thread_type_(GetParam()) {}
 
   virtual void SetUp() override {
@@ -212,15 +225,19 @@ TEST_P(TaskLoopTest, RunUntilIdleDoesNotSnapshotTheEventQueueSize) {
   EXPECT_EQ(continuation_task_ran, true);
 }
 
+////////// END These tests only use |TaskLoop::RunUntiIdle()| //////////
+
 #if defined(OS_MACOS)
-INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
+INSTANTIATE_TEST_SUITE_P(All,
                          TaskLoopTest,
-                         testing::Values(ThreadType::UI, ThreadType::IO, ThreadType::WORKER));
+                         testing::Values(ThreadType::UI, ThreadType::IO, ThreadType::WORKER),
+                         &TaskLoopTest::DescribeParams);
 #else
 // ThreadType::IO is only supported on macos for now.
-INSTANTIATE_TEST_SUITE_P(TaskLoopTest,
+INSTANTIATE_TEST_SUITE_P(All,
                          TaskLoopTest,
-                         testing::Values(ThreadType::UI, ThreadType::WORKER));
+                         testing::Values(ThreadType::UI, ThreadType::WORKER),
+                         &TaskLoopTest::DescribeParams);
 #endif
 
 }; // namespace base

@@ -43,13 +43,16 @@ void TaskLoopForIOMac::Run() {
     // size of this vector, and then we'd only be able to service a single event
     // and source after every kevent64 call.
     events_.resize(event_count_);
-    int rv = kevent64(kqueue_, nullptr, 0, events_.data(), events_.size(), 0,
-                      nullptr);
+
+    timespec timeout{0, 0};
+    int rv = kevent64(kqueue_, nullptr, 0, events_.data(), events_.size(), 0, quit_when_idle_ ? &timeout : nullptr);
 
     // At this point we had to have read at least one event from the kernel.
     CHECK_GE(rv, 1);
 
-    if (quit_)
+    // If |quit_| is set, that is a no-brainer, we have to just quit. But if |quit_when_idle_| is set, things are not as obvious:
+    //   - If the event type we're processing is EVFILT_READ, then 
+    if (quit_ || (quit_when_idle_ && queue_.empty()))
       break;
 
     ProcessQueuedEvents(rv);
@@ -59,29 +62,7 @@ void TaskLoopForIOMac::Run() {
   // We need to reset |quit_| when |Run()| actually completes, so that we can
   // call |Run()| again later.
   quit_ = false;
-}
-
-void TaskLoopForIOMac::RunUntilIdle() {
-  while (true) {
-    events_.resize(event_count_);
-
-    // We want an immediate answer from the kernal as to how many events we
-    // have. If we have none, we'll just quit. Otherwise, we'll process them all
-    // normally.
-    timespec timeout{0, 0};
-    int rv = kevent64(kqueue_, nullptr, 0, events_.data(), events_.size(), 0,
-                      &timeout);
-
-    if (quit_ || rv == 0)
-      break;
-
-    ProcessQueuedEvents(rv);
-
-  } // while (true).
-
-  // We need to reset |quit_| when |Run()| actually completes, so that we can
-  // call |Run()| again later.
-  quit_ = false;
+  quit_when_idle_ = false;
 }
 
 void TaskLoopForIOMac::ProcessQueuedEvents(int num_events) {
@@ -174,6 +155,13 @@ void TaskLoopForIOMac::PostTask(Callback cb) {
 void TaskLoopForIOMac::Quit() {
   mutex_.lock();
   quit_ = true;
+  mutex_.unlock();
+  MachWakeup();
+}
+
+void TaskLoopForIOMac::QuitWhenIdle() {
+  mutex_.lock();
+  quit_when_idle_ = true;
   mutex_.unlock();
   MachWakeup();
 }
