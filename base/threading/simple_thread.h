@@ -25,6 +25,7 @@ public:
     }
     std::shared_ptr<TaskRunner> GetTaskRunner() override { NOTREACHED(); }
     void Quit() override {}
+    void QuitWhenIdle() override {}
 
    private:
     std::function<void()> f_;

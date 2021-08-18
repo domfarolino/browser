@@ -57,6 +57,15 @@ class TaskLoop : public Thread::Delegate,
   void Run() override = 0;
   // Can be called from any thread.
   void Quit() override = 0;
+  // Can be called from any thread. Just like |Quit()|, but instead of setting
+  // |quit_| to true, we set |quit_when_idle_| to true, which only quits the run
+  // loop if it has no tasks to process. This method basically turns this
+  // instance of the loop into a run-until-idle loop. The reason we introduce it
+  // is so that we can let the loop run for a while (potentially idling along
+  // the way), and then post some tasks to finish up, and wait for those tasks
+  // to finish. This is most useful in a multi-thread environment.
+  void QuitWhenIdle() override = 0;
+
   // Can be called from any thread.
   std::shared_ptr<TaskRunner> GetTaskRunner() override;
 
@@ -69,14 +78,6 @@ class TaskLoop : public Thread::Delegate,
   // quits the loop. Once empty or quit, this method returns as opposed to
   // waiting indefinitely.
   void RunUntilIdle();
-  // Can be called from any thread. Just like |Quit()|, but instead of setting
-  // |quit_| to true, we set |quit_when_idle_| to true, which only quits the run
-  // loop if it has no tasks to process. This method basically turns this
-  // instance of the loop into a run-until-idle loop. The reason we introduce it
-  // is so that we can let the loop run for a while (potentially idling along
-  // the way), and then post some tasks to finish up, and wait for those tasks
-  // to finish. This is most useful in a multi-thread environment.
-  virtual void QuitWhenIdle() = 0;
 
   virtual Callback QuitClosure();
 

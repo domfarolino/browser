@@ -171,6 +171,56 @@ TEST_P(ThreadTest, StopIsIdempotent) {
   EXPECT_TRUE(task_ran);
 }
 
+TEST_P(ThreadTest, StopDoesNotRunQueuedTasks) {
+  bool second_task_ran = false;
+  std::shared_ptr<TaskLoop> waiter = TaskLoop::Create(ThreadType::WORKER);
+
+  thread->Start();
+
+  thread->GetTaskRunner()->PostTask([&](){
+    waiter->Quit();
+
+    base::GetCurrentThreadTaskLoop()->PostTask([&]() {
+      second_task_ran = true;
+    });
+
+    // Synchronously sleep for a while after we posted the second task. This
+    // will give the "main" thread a chance to send the Quit() signal to *this*
+    // thread's TaskLoop, which should quit before running the second task that
+    // we just posted.
+    base::Thread::sleep_for(std::chrono::milliseconds(200));
+  });
+
+  waiter->Run();
+  thread->Stop();
+  EXPECT_FALSE(second_task_ran);
+}
+
+TEST_P(ThreadTest, StopWhenIdleRunsQueuedTasks) {
+  bool second_task_ran = false;
+  std::shared_ptr<TaskLoop> waiter = TaskLoop::Create(ThreadType::WORKER);
+
+  thread->Start();
+
+  thread->GetTaskRunner()->PostTask([&](){
+    waiter->Quit();
+
+    base::GetCurrentThreadTaskLoop()->PostTask([&]() {
+      second_task_ran = true;
+    });
+
+    // Synchronously sleep for a while after we posted the second task. This
+    // will give the "main" thread a chance to send the Quit() signal to *this*
+    // thread's TaskLoop, which should quit before running the second task that
+    // we just posted.
+    base::Thread::sleep_for(std::chrono::milliseconds(200));
+  });
+
+  waiter->Run();
+  thread->StopWhenIdle();
+  EXPECT_TRUE(second_task_ran);
+}
+
 #if defined(OS_MACOS)
 INSTANTIATE_TEST_SUITE_P(All,
                          ThreadTest,
