@@ -234,4 +234,50 @@ TEST_F(TaskLoopForIOTestBase, InterleaveTaskAndMessages) {
   });
 }
 
+TEST_F(TaskLoopForIOTestBase, QuitWhenIdleStillProcessesReads) {
+  SetExpectedMessageCount(1);
+
+  // First we write the message and confirm that it has been processed.
+  std::vector<std::string> messages = {kFirstMessage};
+  base::SimpleThread simple_thread(WriteMessagesAndInvokeCallback, fds[1],
+                                   messages,
+                                   task_loop_for_io->QuitClosure());
+
+  // This will make us wait until the message above has been written. Once
+  // written, the test will continue.
+  task_loop_for_io->Run();
+
+  // Tell the loop to quit when it is idle. This will take effect the next time
+  // it is run.
+  task_loop_for_io->QuitWhenIdle();
+  std::unique_ptr<TestSocketReader> reader(new TestSocketReader(fds[0], *this));
+  task_loop_for_io->Run();
+  EXPECT_EQ(messages_read.size(), 1);
+  EXPECT_EQ(messages_read[0], kFirstMessage);
+}
+
+// Almost identical to the previous test, except |QuitWhenIdle()| is called
+// *after* the SocketReader registers itself with |TaskLoopForIO|, as a part of
+// |RunUntilIdle()|.
+TEST_F(TaskLoopForIOTestBase, RunUntilIdleStillProcessesReads) {
+  SetExpectedMessageCount(1);
+
+  // First we write the message and confirm that it has been processed.
+  std::vector<std::string> messages = {kFirstMessage};
+  base::SimpleThread simple_thread(WriteMessagesAndInvokeCallback, fds[1],
+                                   messages,
+                                   task_loop_for_io->QuitClosure());
+
+  // This will make us wait until the message above has been written. Once
+  // written, the test will continue.
+  task_loop_for_io->Run();
+
+  // Tell the loop to quit when it is idle. This will take effect the next time
+  // it is run.
+  std::unique_ptr<TestSocketReader> reader(new TestSocketReader(fds[0], *this));
+  task_loop_for_io->RunUntilIdle();
+  EXPECT_EQ(messages_read.size(), 1);
+  EXPECT_EQ(messages_read[0], kFirstMessage);
+}
+
 }; // namespace base

@@ -45,14 +45,35 @@ void TaskLoopForIOMac::Run() {
     events_.resize(event_count_);
 
     timespec timeout{0, 0};
-    int rv = kevent64(kqueue_, nullptr, 0, events_.data(), events_.size(), 0, quit_when_idle_ ? &timeout : nullptr);
+    int rv = kevent64(/*kernal_queue=*/kqueue_, /*change_list=*/nullptr,
+                      /*num_changes=*/0, /*event_list=*/events_.data(),
+                      /*num_events=*/events_.size(), /*flags=*/0,
+                      /*timeout=*/quit_when_idle_ ? &timeout : nullptr);
 
-    // At this point we had to have read at least one event from the kernel.
-    CHECK_GE(rv, 1);
+    // At this point we have at least one event from the kernel, unless we're in
+    // the |quit_when_idle_| mode and have nothing to do. We detect this
+    // idleness via `rv == 0` later and break.
+    CHECK(rv >= 1 || (quit_when_idle_ && rv == 0));
 
-    // If |quit_| is set, that is a no-brainer, we have to just quit. But if |quit_when_idle_| is set, things are not as obvious:
-    //   - If the event type we're processing is EVFILT_READ, then 
-    if (quit_ || (quit_when_idle_ && queue_.empty()))
+    // If |quit_| is set, that is a no-brainer, we have to just quit. But if
+    // |quit_when_idle_| is set, we can only *actually* quit if we're idle. We
+    // can detect if we're idle by verifying that `rv == 0`. If
+    // `quit_when_idle_ && rv >= 1`, then we are not idle. This can happen in a
+    // number of ways:
+    //   - `quit_when_idle_ && rv == 1 && queue_.empty()`:
+    //     This can happen if the loop is idling in the `kevent64()` call above,
+    //     and then |QuitWhenIdle()| is called. This wakes up the loop with a
+    //     MACHPORT event, but puts nothing on the queue. This is handled in
+    //     |ProcessQueuedEvents()|. If no reads or tasks are queued by the time
+    //     the next loop iteration comes around, `kevent64()` will not block, rv
+    //     will be 0, and we will detect that we're idle and break.
+    //   - `quit_when_idle_ && rv == 1 && !queue_.empty()`:
+    //     This can happen after we've already processed the "empty" MACHPORT
+    //     event from |QuitWhileIdle()| and nothing was on the queue, but then
+    //     before the next loop iteration, a real task was added to the queue
+    //     and woke us up. The subsequent call to `kevent64()` would reflect
+    //     this with `rv == 1` and the queue having a task pushed to it.
+    if (quit_ || (quit_when_idle_ && rv == 0))
       break;
 
     ProcessQueuedEvents(rv);
@@ -82,6 +103,16 @@ void TaskLoopForIOMac::ProcessQueuedEvents(int num_events) {
       socket_reader->OnCanReadFromSocket();
     } else if (event->filter == EVFILT_MACHPORT) {
       mutex_.lock();
+
+      // If the queue is empty but we have a MACHPORT event to process, this
+      // must just be a |QuitWhenIdle()| waking us up with no actual work to do.
+      // We'll do nothing.
+      if (queue_.empty()) {
+        CHECK(quit_when_idle_);
+        mutex_.unlock();
+        continue;
+      }
+
       CHECK(queue_.size());
       Callback cb = std::move(queue_.front());
       queue_.pop();

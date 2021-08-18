@@ -13,7 +13,7 @@ void TaskLoopForWorker::Run() {
     });
 
     // We now own the lock for |queue_|, until we explicitly release it.
-    if (quit_ || (queue_.empty() && quit_when_idle_)) {
+    if (quit_ || (quit_when_idle_ && queue_.empty())) {
       cv_.release_lock();
       break;
     }

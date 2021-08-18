@@ -43,7 +43,7 @@ class TaskLoopTest : public testing::Test,
 };
 
 //////////      These tests only use |TaskLoop::Run()|      //////////
-////////// RunUntilIdle() is explicitly tested further down //////////
+///// RunUntilIdle() and QuitWhenIdle() are explicitly tested further down /////
 
 TEST_P(TaskLoopTest, QuitBeforeRun) {
   task_loop->Quit();
@@ -132,7 +132,8 @@ TEST_P(TaskLoopTest, NestedGetCurrentThreadTaskRunner) {
   EXPECT_EQ(inner_task_ran, true);
 }
 
-////////// These tests only use |TaskLoop::RunUntiIdle()| //////////
+///////////////// These tests exercise |TaskLoop::RunUntilIdle()| and
+////////////////  |TaskLoop::QuitWhenIdle()|
 
 TEST_P(TaskLoopTest, QuitBeforeRunUntilIdle) {
   task_loop->Quit();
@@ -225,7 +226,45 @@ TEST_P(TaskLoopTest, RunUntilIdleDoesNotSnapshotTheEventQueueSize) {
   EXPECT_EQ(continuation_task_ran, true);
 }
 
-////////// END These tests only use |TaskLoop::RunUntiIdle()| //////////
+// Tests that even though the QuitWhenIdle() signal was sent first,
+// recently-added work before Run() is still processed. The loop only quits
+// when it is truly idle.
+TEST_P(TaskLoopTest, QuitWhenIdleBeforeRun) {
+  task_loop->QuitWhenIdle();
+
+  bool outer_task_ran = false;
+  bool continuation_task_ran = false;
+
+  task_loop->PostTask([&](){
+    outer_task_ran = true;
+    task_loop->PostTask([&](){
+      continuation_task_ran = true;
+    }); // Inner PostTask().
+  }); // Outer PostTask().
+
+  task_loop->Run();
+  EXPECT_EQ(outer_task_ran, true);
+  EXPECT_EQ(continuation_task_ran, true);
+}
+
+TEST_P(TaskLoopTest, QuitWhenIdleMidTask) {
+  bool outer_task_ran = false;
+  bool continuation_task_ran = false;
+
+  task_loop->PostTask([&](){
+    outer_task_ran = true;
+    task_loop->QuitWhenIdle();
+
+    task_loop->PostTask([&](){
+      continuation_task_ran = true;
+    }); // Inner PostTask().
+  }); // Outer PostTask().
+
+  task_loop->Run();
+  EXPECT_EQ(outer_task_ran, true);
+  EXPECT_EQ(continuation_task_ran, true);
+}
+
 
 #if defined(OS_MACOS)
 INSTANTIATE_TEST_SUITE_P(All,
