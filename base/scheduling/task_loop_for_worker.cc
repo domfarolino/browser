@@ -6,9 +6,7 @@ void TaskLoopForWorker::Run() {
   while (true) {
     cv_.wait(mutex_, [&]() -> bool{
       bool has_tasks = !queue_.empty();
-      bool no_tasks_but_quit_when_idle = !has_tasks && quit_when_idle_;
-
-      bool can_skip_waiting = (has_tasks || quit_ || no_tasks_but_quit_when_idle);
+      bool can_skip_waiting = (has_tasks || quit_ || quit_when_idle_);
       return can_skip_waiting;
     });
 
