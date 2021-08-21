@@ -43,6 +43,13 @@ std::shared_ptr<TaskRunner> Thread::GetTaskRunner() {
 }
 
 void Thread::Stop() {
+  StopImpl(/*wait_for_idle=*/false);
+}
+void Thread::StopWhenIdle() {
+  StopImpl(/*wait_for_idle=*/true);
+}
+
+void Thread::StopImpl(bool wait_for_idle) {
   // We can't CHECK(started_via_api_) here because Stop() should be idempotent.
   // If |started_via_api_| is false then we don't want to do anything here
   // because that means we've already called Stop() or join() (or we've never
@@ -57,8 +64,12 @@ void Thread::Stop() {
   // If we get here, then we know |Start()| has been called at least once, but
   // |delegate_| may be null if it has quit itself and already terminated the
   // backing thread.
-  if (delegate_)
-    delegate_->Quit();
+  if (delegate_) {
+    if (wait_for_idle)
+      delegate_->QuitWhenIdle();
+    else
+      delegate_->Quit();
+  }
 
   join();
 }

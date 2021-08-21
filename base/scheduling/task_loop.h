@@ -57,6 +57,15 @@ class TaskLoop : public Thread::Delegate,
   void Run() override = 0;
   // Can be called from any thread.
   void Quit() override = 0;
+  // Can be called from any thread. Just like |Quit()|, but instead of setting
+  // |quit_| to true, we set |quit_when_idle_| to true, which only quits the run
+  // loop if it has no tasks to process. This method basically turns this
+  // instance of the loop into a run-until-idle loop. The reason we introduce it
+  // is so that we can let the loop run for a while (potentially idling along
+  // the way), and then post some tasks to finish up, and wait for those tasks
+  // to finish. This is most useful in a multi-thread environment.
+  void QuitWhenIdle() override = 0;
+
   // Can be called from any thread.
   std::shared_ptr<TaskRunner> GetTaskRunner() override;
 
@@ -68,7 +77,7 @@ class TaskLoop : public Thread::Delegate,
   // runs the loop until the underlying event queue is empty or until a task
   // quits the loop. Once empty or quit, this method returns as opposed to
   // waiting indefinitely.
-  virtual void RunUntilIdle() = 0;
+  void RunUntilIdle();
 
   virtual Callback QuitClosure();
 
@@ -79,16 +88,30 @@ class TaskLoop : public Thread::Delegate,
 
   // Each concrete implementation of |TaskLoop| has its own members that control
   // when/on what the loop blocks, and how it is woken up. This base class has
-  // no members specific to the internals of the loop, besides a callback
-  // |queue_| (which all |TaskLoop| implementations support), a |mutex_| for the
-  // |queue_|, and a basic |quit_| boolean.
+  // no members specific to the internals of the loop, besides:
+  //  - |mutex_|: A base::Mutex
+  //  - |queue_|: A task queue to hold base::Callbacks (tasks), since all
+  //              |TaskLoop| implementations support task posting. Access is
+  //              guarded by |mutex_|
+  //  - |quit_|: A boolean set by |Quit()|. |Run()| is the only reader of this,
+  //             meaning the thread that |this| is bound to is the only thread
+  //             that reads this variable. |Run()| uses this in every loop
+  //             iteration to determine, regardless of whether there are
+  //             outstanding tasks or events to process, if the loop should stop
+  //             running.
+  //  - |quit_when_idle_|: A boolean set by both |RunUntilIdle()| and
+  //                       |QuitWhenIdle()|. |Run()| is the only reader of this
+  //                       variable, and it is used specifically when there are
+  //                       no tasks/events to process, to quit the loop instead
+  //                       of let it idle and wait for more tasks/events to
+  //                       process.
 
   // Used to lock |queue_|, since it can be accessed from multiple threads via
   // |PostTask()|.
   base::Mutex mutex_;
   std::queue<Callback> queue_;
-
   bool quit_ = false;
+  bool quit_when_idle_ = false;
 
  private:
   std::weak_ptr<TaskLoop> GetWeakPtr() {

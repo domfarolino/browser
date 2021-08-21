@@ -45,6 +45,7 @@ class Thread {
     virtual void Run() = 0;
     virtual std::shared_ptr<TaskRunner> GetTaskRunner() = 0;
     virtual void Quit() = 0;
+    virtual void QuitWhenIdle() = 0;
   };
 
   void Start();
@@ -52,6 +53,7 @@ class Thread {
   // already quit itself and terminated its backing thread.
   std::shared_ptr<TaskRunner> GetTaskRunner();
   void Stop();
+  void StopWhenIdle();
 
   // C++ thread similar methods.
   static void sleep_for(std::chrono::milliseconds ms);
@@ -82,6 +84,8 @@ class Thread {
   std::shared_ptr<Delegate> delegate_;
 
  private:
+  void StopImpl(bool wait_for_idle);
+
   ThreadType type_;
   pthread_t id_;
   pthread_attr_t attributes_;

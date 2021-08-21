@@ -43,74 +43,96 @@ void TaskLoopForIOMac::Run() {
     // size of this vector, and then we'd only be able to service a single event
     // and source after every kevent64 call.
     events_.resize(event_count_);
-    int rv = kevent64(kqueue_, nullptr, 0, events_.data(), events_.size(), 0,
-                      nullptr);
 
-    // At this point we had to have read at least one event from the kernel.
+    timespec timeout{0, 0};
+    int rv = kevent64(/*kernal_queue=*/kqueue_, /*change_list=*/nullptr,
+                      /*num_changes=*/0, /*event_list=*/events_.data(),
+                      /*num_events=*/events_.size(), /*flags=*/0,
+                      /*timeout=*/quit_when_idle_ ? &timeout : nullptr);
+    // We grab a lock so that neither of the following are tampered with on
+    // another thread while we are reading/writing them:
+    //   - |queue_|
+    //   - |async_socket_readers_|
+    mutex_.lock();
+
+    // At this point we have at least one event from the kernel, unless we're in
+    // the |quit_when_idle_| mode and have nothing to do. We detect this
+    // idleness via `rv == 0` later and break.
+    CHECK(rv >= 1 || (quit_when_idle_ && rv == 0));
+
+    // If |quit_| is set, that is a no-brainer, we have to just quit. But if
+    // |quit_when_idle_| is set, we can only *actually* quit if we're idle. We
+    // can detect if we're idle by verifying that `rv == 0`. If
+    // `quit_when_idle_ && rv >= 1`, then we are not idle. This can happen in a
+    // number of ways:
+    //   - `quit_when_idle_ && rv == 1 && queue_.empty()`:
+    //     This can happen if the loop is idling in the `kevent64()` call above,
+    //     and then |QuitWhenIdle()| is called. This wakes up the loop with a
+    //     MACHPORT event, but puts nothing on the queue. This is handled in
+    //     |ProcessQueuedEvents()|. If no reads or tasks are queued by the time
+    //     the next loop iteration comes around, `kevent64()` will not block, rv
+    //     will be 0, and we will detect that we're idle and break.
+    //   - `quit_when_idle_ && rv == 1 && !queue_.empty()`:
+    //     This can happen after we've already processed the "empty" MACHPORT
+    //     event from |QuitWhileIdle()| and nothing was on the queue, but then
+    //     before the next loop iteration, a real task was added to the queue
+    //     and woke us up. The subsequent call to `kevent64()` would reflect
+    //     this with `rv == 1` and the queue having a task pushed to it.
+    if (quit_ || (quit_when_idle_ && rv == 0)) {
+      mutex_.unlock();
+      break;
+    }
+
     CHECK_GE(rv, 1);
 
-    if (quit_)
-      break;
+    // Process any queued events (the number of which is `rv`).
+    for (int i = 0; i < rv; ++i) {
+      auto* event = &events_[i];
 
-    ProcessQueuedEvents(rv);
+      if (event->filter == EVFILT_READ) {
+        int fd = event->ident;
 
+        auto* socket_reader = async_socket_readers_[fd];
+        mutex_.unlock();
+
+        CHECK(socket_reader);
+        socket_reader->OnCanReadFromSocket();
+      } else if (event->filter == EVFILT_MACHPORT) {
+
+        // If the queue is empty but we have a MACHPORT event to process, this
+        // must just be a |QuitWhenIdle()| waking us up with no actual work to do.
+        // We'll do nothing.
+        if (queue_.empty()) {
+          CHECK(quit_when_idle_);
+          mutex_.unlock();
+          continue;
+        }
+
+        CHECK(queue_.size());
+        Callback cb = std::move(queue_.front());
+        queue_.pop();
+        mutex_.unlock();
+
+        ExecuteTask(std::move(cb));
+      } else {
+        NOTREACHED();
+      }
+    } // for.
+
+
+    // By this point, |mutex_| will always be unlocked so that we can lock it
+    // for the next iteration. Note that we can't just unlock it here at the end
+    // of this loop, to make things simple. We have to unlock it before we
+    // process whatever event type we're processing or else we are prone to
+    // deadlocks. For example, if we keep |mutex_| locked while we run a task
+    // that we pull from the |queue_|, then if that task calls PostTask() on
+    // this loop, then it will try and lock |mutex_| and deadlock forever.
   } // while (true).
 
   // We need to reset |quit_| when |Run()| actually completes, so that we can
   // call |Run()| again later.
   quit_ = false;
-}
-
-void TaskLoopForIOMac::RunUntilIdle() {
-  while (true) {
-    events_.resize(event_count_);
-
-    // We want an immediate answer from the kernal as to how many events we
-    // have. If we have none, we'll just quit. Otherwise, we'll process them all
-    // normally.
-    timespec timeout{0, 0};
-    int rv = kevent64(kqueue_, nullptr, 0, events_.data(), events_.size(), 0,
-                      &timeout);
-
-    if (quit_ || rv == 0)
-      break;
-
-    ProcessQueuedEvents(rv);
-
-  } // while (true).
-
-  // We need to reset |quit_| when |Run()| actually completes, so that we can
-  // call |Run()| again later.
-  quit_ = false;
-}
-
-void TaskLoopForIOMac::ProcessQueuedEvents(int num_events) {
-  CHECK_GE(num_events, 1);
-
-  for (int i = 0; i < num_events; ++i) {
-    auto* event = &events_[i];
-
-    if (event->filter == EVFILT_READ) {
-      int fd = event->ident;
-
-      mutex_.lock();
-      auto* socket_reader = async_socket_readers_[fd];
-      mutex_.unlock();
-
-      CHECK(socket_reader);
-      socket_reader->OnCanReadFromSocket();
-    } else if (event->filter == EVFILT_MACHPORT) {
-      mutex_.lock();
-      CHECK(queue_.size());
-      Callback cb = std::move(queue_.front());
-      queue_.pop();
-      mutex_.unlock();
-
-      ExecuteTask(std::move(cb));
-    } else {
-      NOTREACHED();
-    }
-  } // for.
+  quit_when_idle_ = false;
 }
 
 void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {
@@ -127,8 +149,9 @@ void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {
   // Invoke kevent64 not to listen to events, but to supply a changelist of
   // event filters that we're interested in being notified about from the
   // kernel.
-  int rv = kevent64(kqueue_, events.data(), events.size(), nullptr, 0, 0,
-                    nullptr);
+  int rv = kevent64(/*kernel_queue=*/kqueue_, /*change_list=*/events.data(),
+                    /*num_changes=*/events.size(), /*event_list=*/nullptr,
+                    /*num_events=*/0, /*flags=*/0, /*timeout=*/nullptr);
   CHECK_GE(rv, 0);
 
   mutex_.lock();
@@ -153,8 +176,9 @@ void TaskLoopForIOMac::UnwatchSocket(SocketReader* socket_reader) {
   // Invoke kevent64 not to listen to events, but to supply a changelist of
   // event filters that we're interested in being notified about from the
   // kernel.
-  int rv = kevent64(kqueue_, events.data(), events.size(), nullptr, 0, 0,
-                    nullptr);
+  int rv = kevent64(/*kernel_queue=*/kqueue_, /*change_list=*/events.data(),
+                    /*num_changes=*/events.size(), /*event_list=*/nullptr,
+                    /*num_events=*/0, /*flags=*/0, /*timeout=*/nullptr);
   CHECK_GE(rv, 0);
 
   mutex_.lock();
@@ -174,6 +198,13 @@ void TaskLoopForIOMac::PostTask(Callback cb) {
 void TaskLoopForIOMac::Quit() {
   mutex_.lock();
   quit_ = true;
+  mutex_.unlock();
+  MachWakeup();
+}
+
+void TaskLoopForIOMac::QuitWhenIdle() {
+  mutex_.lock();
+  quit_when_idle_ = true;
   mutex_.unlock();
   MachWakeup();
 }

@@ -52,7 +52,7 @@ class TaskLoopForIOMac : public TaskLoop {
   // Can be called from any thread.
   void PostTask(Callback cb) override;
 
-  void RunUntilIdle() override;
+  void QuitWhenIdle() override;
 
   // Can be called from any thread.
   void WatchSocket(SocketReader* reader);
@@ -60,14 +60,14 @@ class TaskLoopForIOMac : public TaskLoop {
 
   // Can be called from any thread (it is *implicitly* thread-safe).
   void MachWakeup();
+
  private:
+  // The kqueue that drives the task loop. This is only written to once on
+  // whatever thread |this| loop is constructed on (note this may be different
+  // than the thread it is ultimately bound to). Can be read from any thread.
+  const int kqueue_;
 
-  void ProcessQueuedEvents(int num_events);
-
-  // The kqueue that drives the task loop.
-  int kqueue_;
-
-  // Receive right to which an empty Mach message is sent to wake up the pump
+  // Receive right to which an empty Mach message is sent to wake up the loop
   // in response to |PostTask()|.
   mach_port_t wakeup_;
   // Scratch buffer that is used to receive the message sent to |wakeup_|.
@@ -76,8 +76,44 @@ class TaskLoopForIOMac : public TaskLoop {
   // These are listeners that get notified when their file descriptor has been
   // written to and is ready to read from. |SocketReader|s are expected to
   // unregister themselves from this map upon destruction.
+  // This data structure is guarded by |mutex_| as it can be written to from any
+  // thread interacting with |this|.
   std::map<int, SocketReader*> async_socket_readers_;
 
+  // NOTE ABOUT THREAD SAFETY:
+  //   * The below |event_count_| can be modified from any thread that interacts
+  //     with |this| loop, and therefore its writes are guarded by |mutex_| so
+  //     that all writes persist.
+  //   * The below |events_| is only ever written to and read from the thread
+  //     that |this| loop is bound to, in the Run() method.
+  //   * Reading from these variables does not need to be synchronized. In
+  //     Run(), we read from |event_count_| to resize |events_|. You can imagine
+  //     that once we read |event_count_| to resize |events_| (for submission to
+  //     `kevent64()`), we're only taking a snapshot of the value. It could have
+  //     changed by the time we _actually_ call `kevent64()` to wait for events,
+  //     to either greater or less than the one we snapshotted. Let's consider
+  //     each case separately.
+  //       1.) Value was increased after snapshot:
+  //           For example, we enter the loop in Run() with |event_count_| set
+  //           to 4 (three socket readers + our wakeup event). We resize
+  //           |events_| accordingly, but before we call `kevent64()` to wait
+  //           for at most 4 events, two more readers are added, and the actual
+  //           value of |event_count_| gets updated to 6 and the underlying
+  //           kernel queue knows about 6 possible event sources. We call
+  //           `kevent64()` with the argument `num_events=4`, meaning we'll
+  //           return with at 4 events ready to process from the 6 event
+  //           sources. This is totally valid! The kqueue system actually lets
+  //           you process a single event at a time with num_events=1 if you
+  //           want, it's just less efficient.
+  //       2.) Value was decreased after snapshot:
+  //           Similar to the above example, we invoke `kevent64()` with
+  //           `num_events=x` even though the number of event sources that the
+  //           underlying kernel queue actually knows about is x-2, for example.
+  //           In this case, the number of events we are willing to accept is
+  //           larger than the number of events the kernel queue will ever
+  //           produce, which is also fine. You can try setting |event_count_|
+  //           to an absurdly high number below and running the tests.
+  // END NOTE
   // The number of event types (filters) that we're interested in listening to
   // via |kqueue_|. There is always at least 1, for the |wakeup_| port (or
   // |port_set_|), but increase this count whenever we register a new e.g.,
