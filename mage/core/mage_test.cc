@@ -157,13 +157,7 @@ class MageTest : public testing::Test {
 
   void TearDown() override {
     mage::Core::ShutdownCleanly();
-    // TODO(domfarolino): We should consider introducing
-    // {TaskLoop,Thread}::{Quit,Stop}WhenIdle(), so we don't have to use this
-    // manual post-task-and-wait technique to verify that the IO thread is
-    // "finished".
-    io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
-    main_thread->Run(); // Waits for tasks to drain on the IO thread.
-    io_thread.Stop();
+    io_thread.StopWhenIdle(); // Blocks.
     main_thread.reset();
     launcher.reset();
   }
@@ -244,7 +238,8 @@ TEST_F(MageTest, InviterAsReceiver) {
       launcher->GetLocalFd()
     );
 
-  std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(message_pipe, main_thread->QuitClosure()));
+  std::unique_ptr<TestInterfaceImpl> impl(
+    new TestInterfaceImpl(message_pipe, main_thread->QuitClosure()));
   printf("[FROMUI]: Run()\n");
   main_thread->Run();
   EXPECT_EQ(impl->received_int, 1);
