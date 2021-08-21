@@ -20,7 +20,6 @@ class ThreadCheckerTest: public testing::Test {
   }
 
   void WaitForAllThreadsToStart() {
-    // TODO(domfarolino): Fix the ordering here.
     GetWorker1TaskRunner()->PostTask(task_loop_->QuitClosure());
     task_loop_->Run();
     GetWorker2TaskRunner()->PostTask(task_loop_->QuitClosure());
@@ -89,7 +88,6 @@ TEST_F(ThreadCheckerTest, ConstructedOnWorkerThread) {
     EXPECT_FALSE(checker->CalledOnConstructedThread());
     UnblockMainThread();
   });
-
   Wait();
 }
 
