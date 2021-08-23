@@ -3,8 +3,11 @@
 
 #include <memory>
 #include <string>
+#include <functional>
 #include <queue>
 
+// TODO(domfarolino): Remove this.
+#include "base/scheduling/task_loop.h"
 #include "mage/core/message.h"
 
 namespace mage {
@@ -28,8 +31,10 @@ class Endpoint {
   };
 
   Endpoint() : state(State::kUnbound) {}
+  /*
   Endpoint(const Endpoint&) = delete;
   Endpoint& operator=(const Endpoint&) = delete;
+  */
 
   // TODO(domfarolino): Don't keep this inline.
   void AcceptMessage(Message message) {
@@ -40,7 +45,13 @@ class Endpoint {
     }
 
     printf("Endpoint has accepted a message. Now forwarding it\n");
-    delegate_->OnReceivedMessage(std::move(message));
+
+    ReceiverDelegate* dummy_delegate = nullptr;
+    // TODO(domfarolino): This is messy, let's do this the right way.
+    auto task_1 = std::bind(&Endpoint::AcceptMessage, this, std::move(message));
+    //std::function<void()> task = std::bind(&Endpoint::RegisterDelegate, this, dummy_delegate);
+
+    // delegate_->OnReceivedMessage(std::move(message));
   }
 
   // The messages in |incoming_message_queue_| are queued in this endpoint and

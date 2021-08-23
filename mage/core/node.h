@@ -25,13 +25,7 @@ class Node : public Channel::Delegate {
   Node() : name_(util::RandomString()) {
     printf("Node name_: %s\n", name_.c_str());
   }
-  ~Node() {
-    for (auto it = node_channel_map_.begin(); it != node_channel_map_.end();) {
-      Channel* raw_doomed_channel = it->second.release();
-      raw_doomed_channel->DestroyOnIOThread();
-      node_channel_map_.erase(it++);
-    }
-  }
+  ~Node() = default;
 
   std::vector<MageHandle> CreateMessagePipes();
   void InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1, std::shared_ptr<Endpoint> ep2);

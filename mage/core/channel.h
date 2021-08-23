@@ -22,7 +22,6 @@ class Channel : public base::TaskLoopForIO::SocketReader {
 
   Channel(int fd, Delegate* delegate);
   virtual ~Channel();
-  void DestroyOnIOThread();
 
   void Start();
   void SetRemoteNodeName(const std::string& name);

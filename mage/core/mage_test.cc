@@ -148,6 +148,7 @@ class MageTest : public testing::Test {
     launcher = std::unique_ptr<ProcessLauncher>(new ProcessLauncher());
     main_thread = base::TaskLoop::Create(base::ThreadType::UI);
     io_thread.Start();
+    // TODO(domfarolino): Why do we need this?
     io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
     main_thread->Run();
 

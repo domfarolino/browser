@@ -25,13 +25,18 @@ void OnInvitationAccepted(mage::MageHandle handle) {
 }
 
 int main(int argc, char** argv) {
-  auto task_loop = base::TaskLoop::Create(base::ThreadType::IO);
+  std::shared_ptr<base::TaskLoop> main_thread = base::TaskLoop::Create(base::ThreadType::UI);
+  base::Thread io_thread(base::ThreadType::IO);
+  io_thread.Start();
+  io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
+  main_thread->Run();
+
   mage::Core::Init();
 
   CHECK_EQ(argc, 2);
   int fd = std::stoi(argv[1]);
   mage::Core::AcceptInvitation(fd, &OnInvitationAccepted);
 
-  task_loop->Run();
+  main_thread->Run();
   return 0;
 }

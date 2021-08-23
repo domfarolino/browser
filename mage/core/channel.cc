@@ -18,7 +18,7 @@ namespace {
 
 // Helper function to print the full human-readable contents of a mage::Message.
 void PrintFullMessageContents(Message& message) {
-  CHECK_ON_THREAD(base::ThreadType::IO);
+  // CHECK_ON_THREAD(base::ThreadType::UI);
 
   std::vector<char>& payload_buffer = message.payload_buffer();
 
@@ -48,6 +48,11 @@ void PrintFullMessageContents(Message& message) {
   printf("+-------- End Message --------+\n");
 }
 
+bool IsOnUIThread() {
+  printf("getpid(): %d\n", getpid());
+  return base::GetUIThreadTaskLoop() == base::GetCurrentThreadTaskLoop();
+}
+
 bool IsOnIOThread() {
   return base::GetCurrentThreadTaskLoop() == base::GetIOThreadTaskLoop();
 }
@@ -59,58 +64,28 @@ Channel::Channel(int fd, Delegate* delegate) :
     delegate_(delegate),
     io_task_loop_(*std::static_pointer_cast<base::TaskLoopForIO>(
       base::GetIOThreadTaskLoop())) {
-  // Don't do anything here as we may not be on the IO thread.
-  // CHECK_ON_THREAD(base::ThreadType::IO);
+  CHECK(IsOnUIThread());
 }
 
 Channel::~Channel() {
-  CHECK_ON_THREAD(base::ThreadType::IO);
-  // io_task_loop_.UnwatchSocket(this);
-}
-
-void Channel::DestroyOnIOThread() {
-  if (!IsOnIOThread()) {
-    io_task_loop_.GetTaskRunner()->PostTask(
-      std::bind(&Channel::DestroyOnIOThread, this));
-    return;
-  }
-
-  delete this;
+  CHECK(IsOnUIThread());
+  io_task_loop_.UnwatchSocket(this);
 }
 
 void Channel::Start() {
-  if (!IsOnIOThread()) {
-    io_task_loop_.GetTaskRunner()->PostTask(
-      std::bind(&Channel::Start, this));
-    return;
-  }
-
-  CHECK_ON_THREAD(base::ThreadType::IO);
+  CHECK(IsOnUIThread());
   io_task_loop_.WatchSocket(this);
 }
 
 void Channel::SetRemoteNodeName(const std::string& name) {
-  if (!IsOnIOThread()) {
-    io_task_loop_.GetTaskRunner()->PostTask(
-      std::bind(&Channel::SetRemoteNodeName, this, name));
-    return;
-  }
-
-  CHECK_ON_THREAD(base::ThreadType::IO);
+  CHECK(IsOnUIThread());
   remote_node_name_ = name;
 }
 
 void Channel::SendInvitation(std::string inviter_name,
                              std::string intended_endpoint_name,
                              std::string intended_endpoint_peer_name) {
-  if (!IsOnIOThread()) {
-    io_task_loop_.GetTaskRunner()->PostTask(
-      std::bind(&Channel::SendInvitation, this, inviter_name,
-                intended_endpoint_name, intended_endpoint_peer_name));
-    return;
-  }
-
-  CHECK_ON_THREAD(base::ThreadType::IO);
+  CHECK(IsOnUIThread());
   Message message(MessageType::SEND_INVITATION);
   MessageFragment<SendInvitationParams> params(message);
   params.Allocate();
@@ -138,7 +113,7 @@ void Channel::SendInvitation(std::string inviter_name,
 
 void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
                                    std::string actual_node_name) {
-  CHECK_ON_THREAD(base::ThreadType::IO);
+  // CHECK(IsOnIOThread());
   Message message(MessageType::ACCEPT_INVITATION);
   MessageFragment<SendAcceptInvitationParams> params(message);
   params.Allocate();
@@ -156,7 +131,7 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
 }
 
 void Channel::SendMessage(Message message) {
-  CHECK_ON_THREAD(base::ThreadType::IO);
+  // CHECK_ON_THREAD(base::ThreadType::UI);
   PrintFullMessageContents(message);
 
   std::vector<char>& payload_buffer = message.payload_buffer();
@@ -164,6 +139,7 @@ void Channel::SendMessage(Message message) {
 }
 
 void Channel::OnCanReadFromSocket() {
+  printf("Channel::OnCanReadFromSocket(): pid: %d\n", getpid());
   CHECK_ON_THREAD(base::ThreadType::IO);
   std::vector<char> full_message_buffer;
 

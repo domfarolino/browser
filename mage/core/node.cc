@@ -9,6 +9,7 @@
 namespace mage {
 
 std::vector<MageHandle> Node::CreateMessagePipes() {
+  CHECK_ON_THREAD(base::ThreadType::UI);
   std::shared_ptr<Endpoint> endpoint_1(new Endpoint()),
                             endpoint_2(new Endpoint());
   InitializeAndEntangleEndpoints(endpoint_1, endpoint_2);
@@ -21,6 +22,7 @@ std::vector<MageHandle> Node::CreateMessagePipes() {
 
 void Node::InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1,
                                           std::shared_ptr<Endpoint> ep2) {
+  CHECK_ON_THREAD(base::ThreadType::UI);
   // Initialize the endpoints.
   ep1->name = util::RandomString();
   ep2->name = util::RandomString();
@@ -43,6 +45,7 @@ void Node::InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1,
 }
 
 MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
+  CHECK_ON_THREAD(base::ThreadType::UI);
   // This node wishes to invite another fresh peer node to the network of
   // processes. The sequence of events here looks like so:
   //   Endpoints:
@@ -104,6 +107,7 @@ MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
 void Node::AcceptInvitation(int fd) {
   CHECK(!has_accepted_invitation_);
 
+  printf("Node::AcceptInvitation() from pid: %d\n", getpid());
   std::unique_ptr<Channel> channel(new Channel(fd, this));
   channel->Start();
   node_channel_map_.insert({kInitialChannelName, std::move(channel)});
@@ -139,6 +143,8 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
 }
 
 void Node::OnReceivedMessage(Message message) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
+
   switch (message.Type()) {
     case MessageType::SEND_INVITATION:
       OnReceivedInvitation(std::move(message));
@@ -155,6 +161,7 @@ void Node::OnReceivedMessage(Message message) {
 }
 
 void Node::OnReceivedInvitation(Message message) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
   SendInvitationParams* params = message.GetView<SendInvitationParams>();
 
   // Deserialize
@@ -204,6 +211,7 @@ void Node::OnReceivedInvitation(Message message) {
 }
 
 void Node::OnReceivedAcceptInvitation(Message message) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
   SendAcceptInvitationParams* params =
     message.GetView<SendAcceptInvitationParams>();
   std::string temporary_remote_node_name(
@@ -271,6 +279,7 @@ void Node::OnReceivedAcceptInvitation(Message message) {
 }
 
 void Node::OnReceivedUserMessage(Message message) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
   printf("Node::OnReceivedUserMessage\n");
   // 1. Extract the endpoint that the message is bound for.
   // TODO(domfarolino): Do this by extracting the intended endpoint name from
