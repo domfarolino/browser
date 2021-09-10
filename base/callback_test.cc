@@ -60,7 +60,6 @@ TEST(OnceClosure, MoveOnly) {
   closure();
 }
 
-/*
 //////////////////////
 
 TEST(Lambda, LambdaBindVariable) {
@@ -79,7 +78,7 @@ TEST(OnceClosure, LambdaBindVariable) {
     // This documents a behavior difference from std::bind, note that we don't
     // have to use std::ref(executed) below, because BindOnce() does not copy
     // arguments that are to be passed by reference to the given lambda.
-  }, executed);
+  }, std::ref(executed));
 
   closure();
   EXPECT_TRUE(executed);
@@ -141,7 +140,6 @@ TEST(OnceClosure, LambdaCaptureVariableReference_WithBind) {
   EXPECT_TRUE(executed);
 }
 
-//////////////////////
 TEST(OnceClosure, MovedOnceClosureCannotBeCalled) {
   bool executed = false;
   OnceClosure closure = [&executed](){
@@ -155,7 +153,6 @@ TEST(OnceClosure, MovedOnceClosureCannotBeCalled) {
 
   ASSERT_DEATH({ closure(); }, "bind_state_");
 }
-*/
 
 class CopyOnly {
  public:
@@ -224,8 +221,7 @@ void AcceptCopyableAndMovableByValue(CopyableAndMovable) {}
 void AcceptCopyableAndMovableByReference(CopyableAndMovable&) {}
 
 void AcceptMoveOnlyByValue(MoveOnly) {}
-// Note that we can't actually use this method [domfarolino: WHY?]
-// void AcceptMoveOnlyByReference(MoveOnly&) {}
+void AcceptMoveOnlyByReference(MoveOnly&) {}
 
 TEST(OnceClosure, AcceptCopyOnlyByValue_PassByValue) {
   CopyOnly obj;
@@ -299,7 +295,7 @@ TEST(OnceClosure, AcceptCopyableAndMovableByValue_PassByValue) {
   CopyableAndMovable::move_ctor_called = 0;
 }
 
-TEST(OnceClosure, AcceptCopyableAndMovableByValue_PassByReference) {
+TEST(OnceClosure, AcceptCopyableAndMovableByValue_PassByStdRef) {
   CopyableAndMovable obj;
   EXPECT_EQ(CopyableAndMovable::copy_ctor_called, 0);
   EXPECT_EQ(CopyableAndMovable::move_ctor_called, 0);
@@ -319,7 +315,7 @@ TEST(OnceClosure, AcceptCopyableAndMovableByValue_PassByReference) {
 }
 
 // Note that the `_PassByValue` variant of this will not compile.
-TEST(OnceClosure, AcceptCopyableAndMovableByReference_PassByReference) {
+TEST(OnceClosure, AcceptCopyableAndMovableByReference_PassByStdRef) {
   CopyableAndMovable obj;
   EXPECT_EQ(CopyableAndMovable::copy_ctor_called, 0);
   EXPECT_EQ(CopyableAndMovable::move_ctor_called, 0);
@@ -347,6 +343,20 @@ TEST(OnceClosure, AcceptMoveOnlyByValue_PassByRvalueRef) {
   EXPECT_EQ(MoveOnly::move_ctor_called, 1);
   closure();
   EXPECT_EQ(MoveOnly::move_ctor_called, 2);
+
+  // Reset counters:
+  MoveOnly::move_ctor_called = 0;
+}
+
+TEST(OnceClosure, AcceptMovableByReference_PassByStdRef) {
+  MoveOnly obj;
+  EXPECT_EQ(MoveOnly::move_ctor_called, 0);
+
+  OnceClosure closure = BindOnce(AcceptMoveOnlyByReference, std::ref(obj));
+
+  EXPECT_EQ(MoveOnly::move_ctor_called, 0);
+  closure();
+  EXPECT_EQ(MoveOnly::move_ctor_called, 0);
 
   // Reset counters:
   MoveOnly::move_ctor_called = 0;
