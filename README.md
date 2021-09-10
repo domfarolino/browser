@@ -2,12 +2,13 @@
 
 Simple browser components. In reality the current goal of this project is to
 house primitives useful for building any kind of complex multi-process
-event-loop driven application. Since the primary author is a Web Platform
-engineer, this project has a slight _browser_ bias.
+event-loop driven application, but since the primary author is a Web Platform
+engineer, this project has a slight bias towards _browser_-ish things.
 
 ## Compatibility
 
-Right now things have only been built and tested on macOS Catalina, but should also work on Linux.
+Right now things have only been built and tested on macOS Catalina, but should
+also work on Linux.
 
 ## Building
 
