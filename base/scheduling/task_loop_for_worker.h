@@ -26,7 +26,7 @@ public:
 
   // TaskRunner::Delegate implementation.
   // Can be called from any thread.
-  void PostTask(Callback cb) override;
+  void PostTask(OnceClosure cb) override;
 
   void QuitWhenIdle() override;
 

@@ -120,12 +120,12 @@ TEST_F(SchedulingHandlesTest, MainThreadUIandIOHandlesWork) {
   EXPECT_TRUE(GetCurrentThreadTaskRunner());
 
   GetCurrentThreadTaskRunner()->PostTask(
-    std::bind(&SchedulingHandlesTest::RunOnUIThread, this)
+    BindOnce(&SchedulingHandlesTest::RunOnUIThread, this)
   );
   ui_task_loop->RunUntilIdle();
 
   GetIOThreadTaskLoop()->GetTaskRunner()->PostTask(
-    std::bind(&SchedulingHandlesTest::RunOnIOThread, this)
+    BindOnce(&SchedulingHandlesTest::RunOnIOThread, this)
   );
   ui_task_loop->Run(); // The above will automatically quit the loop.
 }

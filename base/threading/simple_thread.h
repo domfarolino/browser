@@ -16,7 +16,7 @@ class SimpleThread : public Thread {
 public:
   class SimpleThreadDelegate : public Thread::Delegate {
    public:
-    explicit SimpleThreadDelegate(std::function<void()> f) : f_(f) {}
+    explicit SimpleThreadDelegate(OnceClosure f) : f_(std::move(f)) {}
 
     // Thread::Delegate implementation.
     void BindToCurrentThread(ThreadType) override {}
@@ -28,13 +28,13 @@ public:
     void QuitWhenIdle() override {}
 
    private:
-    std::function<void()> f_;
+    OnceClosure f_;
   };
 
   template <typename F, typename... Ts>
   SimpleThread(F func, Ts... args) : Thread() {
-    std::function<void()> f{std::bind(func, args...)};
-    delegate_.reset(new SimpleThreadDelegate(f));
+    OnceClosure f = BindOnce(std::forward<F>(func), std::forward<Ts>(args)...);
+    delegate_.reset(new SimpleThreadDelegate(std::move(f)));
 
     // Start the thread with the overridden delegate.
     Start();

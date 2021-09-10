@@ -59,7 +59,7 @@ TEST_P(TaskLoopTest, PostTasksBeforeRun) {
   task_loop->PostTask([&](){
     first_task_ran = true;
   });
-  task_loop->PostTask(std::bind([](Callback quit_closure){
+  task_loop->PostTask(BindOnce([](OnceClosure quit_closure){
     quit_closure();
   }, task_loop->QuitClosure()));
 
@@ -69,7 +69,7 @@ TEST_P(TaskLoopTest, PostTasksBeforeRun) {
 
 TEST_P(TaskLoopTest, RunQuitRunQuit) {
   bool first_task_ran = false;
-  task_loop->PostTask(std::bind([&](Callback quit_closure){
+  task_loop->PostTask(BindOnce([&](OnceClosure quit_closure){
     first_task_ran = true;
     quit_closure();
   }, task_loop->QuitClosure()));
@@ -78,7 +78,7 @@ TEST_P(TaskLoopTest, RunQuitRunQuit) {
   EXPECT_EQ(first_task_ran, true);
 
   bool second_task_ran = false;
-  task_loop->PostTask(std::bind([&](Callback quit_closure){
+  task_loop->PostTask(BindOnce([&](OnceClosure quit_closure){
     second_task_ran = true;
     quit_closure();
   }, task_loop->QuitClosure()));
@@ -107,7 +107,7 @@ TEST_P(TaskLoopTest, NestedTasks) {
 TEST_P(TaskLoopTest, GetCurrentThreadTaskRunner) {
   bool first_task_ran = false;
   base::GetCurrentThreadTaskRunner()->PostTask(
-    std::bind([&](Callback quit_closure){
+    BindOnce([&](OnceClosure quit_closure){
       first_task_ran = true;
       quit_closure();
     }, task_loop->QuitClosure()));
@@ -201,7 +201,7 @@ TEST_P(TaskLoopTest, RunUntilIdleMultipleTasks) {
 TEST_P(TaskLoopTest, RunUntilIdleEarlyQuit) {
   bool first_task_ran = false;
   task_loop->PostTask(
-    std::bind([&](Callback quit_closure){
+    BindOnce([&](OnceClosure quit_closure){
       first_task_ran = true;
       quit_closure();
     }, task_loop->QuitClosure()));

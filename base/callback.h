@@ -36,9 +36,12 @@ class BindState final : public BindStateBase {
 
  public:
   BindState() = delete;
-
-  template <typename FwdFunctor, typename... FwdArgs, typename = std::enable_if_t<(std::is_convertible_v<FwdArgs&&, Args> && ...)>>
-  BindState(FwdFunctor&& f, FwdArgs&&... args) : f_(std::forward<FwdFunctor>(f)), args_(std::forward<FwdArgs>(args)...) {}
+  template <typename FwdFunctor,
+            typename... FwdArgs,
+            typename =
+                std::enable_if_t<(std::is_convertible_v<FwdArgs&&, Args> && ...)>>
+  BindState(FwdFunctor&& f, FwdArgs&&... args)
+      : f_(std::forward<FwdFunctor>(f)), args_(std::forward<FwdArgs>(args)...) {}
 
   BindState(const BindState& other) = delete;
   BindState& operator=(const BindState& other) = delete;
@@ -54,8 +57,14 @@ class BindState final : public BindStateBase {
   template <typename BoundFunctor, typename BoundArgs, size_t... Is>
   void InvokeImpl(BoundFunctor&& f, BoundArgs&& args,
                   std::index_sequence<Is...>) {
-    std::forward<BoundFunctor>(f)
-        (std::get<Is>(std::forward<BoundArgs>(args)) ...);
+    if constexpr (std::is_member_function_pointer<BoundFunctor>::value) {
+      std::mem_fn(std::forward<BoundFunctor>(f))
+          (std::get<Is>(std::forward<BoundArgs>(args)) ...);
+
+    } else {
+      std::forward<BoundFunctor>(f)
+          (std::get<Is>(std::forward<BoundArgs>(args)) ...);
+    }
   }
 
  private:
@@ -63,12 +72,25 @@ class BindState final : public BindStateBase {
   std::tuple<Args...> args_;
 };
 
+inline void InvokeLambda(std::function<void()> lambda) {
+  lambda();
+}
+
+class OnceClosure;
+
+template <typename Lambda>
+OnceClosure BindOnce(Lambda&& lambda);
+
+template <typename Functor, typename... Args>
+OnceClosure BindOnce(Functor&& f, Args&&... args);
+
 // The `OnceClosure` class is just a light wrapper around `BindStateBase`. Once
 // we introduce a generic `Callback` class that supports partially-bound
 // functors and consumers supplying unbound arguments at invocation time,
 // `OnceClosure` can be a specialization of that class.
 class OnceClosure {
  public:
+  OnceClosure() = default;
   explicit OnceClosure(std::unique_ptr<BindStateBase> bind_state) :
       bind_state_(std::move(bind_state)) {}
   OnceClosure(const OnceClosure& other) = delete;
@@ -76,20 +98,21 @@ class OnceClosure {
   OnceClosure(OnceClosure&& other) = default;
   OnceClosure& operator=(OnceClosure&& other) = default;
 
-  /*
-  // TODO(domfarolino): This is kind of weird, it basically eliminates the need
-  // for explicit BindOnce().
-  template <typename Functor, typename... Args>
-  OnceClosure(Functor&& f, Args&&... args) :
-      bind_state_(std::make_unique<BindState<Functor, Args...>>(
-                      std::forward<Functor>(f), std::forward<Args>(args)...)) {}
-  */
+  // Overload that delegates to `BindOnce()`. This is just so we can support
+  // assigning a `OnceClosure` to a lambda.
+  template <typename Lambda>
+  OnceClosure(Lambda&& lambda) :
+      OnceClosure(BindOnce(std::forward<Lambda>(lambda))) {}
 
   void operator()() {
     // TODO(domfarolino): Make this into a CHECK.
     assert(bind_state_);
     bind_state_->Invoke();
     bind_state_.reset();
+  }
+
+  operator bool() {
+    return !!bind_state_;
   }
 
  private:
@@ -128,8 +151,11 @@ OnceClosure BindOnce(Functor&& f, Args&&... args) {
   return OnceClosure(std::move(bind_state));
 }
 
-// TODO(domfarolino): Get rid of this.
-using Callback = std::function<void()>;
+template <typename Lambda>
+OnceClosure BindOnce(Lambda&& lambda) {
+  return BindOnce<decltype(InvokeLambda)*, Lambda>(InvokeLambda, std::forward<Lambda>(lambda));
+}
+
 using Predicate = std::function<bool()>;
 
 } // namespace base

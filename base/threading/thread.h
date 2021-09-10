@@ -59,7 +59,7 @@ class Thread {
   static void sleep_for(std::chrono::milliseconds ms);
   void join();
 
-  void RegisterDelegateResetCallbackForTesting(Callback cb);
+  void RegisterDelegateResetCallbackForTesting(OnceClosure cb);
 
  protected:
   // These methods run on the newly-created thread.
@@ -98,7 +98,7 @@ class Thread {
   // we require a call to Stop()/join() before calling Start() again.
   bool started_via_api_ = false;
 
-  Callback delegate_reset_callback_for_testing_;
+  OnceClosure delegate_reset_callback_for_testing_;
 };
 
 } // namespace base

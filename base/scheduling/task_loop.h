@@ -71,7 +71,7 @@ class TaskLoop : public Thread::Delegate,
 
   // TaskRunner::Delegate implementation.
   // Can be called from any thread.
-  void PostTask(Callback cb) override = 0;
+  void PostTask(OnceClosure cb) override = 0;
 
   // Called on the thread that |this| is bound to. Just like |Run()|, except it
   // runs the loop until the underlying event queue is empty or until a task
@@ -79,10 +79,10 @@ class TaskLoop : public Thread::Delegate,
   // waiting indefinitely.
   void RunUntilIdle();
 
-  virtual Callback QuitClosure();
+  virtual OnceClosure QuitClosure();
 
  protected:
-  void ExecuteTask(Callback cb) {
+  void ExecuteTask(OnceClosure cb) {
     cb();
   }
 
@@ -109,7 +109,7 @@ class TaskLoop : public Thread::Delegate,
   // Used to lock |queue_|, since it can be accessed from multiple threads via
   // |PostTask()|.
   base::Mutex mutex_;
-  std::queue<Callback> queue_;
+  std::queue<OnceClosure> queue_;
   bool quit_ = false;
   bool quit_when_idle_ = false;
 

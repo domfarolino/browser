@@ -109,7 +109,7 @@ class TestSocketReader : public base::TaskLoopForIO::SocketReader {
 // thread, and be notified on the main thread (via |callback|) when the write is
 // complete.
 void WriteMessagesAndInvokeCallback(int fd, std::vector<std::string> messages,
-                                    Callback callback) {
+                                    OnceClosure callback) {
   for (const std::string& message : messages) {
     write(fd, message.data(), message.size());
   }

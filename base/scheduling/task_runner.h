@@ -30,13 +30,13 @@ class TaskRunner final {
   // want.
   class Delegate {
    public:
-    virtual void PostTask(Callback cb) = 0;
+    virtual void PostTask(OnceClosure cb) = 0;
   };
 
   TaskRunner(std::weak_ptr<Delegate> weak_delegate) :
     weak_delegate_(weak_delegate) {}
 
-  void PostTask(Callback cb) {
+  void PostTask(OnceClosure cb) {
     if (auto delegate = weak_delegate_.lock()) {
       delegate->PostTask(std::move(cb));
       return;
