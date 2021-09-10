@@ -21,3 +21,5 @@ also work on Linux.
 Alternatively you can build any of the examples in
 [`//examples`](https://github.com/domfarolino/browser/tree/master/examples) with
 `bazel build examples/<example_name_here>`.
+
+Project-wide build configuration is in `//.bazelrc` file.
