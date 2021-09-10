@@ -5,13 +5,16 @@
 #include <memory>
 #include <tuple>
 
-// Sources:
-//   - https://stackoverflow.com/questions/16868129
-//   - https://stackoverflow.com/questions/66501654
+// The code in this file is inspired from Chromium's //base implementation [1],
+// countless Stack Overflow articles that helped me (Dom Farolino) understand
+// some pretty complex language features, and lots of messages with Daniel Cheng
+// (dcheng@chromium.org) that I'm very grateful for.
+//
+// [1]: https://source.chromium.org/chromium/chromium/src/+/main:base/bind.h
 
 namespace base {
 
-// `BindStateBase` only exists for type erasure -- that is, to allow `Closure`
+// `BindStateBase` only exists for type erasure -- that is, to allow `OnceClosure`
 // to hold onto a `BindState` while being blind to its bound return type and
 // argument types.
 class BindStateBase {
@@ -23,10 +26,18 @@ class BindStateBase {
 
 template <typename Functor, typename... Args>
 class BindState final : public BindStateBase {
+  // Note that we always decay the types that go into `BindState` so that
+  // `BindState` retains value semantics (i.e., doesn't hold onto implicit
+  // references of any kind). See documentation in `BindOnce()` for more details
+  // on what this entails.
+  static_assert(!(std::is_rvalue_reference_v<Args> && ...));
+
  public:
   BindState() = delete;
-  BindState(Functor&& f, Args&&... args) :
-    f_(std::forward<Functor>(f)), args_(std::forward<Args>(args)...) {}
+
+  template <typename FwdFunctor, typename... FwdArgs, typename = std::enable_if_t<(std::is_convertible_v<FwdArgs&&, Args> && ...)>>
+  BindState(FwdFunctor&& f, FwdArgs&&... args) : f_(std::forward<FwdFunctor>(f)), args_(std::forward<FwdArgs>(args)...) {}
+
   BindState(const BindState& other) = delete;
   BindState& operator=(const BindState& other) = delete;
   BindState(BindState&& other) = default;
@@ -39,9 +50,10 @@ class BindState final : public BindStateBase {
   }
 
   template <typename BoundFunctor, typename BoundArgs, size_t... Is>
-  void InvokeImpl(BoundFunctor&& f, BoundArgs&& args, std::index_sequence<Is...>) {
-    // TODO(domfarolino): Figure out why this doesn't actually *move* from `args_`.
-    std::forward<BoundFunctor>(f)(std::get<Is>(std::forward<BoundArgs>(args)) ...);
+  void InvokeImpl(BoundFunctor&& f, BoundArgs&& args,
+                  std::index_sequence<Is...>) {
+    std::forward<BoundFunctor>(f)
+        (std::get<Is>(std::forward<BoundArgs>(args)) ...);
   }
 
  private:
@@ -49,29 +61,33 @@ class BindState final : public BindStateBase {
   std::tuple<Args...> args_;
 };
 
-// The `Closure` class is just a light wrapper around `BindStateBase`. Once we
-// introduce `Callback`, `Closure` will be a specialization of `Callback`, and
-// `Callback` will support partially-bound functors.
-class Closure {
+// The `OnceClosure` class is just a light wrapper around `BindStateBase`. Once
+// we introduce a generic `Callback` class that supports partially-bound
+// functors and consumers supplying unbound arguments at invocation time,
+// `OnceClosure` can be a specialization of that class.
+class OnceClosure {
  public:
-  explicit Closure(std::unique_ptr<BindStateBase> bind_state) :
+  explicit OnceClosure(std::unique_ptr<BindStateBase> bind_state) :
       bind_state_(std::move(bind_state)) {}
-  Closure(const Closure& other) = delete;
-  Closure& operator=(const Closure& other) = delete;
-  Closure(Closure&& other) = default;
-  Closure& operator=(Closure&& other) = default;
+  OnceClosure(const OnceClosure& other) = delete;
+  OnceClosure& operator=(const OnceClosure& other) = delete;
+  OnceClosure(OnceClosure&& other) = default;
+  OnceClosure& operator=(OnceClosure&& other) = default;
 
+  /*
   // TODO(domfarolino): This is kind of weird, it basically eliminates the need
   // for explicit BindOnce().
   template <typename Functor, typename... Args>
-  Closure(Functor&& f, Args&&... args) :
+  OnceClosure(Functor&& f, Args&&... args) :
       bind_state_(std::make_unique<BindState<Functor, Args...>>(
                       std::forward<Functor>(f), std::forward<Args>(args)...)) {}
+  */
 
   void operator()() {
     // TODO(domfarolino): Make this into a CHECK.
     assert(bind_state_);
     bind_state_->Invoke();
+    bind_state_.reset();
   }
 
  private:
@@ -79,13 +95,38 @@ class Closure {
 };
 
 template <typename Functor, typename... Args>
-Closure BindOnce(Functor&& f, Args&&... args) {
+OnceClosure BindOnce(Functor&& f, Args&&... args) {
+  // Always declare decayed types when passing functors and arguments into
+  // `BindState`, so that it retains value semantics. This means that for
+  // example, functor arguments passed in as:
+  //   - Lvalues --> just get copied normally into `BindState::args_`, as if
+  //     there was no type decaying at all.
+  //   - Lvalue references --> get demoted to normal values, and copied into
+  //     `BindState::args_`
+  //   - Rvalue references --> get demoted to normal values, and the
+  //     originally-passed-in object is *moved* into the instance of the demoted
+  //     type that is stored in, you guessed it, `BindState::args_`. That is if
+  //     you pass in std::move(foo) as an argument to `BindOnce()`, the type
+  //     will be decayed from `Foo&&` to `Foo&`, and `BindState::args_` will
+  //     look like `std::tuple<T1, ..., Foo, ...>`. But we perfectly forward all
+  //     of the arguments from this method into `BindState::ctor()`. That way
+  //     when we construct the tuple over there, we construct an object of type
+  //     `Foo` from an object of type `Foo&&`, and therefore *move* the
+  //     originally-passed-in object into an instance stored in the tuple.
+  //
+  // In order to pass in an lvalue reference and have it be treated as an actual
+  // reference at invocation time (thus modifying the value that was originally
+  // passed in), you have to declare that you're explicitly passing in an owned
+  // reference by using `std::ref()`. This is the same way that `std::bind()`,
+  // `std::thread()`, and other APIs work.
+  using BindState = BindState<std::decay_t<Functor>, std::decay_t<Args>...>;
   std::unique_ptr<BindStateBase> bind_state =
-      std::make_unique<BindState<Functor, Args...>>(
+      std::make_unique<BindState>(
           std::forward<Functor>(f), std::forward<Args>(args)...);
-  return Closure(std::move(bind_state));
+  return OnceClosure(std::move(bind_state));
 }
 
+// TODO(domfarolino): Get rid of this.
 using Callback = std::function<void()>;
 using Predicate = std::function<bool()>;
 
