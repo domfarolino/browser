@@ -19,16 +19,6 @@ TEST(SimpleThreadTest, BasicPassByReference) {
   EXPECT_EQ(thread_ran, true);
 }
 
-/*
-Note that this will not compile because [..]
-TEST(SimpleThreadTest, BasicPassByValue) {
-  bool thread_ran = false;
-  SimpleThread thread(OffMainThread, thread_ran);
-  thread.join();
-  EXPECT_EQ(thread_ran, false);
-}
-*/
-
 TEST(SimpleThreadTest, BasicWithLambdaReferenceCapture) {
   bool thread_ran = false;
   SimpleThread thread([&](){

@@ -6,13 +6,32 @@
 
 namespace base {
 
+void DoNothing() {}
 void AcceptNumberByValue(int n) { n++; }
 void AcceptNumberByReference(int& n) { n++; }
 void AcceptMoveOnly(std::unique_ptr<int>) {}
 
-TEST(OnceClosure, InvokeTwice) {
+TEST(OnceClosure, BindWithNoArguments) {
+  OnceClosure closure = BindOnce(DoNothing);
+  closure();
+}
+
+TEST(OnceClosure, InvokedOnceClosureCannotBeCalled) {
   OnceClosure closure = BindOnce(AcceptNumberByValue, 1);
   closure();
+  ASSERT_DEATH({ closure(); }, "bind_state_");
+}
+TEST(OnceClosure, MovedOnceClosureCannotBeCalled) {
+  bool executed = false;
+  OnceClosure closure = [&executed](){
+    executed = true;
+  };
+
+  OnceClosure destination_closure = std::move(closure);
+  EXPECT_FALSE(executed);
+  destination_closure();
+  EXPECT_TRUE(executed);
+
   ASSERT_DEATH({ closure(); }, "bind_state_");
 }
 
@@ -46,6 +65,18 @@ TEST(OnceClosure, IncrementReferenceNoStdRef_NOCOMPILE) {
 TEST(OnceClosure, IncrementReferenceNoStdRefPassByValue_NOCOMPILE) {
   OnceClosure closure = BindOnce(AcceptNumberByReference, 1);
 }
+TEST(OnceClosure, CopyCtorDeleted_NOCOMPILE) {
+  OnceClosure closure = BindOnce(AcceptNumberByValue, 1);
+  OnceClosure destination = closure;
+}
+template <typename T>
+void AcceptUniversalReference(T&& o) {
+  OnceClosure destination = o;
+}
+TEST(OnceClosure, UniversalRefernceCopyCtorDeleted_NOCOMPILE) {
+  OnceClosure closure = BindOnce(AcceptNumberByValue, 1);
+  AcceptUniversalReference(closure);
+}
 */
 
 TEST(OnceClosure, IncrementReference) {
@@ -60,9 +91,9 @@ TEST(OnceClosure, MoveOnly) {
   closure();
 }
 
-//////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
-TEST(Lambda, LambdaBindVariable) {
+TEST(Lambda, LambdaBindVariableReference) {
   bool executed = false;
   std::function<void()> closure = std::bind([](bool& executed){
     executed = true;
@@ -71,13 +102,16 @@ TEST(Lambda, LambdaBindVariable) {
   closure();
   EXPECT_TRUE(executed);
 }
-TEST(OnceClosure, LambdaBindVariable) {
+TEST(OnceClosure, LambdaBindVariableReference) {
   bool executed = false;
   OnceClosure closure = BindOnce([](bool& executed){
     executed = true;
-    // This documents a behavior difference from std::bind, note that we don't
-    // have to use std::ref(executed) below, because BindOnce() does not copy
-    // arguments that are to be passed by reference to the given lambda.
+    // Note that this test behaves the exact same as the reference one above,
+    // but there is a behavior change if you omit `std::ref()`. `std::bind()`
+    // will still compile and silently take the argument by value instead of by
+    // reference, whereas our `BindOnce()` implementation will fail to compile
+    // because we also take the argument by value but notice that it doesn't
+    // line up with exactly what the functor expects.
   }, std::ref(executed));
 
   closure();
@@ -138,20 +172,6 @@ TEST(OnceClosure, LambdaCaptureVariableReference_WithBind) {
 
   closure();
   EXPECT_TRUE(executed);
-}
-
-TEST(OnceClosure, MovedOnceClosureCannotBeCalled) {
-  bool executed = false;
-  OnceClosure closure = [&executed](){
-    executed = true;
-  };
-
-  OnceClosure destination_closure = std::move(closure);
-  EXPECT_FALSE(executed);
-  destination_closure();
-  EXPECT_TRUE(executed);
-
-  ASSERT_DEATH({ closure(); }, "bind_state_");
 }
 
 class CopyOnly {
@@ -278,11 +298,8 @@ TEST(OnceClosure, AcceptCopyableAndMovableByValue_PassByValue) {
   closure();
   // The reason the move constructor is called here *at all* is because
   // `OnceClosure` prefers moving arguments where possible, when invoking the
-  // bound functor. This happens because it *moves* its argument tuple in order
-  // to invoke the functor. What this means for arguments types that are
-  // copy-only is that the argument is simply copied, instead of moved, from the
-  // argument tuple. For types that support copying and moving, moving takes
-  // place.
+  // bound functor. See the documentation in `BindState::InvokeImpl` for more
+  // information.
   //
   // Once we introduce something like `RepeatingOnceClosure`, the internal arg
   // tuple will never be moved, and only copies will happen (repeating closures

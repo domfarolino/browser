@@ -7,6 +7,8 @@
 #include <memory>
 #include <tuple>
 
+// #include "base/check.h"
+
 // The code in this file is inspired from Chromium's //base implementation [1],
 // countless Stack Overflow articles that helped me (Dom Farolino) understand
 // some pretty complex language features, and lots of messages with Daniel Cheng
@@ -31,11 +33,15 @@ class BindState final : public BindStateBase {
   // Note that we always decay the types that go into `BindState` so that
   // `BindState` retains value semantics (i.e., doesn't hold onto implicit
   // references of any kind). See documentation in `BindOnce()` for more details
-  // on what this entails.
-  static_assert(!(std::is_rvalue_reference_v<Args> && ...));
+  // on what this entails. This means that we can assert that the given functor
+  // type and every argument type is not a reference of any kind (i.e., is
+  // properly decayed by `BindOnce()`).
+  static_assert(std::is_same<std::decay_t<Functor>, Functor>::value);
+  static_assert((std::is_same_v<std::decay_t<Args>, Args> && ...));
 
  public:
   BindState() = delete;
+  ~BindState() override = default;
   template <typename FwdFunctor,
             typename... FwdArgs,
             typename =
@@ -57,6 +63,26 @@ class BindState final : public BindStateBase {
   template <typename BoundFunctor, typename BoundArgs, size_t... Is>
   void InvokeImpl(BoundFunctor&& f, BoundArgs&& args,
                   std::index_sequence<Is...>) {
+    // Note that `Invoke` always *moves* the functor and argument tuple into
+    // this method; this means that both `BoundFunctor` and `BoundArgs` are
+    // always non-reference types due to the universal reference template type
+    // deduction rules.
+    static_assert(std::is_same_v<std::decay_t<BoundFunctor>, Functor>);
+    static_assert(std::is_same_v<std::decay_t<BoundArgs>, BoundArgs>);
+
+    // Note that below we do a lot of perfect forwarding on `BoundFunctor` and
+    // `BoundArgs` as it is best practice. However, since in practice both types
+    // are non-reference types, `std::forward` is equivalent to `std::move`
+    // here. This means that we're always passing the argument tuple to
+    // `std::get<Is>()` by rvalue, which means it will return an rvalue to each
+    // argument accordingly. We'll invoke the functor with each argument passed
+    // by rvalue, which makes `InvokeImpl` "prefer" moving arguments into
+    // functor parameters when possible. That is, if a given functor param type
+    // is movable (i.e., implements a move constructor) the argument is moved
+    // from the tuple into the functor parameter. Otherwise, the parameter's
+    // copy constructor will be called with the rvalue (which is allowed, since
+    // the copy constructor's parameter should be a const reference), and the
+    // argument will by copied from the argument tuple to the functor parameter.
     if constexpr (std::is_member_function_pointer<BoundFunctor>::value) {
       std::mem_fn(std::forward<BoundFunctor>(f))
           (std::get<Is>(std::forward<BoundArgs>(args)) ...);
@@ -72,14 +98,7 @@ class BindState final : public BindStateBase {
   std::tuple<Args...> args_;
 };
 
-inline void InvokeLambda(std::function<void()> lambda) {
-  lambda();
-}
-
 class OnceClosure;
-
-template <typename Lambda>
-OnceClosure BindOnce(Lambda&& lambda);
 
 template <typename Functor, typename... Args>
 OnceClosure BindOnce(Functor&& f, Args&&... args);
@@ -98,11 +117,21 @@ class OnceClosure {
   OnceClosure(OnceClosure&& other) = default;
   OnceClosure& operator=(OnceClosure&& other) = default;
 
-  // Overload that delegates to `BindOnce()`. This is just so we can support
-  // assigning a `OnceClosure` to a lambda.
-  template <typename Lambda>
+  // Converting constructor that delegates to the move constructor above with
+  // `OnceClosure` object constructed from `BindOnce`. This is just so we can
+  // support assign `OnceClosure = [](){};` directly to a lambda function. It is
+  // intentional that this constructor is not marked as `explicit` as it is a
+  // converting constructor.
+  // We have to conditionally enable this constructor so that it won't
+  // accidentally be triggered when we try and construct-assign a `OnceClosure`
+  // to another `OnceClosure`. Otherwise that operation would trigger this
+  // constructor over the deleted copy constructor, and crash.
+  template <typename Lambda,
+          typename = typename std::enable_if_t<
+              !std::is_same_v<std::decay_t<Lambda>, OnceClosure>>>
   OnceClosure(Lambda&& lambda) :
-      OnceClosure(BindOnce(std::forward<Lambda>(lambda))) {}
+      OnceClosure(BindOnce(std::forward<Lambda>(lambda))) {
+  }
 
   void operator()() {
     // TODO(domfarolino): Make this into a CHECK.
@@ -149,11 +178,6 @@ OnceClosure BindOnce(Functor&& f, Args&&... args) {
       std::make_unique<BindState>(
           std::forward<Functor>(f), std::forward<Args>(args)...);
   return OnceClosure(std::move(bind_state));
-}
-
-template <typename Lambda>
-OnceClosure BindOnce(Lambda&& lambda) {
-  return BindOnce<decltype(InvokeLambda)*, Lambda>(InvokeLambda, std::forward<Lambda>(lambda));
 }
 
 using Predicate = std::function<bool()>;

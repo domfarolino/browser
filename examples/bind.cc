@@ -2,16 +2,18 @@
 
 #include "base/callback.h"
 
-void FunctionA(int n) {
-  std::cout << "FunctionA called with n = " << n << std::endl;
-}
-
-void FunctionB(base::OnceClosure cb) {
-  cb();
+void IncrementInteger(int& n) {
+  n++;
 }
 
 int main() {
-  base::OnceClosure closure = base::BindOnce(FunctionA, 101);
-  FunctionB(std::move(closure));
+  int n = 0;
+  base::OnceClosure cb1 = base::BindOnce(IncrementInteger, std::ref(n));
+  cb1();
+  std::cout << n << std::endl;
+
+  base::OnceClosure cb2 = [&n](){n++;};
+  cb2();
+  std::cout << n << std::endl;
   return 0;
 }
