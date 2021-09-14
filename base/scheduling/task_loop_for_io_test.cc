@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "base/callback.h"
-#include "base/check.h"
+#include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop_for_io.h"
 #include "base/threading/simple_thread.h"
 #include "gtest/gtest.h"

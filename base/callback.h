@@ -7,7 +7,7 @@
 #include <memory>
 #include <tuple>
 
-// #include "base/check.h"
+#include "base/check.h"
 
 // The code in this file is inspired from Chromium's //base implementation [1],
 // countless Stack Overflow articles that helped me (Dom Farolino) understand
@@ -134,8 +134,7 @@ class OnceClosure {
   }
 
   void operator()() {
-    // TODO(domfarolino): Make this into a CHECK.
-    assert(bind_state_);
+    CHECK(bind_state_);
     bind_state_->Invoke();
     bind_state_.reset();
   }

@@ -2,6 +2,7 @@
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop.h"
 #include "base/threading/simple_thread.h"
+#include "base/threading/thread_checker.h"
 #include "gtest/gtest.h"
 
 // These tests assert that the TaskRunner and TaskLoop handles provided in
