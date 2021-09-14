@@ -1,8 +1,6 @@
 #ifndef BASE_CALLBACK_H_
 #define BASE_CALLBACK_H_
 
-#include <assert.h>
-
 #include <functional>
 #include <memory>
 #include <tuple>
