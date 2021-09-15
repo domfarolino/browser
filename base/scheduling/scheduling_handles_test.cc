@@ -2,6 +2,7 @@
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop.h"
 #include "base/threading/simple_thread.h"
+#include "base/threading/thread_checker.h"
 #include "gtest/gtest.h"
 
 // These tests assert that the TaskRunner and TaskLoop handles provided in
@@ -120,12 +121,12 @@ TEST_F(SchedulingHandlesTest, MainThreadUIandIOHandlesWork) {
   EXPECT_TRUE(GetCurrentThreadTaskRunner());
 
   GetCurrentThreadTaskRunner()->PostTask(
-    std::bind(&SchedulingHandlesTest::RunOnUIThread, this)
+    BindOnce(&SchedulingHandlesTest::RunOnUIThread, this)
   );
   ui_task_loop->RunUntilIdle();
 
   GetIOThreadTaskLoop()->GetTaskRunner()->PostTask(
-    std::bind(&SchedulingHandlesTest::RunOnIOThread, this)
+    BindOnce(&SchedulingHandlesTest::RunOnIOThread, this)
   );
   ui_task_loop->Run(); // The above will automatically quit the loop.
 }

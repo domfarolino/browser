@@ -15,3 +15,8 @@ cc_binary(
   srcs = ["task_posting.cc"],
   deps = ["//base:base"],
 )
+cc_binary(
+  name = "bind",
+  srcs = ["bind.cc"],
+  deps = ["//base:base"],
+)

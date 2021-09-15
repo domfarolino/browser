@@ -109,7 +109,7 @@ void TaskLoopForIOMac::Run() {
         }
 
         CHECK(queue_.size());
-        Callback cb = std::move(queue_.front());
+        OnceClosure cb = std::move(queue_.front());
         queue_.pop();
         mutex_.unlock();
 
@@ -188,7 +188,7 @@ void TaskLoopForIOMac::UnwatchSocket(SocketReader* socket_reader) {
   mutex_.unlock();
 }
 
-void TaskLoopForIOMac::PostTask(Callback cb) {
+void TaskLoopForIOMac::PostTask(OnceClosure cb) {
   mutex_.lock();
   queue_.push(std::move(cb));
   mutex_.unlock();

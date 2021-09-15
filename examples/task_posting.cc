@@ -46,18 +46,18 @@ void PostTasksToWorkerThread(base::Thread& thread) {
       break;
 
     if (task_number == 1) {
-      task_runner->PostTask(std::bind(&TaskOne));
+      task_runner->PostTask(base::BindOnce(&TaskOne));
     } else if (task_number == 2) {
       int input;
       std::cout << "Enter TaskTwo's input: ";
       std::cin >> input;
-      task_runner->PostTask(std::bind(&TaskTwo, input));
+      task_runner->PostTask(base::BindOnce(&TaskTwo, input));
     } else {
       int input;
       std::cout << "Enter TaskThree's input: ";
       std::cin >> input;
       TaskParam param(input);
-      auto task  = std::bind(&TaskThree, param);
+      base::OnceClosure task  = base::BindOnce(&TaskThree, param);
       task_runner->PostTask(std::move(task));
     }
   }

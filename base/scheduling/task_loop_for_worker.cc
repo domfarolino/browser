@@ -17,7 +17,7 @@ void TaskLoopForWorker::Run() {
     }
 
     CHECK(queue_.size());
-    Callback cb = std::move(queue_.front());
+    OnceClosure cb = std::move(queue_.front());
     queue_.pop();
     cv_.release_lock();
 
@@ -30,7 +30,7 @@ void TaskLoopForWorker::Run() {
   quit_when_idle_ = false;
 }
 
-void TaskLoopForWorker::PostTask(Callback cb) {
+void TaskLoopForWorker::PostTask(OnceClosure cb) {
   mutex_.lock();
   queue_.push(std::move(cb));
   mutex_.unlock();

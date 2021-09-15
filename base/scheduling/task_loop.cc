@@ -73,8 +73,8 @@ void TaskLoop::RunUntilIdle() {
   Run();
 }
 
-Callback TaskLoop::QuitClosure() {
-  return std::bind(&TaskLoop::Quit, this);
+OnceClosure TaskLoop::QuitClosure() {
+  return BindOnce(&TaskLoop::Quit, this);
 }
 
 }; // namespace base

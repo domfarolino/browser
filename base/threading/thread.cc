@@ -101,7 +101,7 @@ void Thread::join() {
   started_via_api_ = false;
 }
 
-void Thread::RegisterDelegateResetCallbackForTesting(Callback cb) {
+void Thread::RegisterDelegateResetCallbackForTesting(OnceClosure cb) {
   delegate_reset_callback_for_testing_ = std::move(cb);
 }
 
