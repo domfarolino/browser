@@ -8,7 +8,6 @@
 #include <string>
 #include <queue>
 
-#include "base/check.h"
 #include "mage/core/channel.h"
 #include "mage/core/handles.h"
 #include "mage/core/message.h"

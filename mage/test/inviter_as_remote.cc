@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 
+#include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop_for_io.h"
 #include "mage/bindings/remote.h"
 #include "mage/core/core.h"

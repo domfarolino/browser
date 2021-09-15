@@ -22,7 +22,8 @@ namespace {
 // the test fixture by invoking callbacks.
 class TestInterfaceImpl : public magen::TestInterface {
  public:
-  TestInterfaceImpl(MageHandle message_pipe, base::Callback quit_closure) : quit_closure_(std::move(quit_closure)) {
+  TestInterfaceImpl(MageHandle message_pipe, std::function<void()> quit_closure)
+      : quit_closure_(std::move(quit_closure)) {
     receiver_.Bind(message_pipe, this);
   }
 
@@ -68,7 +69,7 @@ class TestInterfaceImpl : public magen::TestInterface {
   mage::Receiver<magen::TestInterface> receiver_;
 
   // Can be called any number of times.
-  base::Callback quit_closure_;
+  std::function<void()> quit_closure_;
 };
 
 enum class MageTestProcessType {
@@ -222,7 +223,10 @@ TEST_F(MageTest, SendInvitationUnitTest) {
 }
 
 TEST_F(MageTest, AcceptInvitationUnitTest) {
-  mage::Core::AcceptInvitation(launcher->GetLocalFd(), std::bind([](){}));
+  mage::Core::AcceptInvitation(launcher->GetLocalFd(),
+                               [](MageHandle) {
+                                 NOTREACHED();
+                               });
 
   // Invitation is asynchronous, so until we receive and formally accept the
   // information, there is no impact on our mage state.
@@ -239,8 +243,12 @@ TEST_F(MageTest, InviterAsReceiver) {
       launcher->GetLocalFd()
     );
 
+  // TODO(domfarolino): We have to use `std::bind()` here and `std::function`
+  // the bound functor, because the test interface expects to be able to call
+  // the quit closure multiple times. Migrate this to `base::RepeatingClosure`
+  // when something like it exists.
   std::unique_ptr<TestInterfaceImpl> impl(
-    new TestInterfaceImpl(message_pipe, main_thread->QuitClosure()));
+    new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, main_thread.get())));
   printf("[FROMUI]: Run()\n");
   main_thread->Run();
   EXPECT_EQ(impl->received_int, 1);

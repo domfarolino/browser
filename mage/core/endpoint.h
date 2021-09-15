@@ -7,6 +7,7 @@
 #include <queue>
 
 // TODO(domfarolino): Remove this.
+#include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop.h"
 #include "mage/core/message.h"
 
@@ -45,13 +46,17 @@ class Endpoint {
     }
 
     printf("Endpoint has accepted a message. Now forwarding it\n");
-
-    ReceiverDelegate* dummy_delegate = nullptr;
-    // TODO(domfarolino): This is messy, let's do this the right way.
-    auto task_1 = std::bind(&Endpoint::AcceptMessage, this, std::move(message));
-    //std::function<void()> task = std::bind(&Endpoint::RegisterDelegate, this, dummy_delegate);
-
-    // delegate_->OnReceivedMessage(std::move(message));
+    // TODO(domfarolino): More specifically, we should post a task to the
+    // TaskLoop that `delegate_` is bound to, and not just blindly post to the
+    // UI TaskLoop (i.e., what if `delegate_` is expected to be used on a worker
+    // thread?). Furthermore, we should consider whether or not we need to be
+    // unconditionally posting a task here. If this method is already running on
+    // the TaskLoop/thread that `delegate_` is bound to, do we need to post a
+    // task at all? It depends on the async semantics that we're going for. We
+    // should also test this.
+    base::GetUIThreadTaskLoop()->PostTask(
+        base::BindOnce(&ReceiverDelegate::OnReceivedMessage, delegate_,
+                       std::move(message)));
   }
 
   // The messages in |incoming_message_queue_| are queued in this endpoint and

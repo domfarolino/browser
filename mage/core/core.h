@@ -29,7 +29,7 @@ class Core {
     return return_handles;
   }
   static MageHandle SendInvitationAndGetMessagePipe(
-      int fd, base::Callback callback = base::Callback()) {
+      int fd, base::OnceClosure callback = base::OnceClosure()) {
     Get()->remote_has_accepted_invitation_callback_ = std::move(callback);
     return Get()->node_->SendInvitationAndGetMessagePipe(fd);
   }
@@ -70,7 +70,7 @@ class Core {
   // This is optionally supplied when sending an invitation. It reports back
   // when the remote process has accepted the invitation. Guaranteed to be
   // called asynchronously. Mostly used for tests.
-  base::Callback remote_has_accepted_invitation_callback_;
+  base::OnceClosure remote_has_accepted_invitation_callback_;
   // This is mandatorily supplied by the invitee when attempting to accept an
   // invitation. Accepting an invitation is asynchronous since we have to wait
   // for the invitation to arrive. Guaranteed to be called asynchronously.
