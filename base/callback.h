@@ -128,8 +128,7 @@ class OnceClosure {
           typename = typename std::enable_if_t<
               !std::is_same_v<std::decay_t<Lambda>, OnceClosure>>>
   OnceClosure(Lambda&& lambda) :
-      OnceClosure(BindOnce(std::forward<Lambda>(lambda))) {
-  }
+      OnceClosure(BindOnce(std::forward<Lambda>(lambda))) {}
 
   void operator()() {
     CHECK(bind_state_);
