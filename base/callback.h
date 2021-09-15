@@ -157,12 +157,13 @@ OnceClosure BindOnce(Functor&& f, Args&&... args) {
   //     originally-passed-in object is *moved* into the instance of the demoted
   //     type that is stored in, you guessed it, `BindState::args_`. That is if
   //     you pass in std::move(foo) as an argument to `BindOnce()`, the type
-  //     will be decayed from `Foo&&` to `Foo&`, and `BindState::args_` will
-  //     look like `std::tuple<T1, ..., Foo, ...>`. But we perfectly forward all
-  //     of the arguments from this method into `BindState::ctor()`. That way
-  //     when we construct the tuple over there, we construct an object of type
-  //     `Foo` from an object of type `Foo&&`, and therefore *move* the
-  //     originally-passed-in object into an instance stored in the tuple.
+  //     of the argument in `BindState::args_` tuple will be decayed from
+  //     `Foo&&` to `Foo`, and `BindState::args_` will look like
+  //     `std::tuple<T1, ..., Foo, ...>`. But we perfectly forward all of the
+  //     arguments from this method into `BindState::ctor()`. That way when we
+  //     construct the tuple over there, we construct an object of type `Foo`
+  //     from an object of type `Foo&&`, which *moves* the originally-passed-in
+  //     object into an instance stored in the tuple.
   //
   // In order to pass in an lvalue reference and have it be treated as an actual
   // reference at invocation time (thus modifying the value that was originally

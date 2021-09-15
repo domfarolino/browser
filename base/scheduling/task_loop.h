@@ -79,6 +79,8 @@ class TaskLoop : public Thread::Delegate,
   // waiting indefinitely.
   void RunUntilIdle();
 
+  // TODO(domfarolino): This should return a `RepeatingClosure` once something
+  // like that exists.
   virtual OnceClosure QuitClosure();
 
  protected:
