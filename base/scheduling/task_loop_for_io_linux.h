@@ -2,6 +2,7 @@
 #define BASE_SCHEDULING_TASK_LOOP_FOR_IO_LINUX_H_
 
 #include <stdint.h>
+#include <sys/epoll.h>
 #include <sys/errno.h>
 #include <sys/event.h>
 
@@ -56,6 +57,7 @@ class TaskLoopForIOLinux : public TaskLoop {
   void MachWakeup();
 
  private:
+  int epollfd;
   // The kqueue that drives the task loop. This is only written to once on
   // whatever thread |this| loop is constructed on (note this may be different
   // than the thread it is ultimately bound to). Can be read from any thread.

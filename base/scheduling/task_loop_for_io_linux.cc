@@ -138,21 +138,21 @@ void TaskLoopForIOMac::Run() {
 void TaskLoopForIOLinux::WatchSocket(SocketReader* socket_reader) {
   CHECK(socket_reader);
   int fd = socket_reader->Socket();
-  std::vector<kevent64_s> events;
 
-  kevent64_s new_event{};
-  new_event.ident = fd;
-  new_event.flags = EV_ADD;
-  new_event.filter = EVFILT_READ;
-  events.push_back(new_event);
+  epoll_data_t event_data;
+  event_data.fd = fd;
+  struct epoll_event ev;
+  ev.events = EPOLLIN;
+  ev.data = event_data;
 
-  // Invoke kevent64 not to listen to events, but to supply a changelist of
-  // event filters that we're interested in being notified about from the
-  // kernel.
-  int rv = kevent64(/*kernel_queue=*/kqueue_, /*change_list=*/events.data(),
-                    /*num_changes=*/events.size(), /*event_list=*/nullptr,
-                    /*num_events=*/0, /*flags=*/0, /*timeout=*/nullptr);
-  CHECK_GE(rv, 0);
+  // TODO(pmusgrave): |epollfd| will be initialized elsewhere, probably in the
+  // constructor. It stores a file descriptor referring to the epoll instance.
+  // Also, this is from the epoll documentation, probably want to fail more
+  // gracefully than this.
+  if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev) == -1) {
+    perror("epoll_ctl: listen_sock");
+    exit(EXIT_FAILURE);
+  }
 
   mutex_.lock();
   // A socket reader can only be registered once.
