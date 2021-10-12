@@ -1,37 +1,29 @@
 #include "base/scheduling/task_loop_for_io_linux.h"
 
+#include <event.h>
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <sys/errno.h>
-#include <sys/event.h>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
 
 #include <vector>
 
 namespace base {
 
-TaskLoopForIOLinux::TaskLoopForIOLinux() : kqueue_(kqueue()) {
-  kern_return_t kr = mach_port_allocate(mach_task_self(),
-                                        MACH_PORT_RIGHT_RECEIVE, &wakeup_);
-  CHECK_EQ(kr, KERN_SUCCESS);
-
-  kevent64_s event{};
-  event.ident = wakeup_;
-  event.filter = EVFILT_MACHPORT;
-  event.flags = EV_ADD;
-  event.fflags = MACH_RCV_MSG;
-  event.ext[0] = reinterpret_cast<uint64_t>(&wakeup_buffer_);
-  event.ext[1] = sizeof(wakeup_buffer_);
-
-  kr = kevent64(kqueue_, &event, 1, nullptr, 0, 0, nullptr);
-  CHECK_EQ(kr, KERN_SUCCESS);
+TaskLoopForIOLinux::TaskLoopForIOLinux() {
+  epollfd_ = epoll_create1(0);
+  CHECK(epollfd_ != -1);
+  
+  eventfd_ = eventfd(0, 0);
+  CHECK(eventfd_ != -1);
 }
 
-TaskLoopForIOMac::~TaskLoopForIOLinux() {
+TaskLoopForIOLinux::~TaskLoopForIOLinux() {
   CHECK(async_socket_readers_.empty());
 }
 
-void TaskLoopForIOMac::Run() {
+void TaskLoopForIOLinux::Run() {
   while (true) {
     // The last task that ran may have introduced a new |SocketReader| that
     // increased our |event_count_|, and thus the number of event filters that
@@ -44,11 +36,6 @@ void TaskLoopForIOMac::Run() {
     // and source after every kevent64 call.
     events_.resize(event_count_);
 
-    timespec timeout{0, 0};
-    int rv = kevent64(/*kernal_queue=*/kqueue_, /*change_list=*/nullptr,
-                      /*num_changes=*/0, /*event_list=*/events_.data(),
-                      /*num_events=*/events_.size(), /*flags=*/0,
-                      /*timeout=*/quit_when_idle_ ? &timeout : nullptr);
     // We grab a lock so that neither of the following are tampered with on
     // another thread while we are reading/writing them:
     //   - |queue_|
@@ -58,7 +45,7 @@ void TaskLoopForIOMac::Run() {
     // At this point we have at least one event from the kernel, unless we're in
     // the |quit_when_idle_| mode and have nothing to do. We detect this
     // idleness via `rv == 0` later and break.
-    CHECK(rv >= 1 || (quit_when_idle_ && rv == 0));
+    // CHECK(rv >= 1 || (quit_when_idle_ && rv == 0));
 
     // If |quit_| is set, that is a no-brainer, we have to just quit. But if
     // |quit_when_idle_| is set, we can only *actually* quit if we're idle. We
@@ -145,14 +132,8 @@ void TaskLoopForIOLinux::WatchSocket(SocketReader* socket_reader) {
   ev.events = EPOLLIN;
   ev.data = event_data;
 
-  // TODO(pmusgrave): |epollfd| will be initialized elsewhere, probably in the
-  // constructor. It stores a file descriptor referring to the epoll instance.
-  // Also, this is from the epoll documentation, probably want to fail more
-  // gracefully than this.
-  if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev) == -1) {
-    perror("epoll_ctl: listen_sock");
-    exit(EXIT_FAILURE);
-  }
+  int kr = epoll_ctl(epollfd_, EPOLL_CTL_ADD, fd, &ev);
+  CHECK(kr != -1);
 
   mutex_.lock();
   // A socket reader can only be registered once.
@@ -165,22 +146,16 @@ void TaskLoopForIOLinux::WatchSocket(SocketReader* socket_reader) {
 void TaskLoopForIOLinux::UnwatchSocket(SocketReader* socket_reader) {
   CHECK(socket_reader);
   int fd = socket_reader->Socket();
-  std::vector<kevent64_s> events;
 
-  kevent64_s new_event{};
-  new_event.ident = fd;
-  new_event.flags = EV_DELETE;
-  new_event.filter = EVFILT_READ;
-  events.push_back(new_event);
+  epoll_data_t event_data;
+  event_data.fd = fd;
+  struct epoll_event ev;
+  ev.events = EPOLLIN;
+  ev.data = event_data;
 
-  // Invoke kevent64 not to listen to events, but to supply a changelist of
-  // event filters that we're interested in being notified about from the
-  // kernel.
-  int rv = kevent64(/*kernel_queue=*/kqueue_, /*change_list=*/events.data(),
-                    /*num_changes=*/events.size(), /*event_list=*/nullptr,
-                    /*num_events=*/0, /*flags=*/0, /*timeout=*/nullptr);
-  CHECK_GE(rv, 0);
-
+  int kr = epoll_ctl(epollfd_, EPOLL_CTL_DEL, fd, &ev);
+  CHECK(kr != -1);
+  
   mutex_.lock();
   CHECK(!async_socket_readers_.empty());
   async_socket_readers_.erase(fd);
@@ -192,21 +167,21 @@ void TaskLoopForIOLinux::PostTask(OnceClosure cb) {
   mutex_.lock();
   queue_.push(std::move(cb));
   mutex_.unlock();
-  MachWakeup();
+  //MachWakeup();
 }
 
 void TaskLoopForIOLinux::Quit() {
   mutex_.lock();
   quit_ = true;
   mutex_.unlock();
-  MachWakeup();
+  //MachWakeup();
 }
 
 void TaskLoopForIOLinux::QuitWhenIdle() {
   mutex_.lock();
   quit_when_idle_ = true;
   mutex_.unlock();
-  MachWakeup();
+  //MachWakeup();
 }
 
 void TaskLoopForIOLinux::MachWakeup() {

@@ -1,10 +1,11 @@
 #ifndef BASE_SCHEDULING_TASK_LOOP_FOR_IO_LINUX_H_
 #define BASE_SCHEDULING_TASK_LOOP_FOR_IO_LINUX_H_
 
+#include <event.h>
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <sys/errno.h>
-#include <sys/event.h>
+#include <sys/eventfd.h>
 
 #include <map>
 #include <queue>
@@ -57,17 +58,19 @@ class TaskLoopForIOLinux : public TaskLoop {
   void MachWakeup();
 
  private:
-  int epollfd;
+  int epollfd_;
+  int eventfd_;
+
   // The kqueue that drives the task loop. This is only written to once on
   // whatever thread |this| loop is constructed on (note this may be different
   // than the thread it is ultimately bound to). Can be read from any thread.
-  const int kqueue_;
+  //const int kqueue_;
 
   // Receive right to which an empty Mach message is sent to wake up the loop
   // in response to |PostTask()|.
-  mach_port_t wakeup_;
+  //mach_port_t wakeup_;
   // Scratch buffer that is used to receive the message sent to |wakeup_|.
-  mach_msg_empty_rcv_t wakeup_buffer_;
+  //mach_msg_empty_rcv_t wakeup_buffer_;
 
   // These are listeners that get notified when their file descriptor has been
   // written to and is ready to read from. |SocketReader|s are expected to
@@ -118,7 +121,7 @@ class TaskLoopForIOLinux : public TaskLoop {
   // This buffer is where events from the kernel queue are stored after calls to
   // |kevent64|. This buffer is consulted in |Run()|, where events are pulled
   // and the loop responds to them.
-  std::vector<kevent64_s> events_{event_count_};
+  std::vector<struct epoll_event> events_{event_count_};
 };
 
 } // namespace base

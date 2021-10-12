@@ -1,6 +1,7 @@
 #ifndef BASE_SCHEDULING_TASK_RUNNER_H_
 #define BASE_SCHEDULING_TASK_RUNNER_H_
 
+#include <cstdio>
 #include <memory>
 
 #include "base/callback.h"
