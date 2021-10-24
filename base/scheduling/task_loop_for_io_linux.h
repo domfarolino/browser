@@ -15,6 +15,8 @@
 #include "base/scheduling/task_loop.h"
 #include "base/synchronization/mutex.h"
 
+#define MAX_EVENTS 10
+
 namespace base {
 
 class TaskLoopForIOLinux : public TaskLoop {
@@ -55,7 +57,7 @@ class TaskLoopForIOLinux : public TaskLoop {
   void UnwatchSocket(SocketReader* reader);
 
   // Can be called from any thread (it is *implicitly* thread-safe).
-  void MachWakeup();
+  void Wakeup();
 
  private:
   int epollfd_;
