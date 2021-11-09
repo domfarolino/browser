@@ -23,11 +23,15 @@ class HTMLParser {
     }
 
   private:
+    Token current_token_;
     Document document_;
     // AST
+
     bool run_parse(); // Should return DOM object
-    void next_token();
-    void check_token();
+    void advance_token();
+    Token next_token();
+    bool check_lexeme(); // change this to token class
+    void raise_parse_error();
 };
 }; // namespace base
 
