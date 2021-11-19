@@ -10,7 +10,7 @@ namespace base {
 // has been parsed.
 class Document {
   public:
-    Document(std::string text = "") : text_(text);
+    Document(std::string text = "") : text_(text) {};
     ~Document();
 
     void setText(std::string text);

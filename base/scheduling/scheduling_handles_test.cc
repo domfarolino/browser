@@ -65,7 +65,7 @@ TEST(NoFixture, MainThreadWithNoTaskLoopHasNoSchedulingHandles) {
   EXPECT_FALSE(GetCurrentThreadTaskRunner());
 }
 
-TEST(NoFixuture, MainThreadWithTaskLoopHasSchedulingHandles) {
+TEST(NoFixture, MainThreadWithTaskLoopHasSchedulingHandles) {
   std::shared_ptr<TaskLoop> ui_task_loop = TaskLoop::Create(ThreadType::UI);
 
   // UI.
@@ -81,7 +81,7 @@ TEST(NoFixuture, MainThreadWithTaskLoopHasSchedulingHandles) {
   EXPECT_TRUE(GetCurrentThreadTaskRunner());
 }
 
-TEST(NoFixuture, MainThreadWhenTaskLoopShutsDownNoSchedulingHandles) {
+TEST(NoFixture, MainThreadWhenTaskLoopShutsDownNoSchedulingHandles) {
   {
     std::shared_ptr<TaskLoop> ui_task_loop = TaskLoop::Create(ThreadType::UI);
 

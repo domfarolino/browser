@@ -16,6 +16,8 @@ cc_library(
     "build_config.h",
     "callback.h",
     "check.h",
+    "parsing/document.h",
+    "parsing/html_parser.h",
     "scheduling/scheduling_handles.h",
     "scheduling/task_loop.h",
     "scheduling/task_loop_for_io.h",
@@ -34,6 +36,8 @@ cc_library(
     ":linux": [],
   }),
   srcs = [
+    "parsing/document.cc",
+    "parsing/html_parser.cc",
     "scheduling/scheduling_handles.cc",
     "scheduling/task_loop.cc",
     "scheduling/task_loop_for_worker.cc",
@@ -54,6 +58,8 @@ cc_test(
   srcs = [
     "build_config_test.cc",
     "callback_test.cc",
+    "parsing/document_test.cc",
+    "parsing/html_parser_test.cc",
     "scheduling/task_loop_test.cc",
     "threading/simple_thread_test.cc",
     "threading/thread_checker_test.cc",
