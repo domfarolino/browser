@@ -23,7 +23,7 @@ bool HTMLParser::check_lexeme(std::string lexeme) {
 
 
 void HTMLParser::raise_parse_error(std::string token_name) {
-  std::cout << "Parse Error:  Expected token " << token_name;
+  std::cout << "Parse Error:  Expected token " << token_name << "\n\n";
 }
 
 
@@ -33,6 +33,10 @@ bool HTMLParser::run_parse() {
   return document_helper();
 }
 
+
+void HTMLParser::setDocument(Document *document) {
+  document_ = document;
+}
 
 // <document> ::= <html_open><head><body><html_close>
 //

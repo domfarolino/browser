@@ -32,7 +32,9 @@ class HTMLParser {
     HTMLParser(Document *document) : document_(document) {};
     ~HTMLParser();
 
+    bool run_parse(); // Should return DOM object
 
+    void setDocument(Document *document);
 
   private:
     Token *current_token_;
@@ -40,7 +42,6 @@ class HTMLParser {
     Document *document_;
     // AST
 
-    bool run_parse(); // Should return DOM object
     void advance_token();
     bool check_lexeme(std::string lexeme); // change this to token class
     void raise_parse_error(std::string token_name);
