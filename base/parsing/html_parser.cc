@@ -8,6 +8,10 @@ bool div();
 bool text();
 bool advance_token();
 
+HTMLParser::HTMLParser(Document *document) {
+  scanner_ = new Scanner(document);
+}
+
 // Update the current token class member
 void HTMLParser::advance_token() {
   current_token_ = scanner_->next_token();

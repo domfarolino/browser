@@ -6,30 +6,16 @@
 #include <string>
 
 namespace base {
-enum class TokenClass {
 
-};
-
-class Token {
-  public:
-    std::string lexeme;
-    std::string token_class;
-};
-
-class Scanner {
-  public:
-    // Get the next Token from the scanner
-    Token* next_token() {
-      return new Token();
-    }
-};
-
-// |HTMLParser| class accepts a Document instance and parses the raw text.  
+// |HTMLParser| is initialized with a Document instance, which is passed to
+// the Scanner.  The Scanner tokenizes the document, and returns tokens to the
+// Parser, which checks against the grammar.
+//
 // This class should return either an AST representing the parsed HTML document
 // or a DOM object.
 class HTMLParser {
   public:
-    HTMLParser(Document *document) : document_(document) {};
+    HTMLParser(Document *document);
     ~HTMLParser();
 
     bool run_parse(); // Should return DOM object
@@ -39,7 +25,6 @@ class HTMLParser {
   private:
     Token *current_token_;
     Scanner *scanner_;
-    Document *document_;
     // AST
 
     void advance_token();
