@@ -1,14 +1,18 @@
 #include "base/parsing/scanner.h"
 
+namespace base {
+
 Scanner::Scanner(Document *document) {
+  token_vector_ = std::vector<std::unique_ptr<Token>>();
+
   // This could be a bad idea, but try to vectorize the whole document for now, hold my drink
   document_ = document;
-  std::string text = document_.getText();
+  std::string text = document_->getText();
   std::stringstream sstream(text);
 
   while (sstream.good()) {
     std::string line;
-    Token *token = new Token();
+    auto token = new Token("", "");
 
     getline(sstream, line, '\n');
 
@@ -16,11 +20,16 @@ Scanner::Scanner(Document *document) {
 
     token->lexeme = line;
     
-    token_vector_.push_back(token);
+    // token_vector_.push_back(token);
+    token_vector_.emplace_back(token);
   }
 };
 
 
-Token* Scanner::next_token() {
-  return token_vector_.pop();
+std::unique_ptr<Token> Scanner::next_token() {
+  auto token = std::move(token_vector_.back());
+  token_vector_.pop_back();
+  return token;
 }
+
+}; // namespace base

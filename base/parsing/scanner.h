@@ -1,26 +1,27 @@
 #ifndef BASE_PARSING_SCANNER_H_
 #define BASE_PARSING_SCANNER_H_
 
+#include <sstream>
+#include <vector>
+
 #include "base/parsing/document.h"
 #include "base/parsing/token.h"
 
-#include <stringstream>
-
 namespace base {
 
-// |Scanner| accepts a Document instance and scans the text into Tokens, which are serialized into a Token stream for parsing.
+// |Scanner| accepts a Document instance and scans the text into Tokens, 
+// which are serialized into a Token stream for parsing.
 class Scanner {
   public:
     Scanner(Document *document);
-
     ~Scanner();
 
     // Get the next Token from the scanner
-    Token* next_token();
+    std::unique_ptr<Token> next_token();
 
   private:
     Document *document_;
-    std::vector<Token> token_vector_;
+    std::vector<std::unique_ptr<Token>> token_vector_;
 };
 }; // namespace base
 

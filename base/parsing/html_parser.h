@@ -1,9 +1,12 @@
 #ifndef BASE_PARSING_HTML_PARSER_H_
 #define BASE_PARSING_HTML_PARSER_H_
 
-#include "base/parsing/document.h"
 #include <stdio.h>
 #include <string>
+
+#include "base/parsing/document.h"
+#include "base/parsing/scanner.h"
+#include "base/parsing/token.h"
 
 namespace base {
 
@@ -23,7 +26,7 @@ class HTMLParser {
     void setDocument(Document *document);
 
   private:
-    Token *current_token_;
+    std::unique_ptr<Token> current_token_;
     Scanner *scanner_;
     // AST
 

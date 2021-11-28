@@ -1,6 +1,5 @@
 #include "base/parsing/html_parser.h"
 
-
 namespace base {
 
 bool img();
@@ -37,10 +36,6 @@ bool HTMLParser::run_parse() {
   return document_helper();
 }
 
-
-void HTMLParser::setDocument(Document *document) {
-  document_ = document;
-}
 
 // <document> ::= <html_open><head><body><html_close>
 //
@@ -150,7 +145,7 @@ bool HTMLParser::body_open() {
 
 // <body_elements> ::= (<div>)* | (<img>)* | (<text>)*
 //
-bool body_elements() {
+bool HTMLParser::body_elements() {
   advance_token();
   return (div() || img() || text());
 }
