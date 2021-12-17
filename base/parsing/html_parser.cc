@@ -2,11 +2,6 @@
 
 namespace base {
 
-bool img();
-bool div();
-bool text();
-bool advance_token();
-
 HTMLParser::HTMLParser(Document *document) {
   scanner_ = new Scanner(document);
 }
@@ -14,6 +9,10 @@ HTMLParser::HTMLParser(Document *document) {
 // Update the current token class member
 void HTMLParser::advance_token() {
   current_token_ = scanner_->next_token();
+  auto token = current_token_.get();
+
+  // Debug output
+  // std::cout << "Current Token:  " << token->lexeme << '\n';
 }
 
 
@@ -33,6 +32,8 @@ void HTMLParser::raise_parse_error(std::string token_name) {
 // run_parse - starts the process of parsing the document
 // 
 bool HTMLParser::run_parse() {
+  // Debug output
+  // std::cout << "Starting Parse\n";
   return document_helper();
 }
 
@@ -100,8 +101,7 @@ bool HTMLParser::head_open() {
 // <head_resource> ::= ? | <style>
 //
 bool HTMLParser::head_resource() {
-  advance_token();
-  // check for optional resource
+  // check token for optional resource
   return true;
 }
 
@@ -147,7 +147,8 @@ bool HTMLParser::body_open() {
 //
 bool HTMLParser::body_elements() {
   advance_token();
-  return (div() || img() || text());
+  return false;
+  // return (div() || img() || text());
 }
 
 // <div> ::= <div_open> <div_close> | <div_open> <img> <div_close> | <div_open> (<text>)* <div_close>
@@ -258,7 +259,8 @@ bool HTMLParser::body_close() {
 // <html_close> ::= "</html>"
 //
 bool HTMLParser::html_close() {
-  return true;
+  advance_token();
+  return check_lexeme("</html>");
 }
 
 }; // namespace base

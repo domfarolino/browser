@@ -3,7 +3,7 @@
 namespace base {
 
 Scanner::Scanner(Document *document) {
-  token_vector_ = std::vector<std::unique_ptr<Token>>();
+  token_vector_ = std::vector<std::shared_ptr<Token>>();
 
   // This could be a bad idea, but try to vectorize the whole document for now, hold my drink
   document_ = document;
@@ -12,23 +12,32 @@ Scanner::Scanner(Document *document) {
 
   while (sstream.good()) {
     std::string line;
-    auto token = new Token("", "");
 
-    getline(sstream, line, '\n');
+    // split each line
+    std::getline(sstream, line, '\n');
 
-    // split line, check if empty
+    // parse line
+    while (line.length() > 0) {
+      int token_length = 0;
 
-    token->lexeme = line;
-    
-    // token_vector_.push_back(token);
-    token_vector_.emplace_back(token);
+      // create a substring of the token length
+      while ((line[token_length] != NULL) && (line[token_length] != '>')) token_length++;
+
+      if (token_length > 0) {
+        auto token = std::make_shared<Token>(line.substr(0, token_length + 1), "");
+        token_vector_.emplace_back(token);
+      }
+
+      line = line.substr(token_length + 1, line.length());
+    }
   }
 };
 
 
-std::unique_ptr<Token> Scanner::next_token() {
-  auto token = std::move(token_vector_.back());
-  token_vector_.pop_back();
+std::shared_ptr<Token> Scanner::next_token() {
+  auto token = token_vector_.front();
+  // change this to queue/dequeue
+  token_vector_.erase(token_vector_.begin());
   return token;
 }
 

@@ -17,11 +17,11 @@ class Scanner {
     ~Scanner();
 
     // Get the next Token from the scanner
-    std::unique_ptr<Token> next_token();
+    std::shared_ptr<Token> next_token();
 
   private:
     Document *document_;
-    std::vector<std::unique_ptr<Token>> token_vector_;
+    std::vector<std::shared_ptr<Token>> token_vector_;
 };
 }; // namespace base
 

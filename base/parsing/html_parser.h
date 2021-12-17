@@ -26,7 +26,7 @@ class HTMLParser {
     void setDocument(Document *document);
 
   private:
-    std::unique_ptr<Token> current_token_;
+    std::shared_ptr<Token> current_token_;
     Scanner *scanner_;
     // AST
 

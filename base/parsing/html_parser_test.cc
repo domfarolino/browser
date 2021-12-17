@@ -24,11 +24,22 @@ class HTMLParserTestBase : public testing::Test {
 };
 
 
-TEST_F(HTMLParserTestBase, HTMLParserDocumentHasBody) {
-  std::string text = "<html><head><body></body></head></html>";
-  modify_document_text(text);
+TEST(HTMLParserTestBase, HTMLParserDocumentHasBody) {
+  std::string text = "<html><head></head><body></body></html>";
+  Document *document = new Document(text);
+  HTMLParser *parser = new HTMLParser(document);
+
   bool parse_result = parser->run_parse();
   EXPECT_TRUE(parse_result);
+}
+
+TEST(HTMLParserTestBase, MalformedHTMLDocumentShouldFail) {
+  std::string text = "<html><head> </body></html>";
+  Document *document = new Document(text);
+  HTMLParser *parser = new HTMLParser(document);
+
+  bool parse_result = parser->run_parse();
+  EXPECT_FALSE(parse_result);
 }
 
 }; // namespace base
