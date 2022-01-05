@@ -7,6 +7,7 @@
 
 #include "base/callback.h"
 #include "base/scheduling/task_loop_for_io.h"
+#include "base/threading/thread_checker.h" // for CHECK_ON_THREAD().
 #include "gtest/gtest.h"
 #include "mage/bindings/receiver.h"
 #include "mage/bindings/remote.h"
@@ -18,6 +19,14 @@ namespace mage {
 
 namespace {
 
+void PRINT_THREAD() {
+  if (base::GetIOThreadTaskLoop() == base::GetCurrentThreadTaskLoop()) {
+    printf("[base::ThreadType::IO]\n");
+  } else if (base::GetUIThreadTaskLoop() == base::GetCurrentThreadTaskLoop()) {
+    printf("[base::ThreadType::UI]\n");
+  }
+}
+
 // A concrete implementation of a mage test-only interface. This hooks in with
 // the test fixture by invoking callbacks.
 class TestInterfaceImpl : public magen::TestInterface {
@@ -27,14 +36,6 @@ class TestInterfaceImpl : public magen::TestInterface {
     receiver_.Bind(message_pipe, this);
   }
 
-  void PRINT_THREAD() {
-    if (base::GetIOThreadTaskLoop() == base::GetCurrentThreadTaskLoop()) {
-      printf("THREADTYPE::IO\n");
-    } else if (base::GetUIThreadTaskLoop() == base::GetCurrentThreadTaskLoop()) {
-      printf("THREADTYPE::UI\n");
-    }
-  }
-
   void Method1(int in_int, double in_double, std::string in_string) {
     PRINT_THREAD();
     printf("TestInterfaceImpl::Method1\n");
@@ -42,7 +43,7 @@ class TestInterfaceImpl : public magen::TestInterface {
     received_int = in_int;
     received_double = in_double;
     received_string = in_string;
-    printf("[FROMIO]: Quit()\n");
+    printf("[TestInterfaceImpl]: Quit() on closure we were given\n");
     quit_closure_();
   }
 
@@ -52,7 +53,7 @@ class TestInterfaceImpl : public magen::TestInterface {
 
     received_amount = in_amount;
     received_currency = in_currency;
-    printf("[FROMIO]: Quit()\n");
+    printf("[TestInterfaceImpl]: Quit() on closure we were given\n");
     quit_closure_();
   }
 
@@ -74,15 +75,15 @@ class TestInterfaceImpl : public magen::TestInterface {
 
 enum class MageTestProcessType {
   kChildIsAccepterAndRemote,
-  kInviterAsRemote,
+  kChildIsInviterAndRemote,
   kInviterAsRemoteBlockOnAcceptance,
   kNone,
 };
 
 // TODO(domfarolino): It appears that theses all need the `./bazel-bin/` prefix
 // to run correctly locally, but this breaks the GH workflow. Look into this.
-static const char kChildAcceptorAndRemote[] = "./bazel-bin/mage/test/invitee_as_remote";
-static const char kInviterAsRemotePath[] = "./bazel-bin/mage/test/inviter_as_remote";
+static const char kChildAcceptorAndRemoteBinary[] = "./bazel-bin/mage/test/invitee_as_remote";
+static const char kChildInviterAndRemoteBinary[] = "./bazel-bin/mage/test/inviter_as_remote";
 static const char kInviterAsRemoteBlockOnAcceptancePath[] = "./bazel-bin/mage/test/inviter_as_remote_block_on_acceptance";
 
 class ProcessLauncher {
@@ -104,19 +105,18 @@ class ProcessLauncher {
     std::string fd_as_string = std::to_string(GetRemoteFd());
     pid_t rv = fork();
     if (rv == 0) { // Child.
+      char cwd[1024];
+      getcwd(cwd, sizeof(cwd));
+      printf("getcwd(): %s\n\n\n", cwd);
+
       switch (type_) {
         case MageTestProcessType::kChildIsAccepterAndRemote:
-          rv = execl(kChildAcceptorAndRemote, "--mage-socket=", fd_as_string.c_str(), NULL);
-          EXPECT_EQ(rv, 0);
-          printf("errono: %d\n", errno);
-
-          char cwd[1024];
-          getcwd(cwd, sizeof(cwd));
-          printf("getcwd(): %s\n", cwd);
+          rv = execl(kChildAcceptorAndRemoteBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
+          ASSERT_EQ(rv, 0);
           break;
-        case MageTestProcessType::kInviterAsRemote:
-          rv = execl(kInviterAsRemotePath, "--mage-socket=", fd_as_string.c_str(), NULL);
-          EXPECT_EQ(rv, 0);
+        case MageTestProcessType::kChildIsInviterAndRemote:
+          rv = execl(kChildInviterAndRemoteBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
+          ASSERT_EQ(rv, 0);
           break;
         case MageTestProcessType::kInviterAsRemoteBlockOnAcceptance:
           rv = execl(kInviterAsRemoteBlockOnAcceptancePath, "--mage-socket=", fd_as_string.c_str(), NULL);
@@ -262,38 +262,44 @@ TEST_F(MageTest, ParentIsInviterAndReceiver) {
   EXPECT_EQ(impl->received_currency, "JPY");
 }
 
-/*
 // In this test, the parent process is the invitee and a mage::Receiver.
-TEST_F(MageTest, InviteeAsReceiver) {
-  launcher->Launch(MageTestProcessType::kInviterAsRemote);
-  std::shared_ptr<base::TaskLoop> task_loop_for_io =
-    base::TaskLoop::Create(base::ThreadType::IO);
+TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
+  launcher->Launch(MageTestProcessType::kChildIsInviterAndRemote);
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(), std::bind([&](MageHandle message_pipe){
-    std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(message_pipe, task_loop_for_io->QuitClosure()));
+    // TODO(domfarolino): This isn't right. I think this should be the UI thread.
+    CHECK_ON_THREAD(base::ThreadType::IO);
+    printf("PARENT PROCESS: AcceptInvitation callback is where we are\n");
+    std::unique_ptr<TestInterfaceImpl> impl(
+      new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, base::GetIOThreadTaskLoop().get())));
 
     // Let the message come in from the remote inviter.
-    task_loop_for_io->Run();
+    PRINT_THREAD();
+    printf(" --> AcceptInvitation() about to run IO loop\n");
+    base::GetCurrentThreadTaskLoop()->Run();
 
     // Once the mage method is invoked, the task loop will quit the above Run()
     // and we can check the results.
+    printf(" --> AcceptInvitation() about to check results\n");
     EXPECT_EQ(impl->received_int, 1);
     EXPECT_EQ(impl->received_double, .5);
     EXPECT_EQ(impl->received_string, "message");
 
     // Let another message come in from the remote inviter.
-    task_loop_for_io->Run();
+    PRINT_THREAD();
+    printf(" --> AcceptInvitation() about to run IO loop\n");
+    base::GetCurrentThreadTaskLoop()->Run();
     EXPECT_EQ(impl->received_amount, 1000);
     EXPECT_EQ(impl->received_currency, "JPY");
-
-    task_loop_for_io->Quit();
+    base::GetUIThreadTaskLoop()->Quit();
   }, std::placeholders::_1));
 
   // This will run the loop until we get the accept invitation. Then the above
   // lambda invokes, and the test continues in there.
-  task_loop_for_io->Run();
+  main_thread->Run();
 }
 
+/*
 // This test is the exact same as above, with the exception that the remote
 // process we spawn (which sends the invitation) doesn't use its mage::Remote to
 // talk to us until it receives our invitation acceptance. This is a subtle use

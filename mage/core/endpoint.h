@@ -39,6 +39,8 @@ class Endpoint {
 
   // TODO(domfarolino): Don't keep this inline.
   void AcceptMessage(Message message) {
+    printf("Endpoint::AcceptMessage\n");
+    printf("  name: %s\n  peer_address.node_name: %s\n  peer_address.endpoint_name: %s\n", name.c_str(), peer_address.node_name.c_str(), peer_address.endpoint_name.c_str());
     if (!delegate_) {
       printf("Endpoint has accepted a message. Now queueing it\n");
       incoming_message_queue_.push(std::move(message));

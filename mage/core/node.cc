@@ -109,7 +109,7 @@ MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
 void Node::AcceptInvitation(int fd) {
   CHECK(!has_accepted_invitation_);
 
-  printf("Node::AcceptInvitation() from pid: %d\n", getpid());
+  printf("Node::AcceptInvitation() getpid: %d\n", getpid());
   std::unique_ptr<Channel> channel(new Channel(fd, this));
   channel->Start();
   node_channel_map_.insert({kInitialChannelName, std::move(channel)});
@@ -177,7 +177,7 @@ void Node::OnReceivedInvitation(Message message) {
     params->intended_endpoint_peer_name,
     params->intended_endpoint_peer_name + 15);
 
-  printf("Node::OnReceivedSendInvitation\n");
+  printf("Node::OnReceivedInvitation getpid(): %d\n", getpid());
   printf("  inviter_name:                %s\n", inviter_name.c_str());
   printf("  temporary_remote_node_name:  %s\n",
                 temporary_remote_node_name.c_str());
@@ -196,10 +196,15 @@ void Node::OnReceivedInvitation(Message message) {
   // We can also create a new local |Endpoint|, and wire it up to point to its
   // peer that we just learned about from the inviter's message.
   std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
+  // TODO(domfarolino): Why aren't we setting the new local endpoint's name to
+  // `intended_endpoint_name`.
   local_endpoint->name = util::RandomString();
   local_endpoint->peer_address.node_name = inviter_name;
   local_endpoint->peer_address.endpoint_name = intended_endpoint_peer_name;
   local_endpoints_.insert({local_endpoint->name, local_endpoint});
+  printf("local_endpoint->name: %s\n", local_endpoint->name.c_str());
+  printf("local_endpoint->peer_address.node_name: %s\n", local_endpoint->peer_address.node_name.c_str());
+  printf("local_endpoint->peer_address.endpoint_name: %s\n", local_endpoint->peer_address.endpoint_name.c_str());
 
   node_channel_map_[inviter_name]->SendAcceptInvitation(
     temporary_remote_node_name,
@@ -222,8 +227,8 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   std::string actual_node_name(params->actual_node_name,
                                params->actual_node_name + 15);
 
-  printf("Node::OnReceivedAcceptInvitation from: %s (actually %s)\n",
-         temporary_remote_node_name.c_str(), actual_node_name.c_str());
+  printf("Node::OnReceivedAcceptInvitation [getpid(): %d] from: %s (actually %s)\n",
+         getpid(), temporary_remote_node_name.c_str(), actual_node_name.c_str());
 
   // We should only get ACCEPT_INVITATION messages from nodes that we have a
   // pending invitation for.
@@ -282,7 +287,7 @@ void Node::OnReceivedAcceptInvitation(Message message) {
 
 void Node::OnReceivedUserMessage(Message message) {
   CHECK_ON_THREAD(base::ThreadType::IO);
-  printf("Node::OnReceivedUserMessage\n");
+  printf("Node::OnReceivedUserMessage getpid(): %d\n", getpid());
   // 1. Extract the endpoint that the message is bound for.
   // TODO(domfarolino): Do this by extracting the intended endpoint name from
   // the message. The hacky way of doing it below only works because we only
