@@ -136,18 +136,20 @@ void Channel::SendMessage(Message message) {
   PrintFullMessageContents(message);
 
   std::vector<char>& payload_buffer = message.payload_buffer();
-  write(fd_, payload_buffer.data(), payload_buffer.size());
+  CHECK_EQ(message.Size(), payload_buffer.size());
+  int rv = write(fd_, payload_buffer.data(), payload_buffer.size());
+  CHECK_EQ(rv, message.Size());
 }
 
 void Channel::OnCanReadFromSocket() {
-  printf("Channel::OnCanReadFromSocket(): pid: %d\n", getpid());
   CHECK_ON_THREAD(base::ThreadType::IO);
   std::vector<char> full_message_buffer;
 
   // Read the message header.
   {
     size_t header_size = sizeof(MessageHeader);
-    char buffer[header_size];
+    // TODO(domfarolino): Deal with this memory leak.
+    char* buffer = new char[header_size];
     struct iovec iov = {buffer, header_size};
     char cmsg_buffer[CMSG_SPACE(header_size)];
     struct msghdr msg = {};
@@ -156,20 +158,24 @@ void Channel::OnCanReadFromSocket() {
     msg.msg_control = cmsg_buffer;
     msg.msg_controllen = sizeof(cmsg_buffer);
 
-    recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
+    int rv = recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
+    CHECK_EQ(rv, header_size);
     std::vector<char> tmp_header_buffer(buffer, buffer + header_size);
     full_message_buffer = std::move(tmp_header_buffer);
   }
 
   // Pull out the message header.
+  int total_message_size = reinterpret_cast<MessageHeader*>(full_message_buffer.data())->size;
+  full_message_buffer.resize(total_message_size);
+
   MessageHeader* header = reinterpret_cast<MessageHeader*>(full_message_buffer.data());
-  CHECK_GE(header->size, full_message_buffer.size());
-  full_message_buffer.resize(header->size);
+  CHECK_EQ(header->size, full_message_buffer.size());
 
   // Read the message body.
   {
     size_t body_size = header->size - sizeof(MessageHeader);
-    char buffer[body_size];
+    // TODO(domfarolino): Deal with this memory leak.
+    char* buffer = new char[body_size];
     struct iovec iov = {buffer, body_size};
     char cmsg_buffer[CMSG_SPACE(body_size)];
     struct msghdr msg = {};
@@ -178,13 +184,15 @@ void Channel::OnCanReadFromSocket() {
     msg.msg_control = cmsg_buffer;
     msg.msg_controllen = sizeof(cmsg_buffer);
 
-    recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
+    int rv = recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
+    CHECK_EQ(rv, body_size);
     memcpy(full_message_buffer.data() + sizeof(MessageHeader), buffer, body_size);
   }
 
   Message message(header->type);
   message.ConsumeBuffer(std::move(full_message_buffer));
 
+  printf("Process [%d] reading a message\n", getpid());
   PrintFullMessageContents(message);
 
   CHECK(delegate_);

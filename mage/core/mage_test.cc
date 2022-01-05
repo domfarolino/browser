@@ -73,15 +73,17 @@ class TestInterfaceImpl : public magen::TestInterface {
 };
 
 enum class MageTestProcessType {
-  kInviteeAsRemote,
+  kChildIsAccepterAndRemote,
   kInviterAsRemote,
   kInviterAsRemoteBlockOnAcceptance,
   kNone,
 };
 
-static const char kInviteeAsRemotePath[] = "./bazel-bin/mage/test/invitee_as_remote";
-static const char kInviterAsRemotePath[] = "./mage/test/inviter_as_remote";
-static const char kInviterAsRemoteBlockOnAcceptancePath[] = "./mage/test/inviter_as_remote_block_on_acceptance";
+// TODO(domfarolino): It appears that theses all need the `./bazel-bin/` prefix
+// to run correctly locally, but this breaks the GH workflow. Look into this.
+static const char kChildAcceptorAndRemote[] = "./bazel-bin/mage/test/invitee_as_remote";
+static const char kInviterAsRemotePath[] = "./bazel-bin/mage/test/inviter_as_remote";
+static const char kInviterAsRemoteBlockOnAcceptancePath[] = "./bazel-bin/mage/test/inviter_as_remote_block_on_acceptance";
 
 class ProcessLauncher {
  public:
@@ -103,22 +105,21 @@ class ProcessLauncher {
     pid_t rv = fork();
     if (rv == 0) { // Child.
       switch (type_) {
-        case MageTestProcessType::kInviteeAsRemote:
-          rv = execl(kInviteeAsRemotePath, "--mage-socket=", fd_as_string.c_str());
+        case MageTestProcessType::kChildIsAccepterAndRemote:
+          rv = execl(kChildAcceptorAndRemote, "--mage-socket=", fd_as_string.c_str(), NULL);
           EXPECT_EQ(rv, 0);
           printf("errono: %d\n", errno);
 
           char cwd[1024];
           getcwd(cwd, sizeof(cwd));
           printf("getcwd(): %s\n", cwd);
-
           break;
         case MageTestProcessType::kInviterAsRemote:
-          rv = execl(kInviterAsRemotePath, "--mage-socket=", fd_as_string.c_str());
+          rv = execl(kInviterAsRemotePath, "--mage-socket=", fd_as_string.c_str(), NULL);
           EXPECT_EQ(rv, 0);
           break;
         case MageTestProcessType::kInviterAsRemoteBlockOnAcceptance:
-          rv = execl(kInviterAsRemoteBlockOnAcceptancePath, "--mage-socket=", fd_as_string.c_str());
+          rv = execl(kInviterAsRemoteBlockOnAcceptancePath, "--mage-socket=", fd_as_string.c_str(), NULL);
         case MageTestProcessType::kNone:
           NOTREACHED();
           break;
@@ -235,8 +236,8 @@ TEST_F(MageTest, AcceptInvitationUnitTest) {
 }
 
 // In this test, the parent process is the inviter and a mage::Receiver.
-TEST_F(MageTest, InviterAsReceiver) {
-  launcher->Launch(MageTestProcessType::kInviteeAsRemote);
+TEST_F(MageTest, ParentIsInviterAndReceiver) {
+  launcher->Launch(MageTestProcessType::kChildIsAccepterAndRemote);
 
   MageHandle message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
@@ -264,12 +265,11 @@ TEST_F(MageTest, InviterAsReceiver) {
 /*
 // In this test, the parent process is the invitee and a mage::Receiver.
 TEST_F(MageTest, InviteeAsReceiver) {
-  ProcessLauncher launcher(MageTestProcessType::kInviterAsRemote);
-  launcher.Start();
+  launcher->Launch(MageTestProcessType::kInviterAsRemote);
   std::shared_ptr<base::TaskLoop> task_loop_for_io =
     base::TaskLoop::Create(base::ThreadType::IO);
 
-  mage::Core::AcceptInvitation(launcher.GetLocalFd(), std::bind([&](MageHandle message_pipe){
+  mage::Core::AcceptInvitation(launcher->GetLocalFd(), std::bind([&](MageHandle message_pipe){
     std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(message_pipe, task_loop_for_io->QuitClosure()));
 
     // Let the message come in from the remote inviter.
