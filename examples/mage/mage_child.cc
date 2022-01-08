@@ -21,9 +21,11 @@ class ChildProcessImpl : public magen::ChildProcess {
   }
 
   void PrintMessage(std::string msg) override {
-    printf("\033[33;1mChildProcessImpl is printing a message from the parent:\033[0m\n");
-    printf("\033[33;1m%s\033[0m\n", msg.c_str());
+    printf("\033[34;1mChildProcessImpl is printing a message from the "
+           "parent:\033[0m\n");
+    printf("\033[34;1m%s\033[0m\n", msg.c_str());
   }
+
  private:
   mage::Receiver<magen::ChildProcess> receiver_;
 };
@@ -37,7 +39,8 @@ void OnInvitationAccepted(mage::MageHandle handle) {
 }
 
 int main(int argc, char** argv) {
-  std::shared_ptr<base::TaskLoop> main_thread = base::TaskLoop::Create(base::ThreadType::UI);
+  std::shared_ptr<base::TaskLoop> main_thread =
+      base::TaskLoop::Create(base::ThreadType::UI);
   base::Thread io_thread(base::ThreadType::IO);
   io_thread.Start();
   io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
@@ -46,8 +49,8 @@ int main(int argc, char** argv) {
   mage::Core::Init();
 
   CHECK_EQ(argc, 2);
-  int fd = std::stoi(argv[1]);
-  mage::Core::AcceptInvitation(fd, &OnInvitationAccepted);
+  int socket = std::stoi(argv[1]);
+  mage::Core::AcceptInvitation(socket, &OnInvitationAccepted);
 
   main_thread->Run();
   return 0;

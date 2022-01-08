@@ -13,12 +13,16 @@
 #include "examples/mage/magen/child_process.magen.h" // Generated
 
 int main() {
+  // Set up the main thread (this thread) to have a `base::TaskLoop` bound to it
+  // that we can run and process tasks on, as well as a separate IO thread.
   std::shared_ptr<base::TaskLoop> main_thread =
       base::TaskLoop::Create(base::ThreadType::UI);
   base::Thread io_thread(base::ThreadType::IO);
   io_thread.Start();
-  // Wait until `io_thread` has asynchronously started.
   io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
+  // Wait until `io_thread` has asynchronously started. This blocks the main
+  // thread (via its `TaskLoop` until the IO thread is ready to handle tasks
+  // itself.
   main_thread->Run();
 
   // Set up the sockets for the parent and child process to communicate over.
@@ -27,21 +31,30 @@ int main() {
   CHECK_EQ(fcntl(sockets[0], F_SETFL, O_NONBLOCK), 0);
   CHECK_EQ(fcntl(sockets[1], F_SETFL, O_NONBLOCK), 0);
 
+  // Launch the child process.
   pid_t child_pid = fork();
-  if (child_pid == 0) { // if (child process)
+  if (child_pid == 0) { // if (child process) {
     std::string remote_socket_as_string = std::to_string(sockets[1]);
-    execl("./bazel-bin/examples/mage/mage_child", "--mage-socket=", remote_socket_as_string.c_str(), NULL);
+    execl("./bazel-bin/examples/mage/mage_child", "--mage-socket=",
+          remote_socket_as_string.c_str(), NULL);
   }
 
-  // THE ACTUAL INTERESTING STUFF:
+  // The actual interesting stuff:
   mage::Core::Init();
-  mage::MageHandle message_pipe = mage::Core::SendInvitationAndGetMessagePipe(sockets[0]);
+  // Once we send the invitation, we synchronously get a handle that we can use
+  // in a `mage::Remote`. We can synchronously start sending messages over the
+  // remote and they'll magically end up on whatever receiver gets bound to the
+  // other end.
+  mage::MageHandle message_pipe =
+      mage::Core::SendInvitationAndGetMessagePipe(sockets[0]);
   mage::Remote<magen::ChildProcess> remote;
   remote.Bind(message_pipe);
   remote->PrintMessage("Hello from the parent process!!!");
 
+  base::Thread::sleep_for(std::chrono::milliseconds(1000));
   int tmp;
-  std::cout << "When you see the message printed out by the child process, press any button and hit enter";
+  std::cout << "Pess any button and hit enter to kill the parent and child "
+            << "processes";
   std::cin >> tmp;
   kill(child_pid, SIGTERM);
   CHECK_EQ(close(sockets[0]), 0);
