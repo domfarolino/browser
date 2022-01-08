@@ -50,6 +50,63 @@ TEST_P(TaskLoopTest, QuitBeforeRun) {
   task_loop->Run(); // Loop should immediately quit. Test should not time out.
 }
 
+// The first that that an already-quit `TaskLoop` should do upon `Run()` is
+// immediately quit. Tasks posted to it should not run.
+TEST_P(TaskLoopTest, PostTaskAndQuitBeforeRun) {
+  bool task_ran = false;
+  task_loop->PostTask([&](){
+    task_ran = true;
+  });
+  task_loop->Quit();
+  task_loop->Run(); // Loop should immediately quit. Test should not time out.
+  EXPECT_FALSE(task_ran);
+}
+
+// This test verifies that multiple `Quit()` calls are idempotent. Above, we
+// already test that if you call `Quit()`, `Run()` will immediately exit, but
+// this test ensures that if you call `Quit()` multiple times when before
+// running the loop, the first `Run()` immediately quit but the next one will
+// run the loop and process any queued tasks.
+TEST_P(TaskLoopTest, PostTaskAndQuitQuitBeforeRun) {
+  bool task_ran = false;
+  task_loop->PostTask([&](){
+    task_ran = true;
+    base::GetCurrentThreadTaskLoop()->Quit();
+  });
+  task_loop->Quit();
+  task_loop->Quit();
+
+  task_loop->Run();
+  EXPECT_FALSE(task_ran);
+  task_loop->Run();
+  EXPECT_TRUE(task_ran);
+}
+
+// This test is the same as the above one in that we call `Quit()` `Quit()`
+// `Run()` `Run()` in that order; the only difference is that we don't ever post
+// a task. We need to test that the second `Run()` call doesn't crash the
+// `TaskLoop` specifically when there is no task already posted to the loop —
+// this is a regression test for a bug found in `TaskLoopForIO`. The correct
+// behavior is that the second `Run()` call will just run the loop as normal.
+// But since we need a way to quit the test after the loop is running like
+// normal, we have to have a manual timeout that we run on a separate worker
+// thread. Once the manual timeout is up, we kill the main `TaskLoop`, and as
+// long as the test did not blow up before that, we pass.
+TEST_P(TaskLoopTest, QuitQuitRunRun) {
+  SimpleThread thread([&](){
+    base::Thread::sleep_for(std::chrono::milliseconds(300));
+    task_loop->Quit();
+  });
+
+  task_loop->Quit();
+  task_loop->Quit();
+  task_loop->Run();
+  // This should not crash (specifically when there is no pending task posted at
+  // this point). As long as this doesn't crash, the timeout above in `thread`
+  // will kill appropriately quit `task_loop` once it is running like normal.
+  task_loop->Run();
+}
+
 TEST_P(TaskLoopTest, PostTasksBeforeRun) {
   // When the loop is |Run()|, it immediately runs all posted tasks. We assert
   // that the first task is run by observing its side effects, and we assert

@@ -60,24 +60,34 @@ void TaskLoopForIOMac::Run() {
     // idleness via `rv == 0` later and break.
     CHECK(rv >= 1 || (quit_when_idle_ && rv == 0));
 
-    // If |quit_| is set, that is a no-brainer, we have to just quit. But if
-    // |quit_when_idle_| is set, we can only *actually* quit if we're idle. We
-    // can detect if we're idle by verifying that `rv == 0`. If
-    // `quit_when_idle_ && rv >= 1`, then we are not idle. This can happen in a
-    // number of ways:
-    //   - `quit_when_idle_ && rv == 1 && queue_.empty()`:
-    //     This can happen if the loop is idling in the `kevent64()` call above,
-    //     and then |QuitWhenIdle()| is called. This wakes up the loop with a
-    //     MACHPORT event, but puts nothing on the queue. This is handled in
-    //     |ProcessQueuedEvents()|. If no reads or tasks are queued by the time
-    //     the next loop iteration comes around, `kevent64()` will not block, rv
-    //     will be 0, and we will detect that we're idle and break.
-    //   - `quit_when_idle_ && rv == 1 && !queue_.empty()`:
-    //     This can happen after we've already processed the "empty" MACHPORT
-    //     event from |QuitWhileIdle()| and nothing was on the queue, but then
-    //     before the next loop iteration, a real task was added to the queue
-    //     and woke us up. The subsequent call to `kevent64()` would reflect
-    //     this with `rv == 1` and the queue having a task pushed to it.
+    // If `quit_` is set, that is a no-brainer, we have to just quit. But if
+    // `quit_when_idle_` is set, we can *only* quit if we're idle. When
+    // `quit_when_idle_` is set, `kevent64()` above does not block, and thus
+    // `rv == 0` at this point indicates we are idle.
+    // If `quit_when_idle_ && rv >= 1`, then we are not idle. This can happen in
+    // a number of ways:
+    //   - Common case when `quit_when_idle_ && rv == 1 && queue_.empty()`:
+    //     This can happen if the loop is blocked in the `kevent64()` call
+    //     above, and then `QuitWhenIdle()` is called. This wakes up the loop
+    //     with a MACHPORT event, but puts nothing on the `queue_`. We don't
+    //     break the loop here, but instead handle this below in the
+    //     `EVFILT_MACHPORT` branch. If no socket reads or tasks are queued by
+    //     the time the next loop iteration comes around, `kevent64()` will
+    //     immediately return with `rv == 0` after not blocking and here we'll
+    //     finally detect that we're idle and break.
+    //   - Less common case when `quit_when_idle_ && rv == 1 && queue_.empty()`
+    //     If the common case (above) happens, but before the second loop
+    //     iteration starts at least one socket read gets queued before
+    //     `kevent64()` is called, then `kevent64()` will return with `rv >= 1`
+    //     In that case, we're not idle because we have reads to process so we
+    //     won't break here.
+    //   - Less common case when `quit_when_idle_ && rv == 1 && !queue_empty()`
+    //     Same as above, except instead of a socket read being queued before
+    //     the second loop iteration, a task gets posted.
+    //   - It is also technically possible for: `kevent64()` to be blocking, and
+    //     someone calls `QuitWhenIdle()` at the same time a task or a socket
+    //     read is queued. In that case since `rv != 0` we won't break here, but
+    //     will first process any events as usual.
     if (quit_ || (quit_when_idle_ && rv == 0)) {
       mutex_.unlock();
       break;
@@ -100,10 +110,14 @@ void TaskLoopForIOMac::Run() {
       } else if (event->filter == EVFILT_MACHPORT) {
 
         // If the queue is empty but we have a MACHPORT event to process, this
-        // must just be a |QuitWhenIdle()| waking us up with no actual work to do.
-        // We'll do nothing.
+        // is either:
+        //   1.) A `QuitWhenIdle()` call waking us up with no actual work to do
+        //   2.) A MACHPORT that was queued from an earlier `Quit()` call. That
+        //       is, N `Quit()` calls in a row will make the next `Run()`
+        //       immediately quit the loop. But the *next* `Run()` will still
+        //       observe the N-1 queued MACHPORT events. That means we'll end up
+        //       here, even though `!quit_ && !quit_when_idle_`.
         if (queue_.empty()) {
-          CHECK(quit_when_idle_);
           mutex_.unlock();
           continue;
         }
@@ -118,7 +132,6 @@ void TaskLoopForIOMac::Run() {
         NOTREACHED();
       }
     } // for.
-
 
     // By this point, |mutex_| will always be unlocked so that we can lock it
     // for the next iteration. Note that we can't just unlock it here at the end
