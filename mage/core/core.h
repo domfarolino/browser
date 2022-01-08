@@ -57,7 +57,17 @@ class Core {
  private:
   friend class MageTest;
 
-  Core(): node_(new Node()) {}
+  Core(): origin_task_runner_(base::GetCurrentThreadTaskRunner()),
+          node_(new Node()) {}
+
+  // This is a `base::TaskRunner` pointing at the `base::TaskLoop` bound to the
+  // thread that `this` is initialized on. Some `Core` methods are called on the
+  // IO thread even though `this` may be set up from a different thread. If any
+  // of our methods that run on the IO thread need to invoke a callback passed
+  // in by the Mage initiator, we must invoke the callback that callback on the
+  // thread the thread the initiator is running on, not just blindly the IO
+  // thread. That's what we use this handle for.
+  std::shared_ptr<base::TaskRunner> origin_task_runner_;
 
   // A map of endpoints registered with this process, by MageHandle.
   std::map<MageHandle, std::shared_ptr<Endpoint>> handle_table_;

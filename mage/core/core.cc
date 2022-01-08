@@ -32,15 +32,19 @@ MageHandle Core::GetNextMageHandle() {
 }
 
 void Core::OnReceivedAcceptInvitation() {
-  if (remote_has_accepted_invitation_callback_)
-    remote_has_accepted_invitation_callback_();
+  if (remote_has_accepted_invitation_callback_) {
+    origin_task_runner_->PostTask(
+      std::move(remote_has_accepted_invitation_callback_));
+  }
 }
 
 void Core::OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint) {
   MageHandle local_handle = GetNextMageHandle();
   handle_table_.insert({local_handle, std::move(local_endpoint)});
   CHECK(finished_accepting_invitation_callback_);
-  finished_accepting_invitation_callback_(local_handle);
+  origin_task_runner_->PostTask([&](){
+    finished_accepting_invitation_callback_(local_handle);
+  });
 }
 
 void Core::RegisterLocalHandle(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint) {

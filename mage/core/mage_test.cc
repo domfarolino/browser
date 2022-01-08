@@ -21,9 +21,9 @@ namespace {
 
 void PRINT_THREAD() {
   if (base::GetIOThreadTaskLoop() == base::GetCurrentThreadTaskLoop()) {
-    printf("[base::ThreadType::IO]\n");
+    printf("[ThreadType::IO]\n");
   } else if (base::GetUIThreadTaskLoop() == base::GetCurrentThreadTaskLoop()) {
-    printf("[base::ThreadType::UI]\n");
+    printf("[ThreadType::UI]\n");
   }
 }
 
@@ -267,30 +267,26 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
   launcher->Launch(MageTestProcessType::kChildIsInviterAndRemote);
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(), std::bind([&](MageHandle message_pipe){
-    // TODO(domfarolino): This isn't right. I think this should be the UI thread.
-    CHECK_ON_THREAD(base::ThreadType::IO);
-    printf("PARENT PROCESS: AcceptInvitation callback is where we are\n");
+    CHECK_ON_THREAD(base::ThreadType::UI);
     std::unique_ptr<TestInterfaceImpl> impl(
-      new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, base::GetIOThreadTaskLoop().get())));
+      new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, base::GetCurrentThreadTaskLoop().get())));
 
     // Let the message come in from the remote inviter.
     PRINT_THREAD();
-    printf(" --> AcceptInvitation() about to run IO loop\n");
     base::GetCurrentThreadTaskLoop()->Run();
 
     // Once the mage method is invoked, the task loop will quit the above Run()
     // and we can check the results.
-    printf(" --> AcceptInvitation() about to check results\n");
     EXPECT_EQ(impl->received_int, 1);
     EXPECT_EQ(impl->received_double, .5);
     EXPECT_EQ(impl->received_string, "message");
 
     // Let another message come in from the remote inviter.
     PRINT_THREAD();
-    printf(" --> AcceptInvitation() about to run IO loop\n");
     base::GetCurrentThreadTaskLoop()->Run();
     EXPECT_EQ(impl->received_amount, 1000);
     EXPECT_EQ(impl->received_currency, "JPY");
+
     base::GetUIThreadTaskLoop()->Quit();
   }, std::placeholders::_1));
 
