@@ -50,7 +50,6 @@ void PrintFullMessageContents(Message& message) {
 }
 
 bool IsOnUIThread() {
-  printf("getpid(): %d\n", getpid());
   return base::GetUIThreadTaskLoop() == base::GetCurrentThreadTaskLoop();
 }
 
