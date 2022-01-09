@@ -38,6 +38,9 @@ class Endpoint {
   */
 
   // TODO(domfarolino): Don't keep this inline.
+  // TODO(domfarolino): We should probably ensure this method is always being
+  // called on the UI thread. At least before checking `delegate_`, because that
+  // is not thread-safe.
   void AcceptMessage(Message message) {
     printf("Endpoint::AcceptMessage\n");
     printf("  name: %s\n  peer_address.node_name: %s\n  peer_address.endpoint_name: %s\n", name.c_str(), peer_address.node_name.c_str(), peer_address.endpoint_name.c_str());
@@ -69,8 +72,7 @@ class Endpoint {
   // are either queued (and might go through this same path), or delivered to
   // its bound |delegate_|.
   std::queue<Message> TakeQueuedMessages() {
-    // TODO(domfarolino): We probably want to check that we're not currently
-    // bound to a delegate etc.
+    CHECK(!delegate_);
     // TODO(domfarolino): We should also probably set some state so that any
     // more usage of |this| will crash, since after this call, we should be
     // deleted.
@@ -80,9 +82,16 @@ class Endpoint {
   void RegisterDelegate(ReceiverDelegate* delegate) {
     CHECK(!delegate_);
     delegate_ = delegate;
+
+    // We may have messages for our `delegate_` already 
+    while (!incoming_message_queue_.empty()) {
+      AcceptMessage(std::move(incoming_message_queue_.front()));
+      incoming_message_queue_.pop();
+    }
   }
 
   void UnregisterDelegate() {
+    CHECK(delegate_);
     // TODO(domfarolino): Support unregistering a delegate.
   }
 

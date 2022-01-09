@@ -38,6 +38,7 @@ class TestInterfaceImpl : public magen::TestInterface {
 
   void Method1(int in_int, double in_double, std::string in_string) {
     PRINT_THREAD();
+    has_called_method1 = true;
     printf("TestInterfaceImpl::Method1\n");
 
     received_int = in_int;
@@ -49,6 +50,7 @@ class TestInterfaceImpl : public magen::TestInterface {
 
   void SendMoney(int in_amount, std::string in_currency) {
     PRINT_THREAD();
+    has_called_send_money = true;
     printf("TestInterfaceImpl::SendMoney\n");
 
     received_amount = in_amount;
@@ -56,6 +58,9 @@ class TestInterfaceImpl : public magen::TestInterface {
     printf("[TestInterfaceImpl]: Quit() on closure we were given\n");
     quit_closure_();
   }
+
+  bool has_called_method1 = false;
+  bool has_called_send_money = false;
 
   // Set by |Method1()| above.
   int received_int = 0;
@@ -335,39 +340,71 @@ TEST_F(MageTest, InviteeAsReceiverBlockOnAcceptance) {
   // lambda invokes, and the test continues in there.
   task_loop_for_io->Run();
 }
+*/
 
 TEST_F(MageTest, InProcess) {
-  std::shared_ptr<base::TaskLoop> task_loop_for_io =
-    base::TaskLoop::Create(base::ThreadType::IO);
-
   std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
   EXPECT_EQ(mage_handles.size(), 2);
 
-  MageHandle local_handle = mage_handles[0], remote_handle = mage_handles[1];
+  MageHandle local_handle = mage_handles[0],
+             remote_handle = mage_handles[1];
   mage::Remote<magen::TestInterface> remote;
-  std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(remote_handle, task_loop_for_io->QuitClosure()));
+  remote.Bind(local_handle);
+  std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(remote_handle, std::bind(&base::TaskLoop::Quit, base::GetCurrentThreadTaskLoop().get())));
 
-  remote->Method1(101, .78, "some text");
+  // At this point both the local and remote endpoints are bound. Invoke methods
+  // on the remote, and see if the receiver's implementation is called
+  // synchronously.
+  remote->Method1(6000, .78, "some text");
   remote->SendMoney(5000, "USD");
-  task_loop_for_io->Run();
-  EXPECT_EQ(impl->received_int, 1);
-  EXPECT_EQ(impl->received_double, .5);
-  EXPECT_EQ(impl->received_string, "message");
+  EXPECT_FALSE(impl->has_called_method1);
+  EXPECT_FALSE(impl->has_called_send_money);
 
-  // task_loop_for_io->Run();
-  EXPECT_EQ(impl->received_amount, 1000);
-  EXPECT_EQ(impl->received_currency, "JPY");
+  main_thread->Run();
+  EXPECT_TRUE(impl->has_called_method1);
+  EXPECT_EQ(impl->received_int, 6000);
+  EXPECT_EQ(impl->received_double, .78);
+  EXPECT_EQ(impl->received_string, "some text");
+
+  main_thread->Run();
+  EXPECT_TRUE(impl->has_called_send_money);
+  EXPECT_EQ(impl->received_amount, 5000);
+  EXPECT_EQ(impl->received_currency, "USD");
 }
 
-TEST_F(MageTest, InProcessQueuedMessagesDispatchSynchronously) {}
-*/
+TEST_F(MageTest, InProcessQueuedMessages) {
+  std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
+  EXPECT_EQ(mage_handles.size(), 2);
+
+  MageHandle local_handle = mage_handles[0],
+             remote_handle = mage_handles[1];
+  mage::Remote<magen::TestInterface> remote;
+  remote.Bind(local_handle);
+  remote->Method1(6000, .78, "some text");
+  remote->SendMoney(5000, "USD");
+
+  // At this point the local endpoint is bound and the two messages have been
+  // sent. Bind the receiver and ensure that the messages are not delivered
+  // synchronously.
+  std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(remote_handle, std::bind(&base::TaskLoop::Quit, base::GetCurrentThreadTaskLoop().get())));
+  EXPECT_FALSE(impl->has_called_method1);
+  EXPECT_FALSE(impl->has_called_send_money);
+
+  main_thread->Run();
+  EXPECT_TRUE(impl->has_called_method1);
+  EXPECT_EQ(impl->received_int, 6000);
+  EXPECT_EQ(impl->received_double, .78);
+  EXPECT_EQ(impl->received_string, "some text");
+
+  main_thread->Run();
+  EXPECT_TRUE(impl->has_called_send_money);
+  EXPECT_EQ(impl->received_amount, 5000);
+  EXPECT_EQ(impl->received_currency, "USD");
+}
 
 }; // namespace mage
 
 /*
-  Spec
-   - In process works
-     - Test the local path
    - In process use remote before receiver bound
 
 */
