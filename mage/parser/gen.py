@@ -199,7 +199,7 @@ class {{Interface}}Proxy {
 
 class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
  public:
-  void BindToHandle(mage::MageHandle local_handle, {{Interface}}* impl) {
+  void BindToHandle(mage::MageHandle local_handle, {{Interface}}* impl, std::shared_ptr<base::TaskRunner> impl_task_runner) {
     CHECK(!bound_);
     bound_ = true;
     local_handle_ = local_handle;
@@ -208,7 +208,7 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
     // Set outselves up as the official delegate for the underlying endpoint
     // associated with |local_handle_|. That way any messages it receives, we'll
     // be able to deserialize and forward to the implementation.
-    mage::Core::BindReceiverDelegateToEndpoint(local_handle, this);
+    mage::Core::BindReceiverDelegateToEndpoint(local_handle, this, std::move(impl_task_runner));
   }
 
   // mage::Endpoint::ReceiverDelegate implementation.

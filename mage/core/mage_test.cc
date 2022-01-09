@@ -402,9 +402,68 @@ TEST_F(MageTest, InProcessQueuedMessages) {
   EXPECT_EQ(impl->received_currency, "USD");
 }
 
+// A concrete implementation of a mage test-only interface that runs on a worker
+// thread.
+class TestInterfaceOnWorkerThread : public magen::TestInterface {
+ public:
+  TestInterfaceOnWorkerThread(MageHandle message_pipe,
+                              std::function<void()> quit_closure)
+      : quit_closure_(std::move(quit_closure)) {
+    receiver_.Bind(message_pipe, this);
+  }
+
+  void Method1(int in_int, double in_double, std::string in_string) {
+    CHECK(thread_checker_.CalledOnConstructedThread());
+    has_called_method1 = true;
+  }
+
+  void SendMoney(int in_amount, std::string in_currency) {
+    CHECK(thread_checker_.CalledOnConstructedThread());
+    has_called_send_money = true;
+    quit_closure_();
+  }
+
+  bool has_called_method1 = false;
+  bool has_called_send_money = false;
+
+ private:
+  mage::Receiver<magen::TestInterface> receiver_;
+  std::function<void()> quit_closure_;
+  base::ThreadChecker thread_checker_;
+};
+
+TEST_F(MageTest, InProcessCrossThread) {
+  base::Thread worker_thread(base::ThreadType::WORKER);
+  worker_thread.Start();
+
+  std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
+  EXPECT_EQ(mage_handles.size(), 2);
+
+  MageHandle local_handle = mage_handles[0],
+             remote_handle = mage_handles[1];
+  mage::Remote<magen::TestInterface> remote;
+  remote.Bind(local_handle);
+  remote->Method1(6000, .78, "some text");
+  remote->SendMoney(5000, "USD");
+
+  // Bind the remote handle on the worker thread.
+  std::unique_ptr<TestInterfaceOnWorkerThread> impl;
+  worker_thread.GetTaskRunner()->PostTask([&](){
+    impl = std::make_unique<TestInterfaceOnWorkerThread>(
+        remote_handle,
+        std::bind(&base::TaskLoop::Quit, base::GetUIThreadTaskLoop().get()));
+  });
+
+  // Run the main loop until we quit as a result of the last message being
+  // delivered to `impl` which is bound on the worker thread. Note that
+  // `TestInterfaceOnWorkerThread` only calls quit after the last message, not
+  // each one. If it quit the main loop after each message, then we'd need a way
+  // for the worker thread to halt between messages, so that it doesn't attempt
+  // to quit the main loop twice in a row before we read even the first message.
+  // That's racy.
+  main_thread->Run();
+  EXPECT_TRUE(impl->has_called_method1);
+  EXPECT_TRUE(impl->has_called_send_money);
+}
+
 }; // namespace mage
-
-/*
-   - In process use remote before receiver bound
-
-*/

@@ -50,16 +50,13 @@ class Endpoint {
       return;
     }
 
-    printf("Endpoint has accepted a message. Now forwarding it\n");
-    // TODO(domfarolino): More specifically, we should post a task to the
-    // TaskLoop that `delegate_` is bound to, and not just blindly post to the
-    // UI TaskLoop (i.e., what if `delegate_` is expected to be used on a worker
-    // thread?). Furthermore, we should consider whether or not we need to be
-    // unconditionally posting a task here. If this method is already running on
-    // the TaskLoop/thread that `delegate_` is bound to, do we need to post a
-    // task at all? It depends on the async semantics that we're going for. We
-    // should also test this.
-    base::GetUIThreadTaskLoop()->PostTask(
+    printf("Endpoint has accepted a message. Now forwarding it to `delegate_`\n");
+    // We should consider whether or not we need to be unconditionally posting a
+    // task here. If this method is already running on the TaskLoop/thread that
+    // `delegate_` is bound to, do we need to post a task at all? It depends on
+    // the async semantics that we're going for. We should also test this.
+    CHECK(delegate_task_runner_);
+    delegate_task_runner_->PostTask(
         base::BindOnce(&ReceiverDelegate::OnReceivedMessage, delegate_,
                        std::move(message)));
   }
@@ -79,12 +76,17 @@ class Endpoint {
     return std::move(incoming_message_queue_);
   }
 
-  void RegisterDelegate(ReceiverDelegate* delegate) {
+  void RegisterDelegate(ReceiverDelegate* delegate,
+                        std::shared_ptr<base::TaskRunner> delegate_task_runner) {
+    printf("Endpoint::RegisterDelegate\n");
     CHECK(!delegate_);
     delegate_ = delegate;
+    CHECK(!delegate_task_runner_);
+    delegate_task_runner_ = delegate_task_runner;
 
     // We may have messages for our `delegate_` already 
     while (!incoming_message_queue_.empty()) {
+      printf("Endpoint::RegisterDelegate >> accepting a queued message\n");
       AcceptMessage(std::move(incoming_message_queue_.front()));
       incoming_message_queue_.pop();
     }
@@ -92,6 +94,7 @@ class Endpoint {
 
   void UnregisterDelegate() {
     CHECK(delegate_);
+    CHECK(delegate_task_runner_);
     // TODO(domfarolino): Support unregistering a delegate.
   }
 
@@ -105,6 +108,9 @@ class Endpoint {
   // bound to a local interface. We queue the messages here, and then later once
   // bound, these messages will be forwarded, in order, to |delegate_|.
   std::queue<Message> incoming_message_queue_;
+
+  // TODO(domfarolino): Document this.
+  std::shared_ptr<base::TaskRunner> delegate_task_runner_;
 
   // TODO(domfarolino): Document this.
   ReceiverDelegate* delegate_ = nullptr;

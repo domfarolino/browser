@@ -42,11 +42,14 @@ class Core {
     CHECK_NE(endpoint_it, Get()->handle_table_.end());
     Get()->node_->SendMessage(endpoint_it->second, std::move(message));
   }
-  static void BindReceiverDelegateToEndpoint(MageHandle local_handle, Endpoint::ReceiverDelegate* delegate) {
+  static void BindReceiverDelegateToEndpoint(
+      MageHandle local_handle,
+      Endpoint::ReceiverDelegate* delegate,
+      std::shared_ptr<base::TaskRunner> delegate_task_runner) {
     auto endpoint_it = Get()->handle_table_.find(local_handle);
     CHECK_NE(endpoint_it, Get()->handle_table_.end());
     std::shared_ptr<Endpoint> endpoint = endpoint_it->second;
-    endpoint->RegisterDelegate(delegate);
+    endpoint->RegisterDelegate(delegate, std::move(delegate_task_runner));
   }
 
   MageHandle GetNextMageHandle();
