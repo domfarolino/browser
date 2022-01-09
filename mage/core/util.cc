@@ -1,18 +1,19 @@
-#include "mage/core/util.h"
-
 #include <string>
+
+#include "mage/core/message.h"
+#include "mage/core/util.h"
 
 namespace mage {
 namespace util {
 
 // TODO(domfarolino): You can do way better than this.
-std::string RandomString() {
-  std::string return_string;
-  for (int i = 0; i < 15; ++i) {
-    return_string += alphanum[rand() % (sizeof(alphanum) - 1)];
+std::string RandomIdentifier() {
+  std::string return_id;
+  for (int i = 0; i < kIdentifierSize; ++i) {
+    return_id += alphanum[rand() % (sizeof(alphanum) - 1)];
   }
 
-  return return_string;
+  return return_id;
 }
 
 }; // namespace util

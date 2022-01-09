@@ -12,7 +12,7 @@ static const char alphanum[] =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
   "abcdefghijklmnopqrstuvwxyz";
 
-std::string RandomString();
+std::string RandomIdentifier();
 
 }; // namespace mage
 }; // namespace util

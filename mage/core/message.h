@@ -57,6 +57,7 @@ inline const void* DecodePointer(const uint64_t* offset) {
 };  // namespace
 
 static const int kInvalidFragmentStartingIndex = -1;
+static const int kIdentifierSize = 15;
 
 enum MessageType : int {
   // This sends the maiden message to a new peer node along with a bootstrap
@@ -263,11 +264,12 @@ class MessageFragment<ArrayHeader<T>> {
 // convenient to represent the message parameters as a struct of members, each
 // of which represents a message parameter either fixed-size of dynamic-size.
 // This requires the members that represent dynamic-sized to basically be
-// pointers, pointing to some arbitrary location in the message payload buffer
-// where the actual value of the message parameter can be found. We can't use
-// traditional pointers that store the address of a variable though because the
-// contents of the message buffer is copied across process, so message parameter
-// *addresses* will not remain stable.
+// pointers (aka their size is statically-known), pointing to some arbitrary
+// location in the message payload buffer where the actual variable-sized value
+// of the message parameter can be found. We can't use traditional pointers that
+// store the address of a variable though because the contents of the message
+// buffer is copied across processes, so no memory addresses referenced by the
+// message parameters will be stable.
 //
 // To get around this, we use a different pointer-like mechanism. Structs are
 // used to represent a bag of message parameters, and members of these structs
@@ -278,7 +280,7 @@ class MessageFragment<ArrayHeader<T>> {
 // the parameter is stored in. For example, imagine a message with the following
 // parameters:
 //   - string str
-//   - int a
+//   - string str_2
 //   - int b
 // The struct that would be generate for this message would look like:
 //
@@ -335,6 +337,8 @@ class MessageFragment<ArrayHeader<T>> {
 // don't need to know how long `str` is or where it ends, we simply grab the
 // first available slot on the end of the backing payload buffer after expanding
 // it enough to fit the actual runtime contents of `str_2` and so on.
+//
+// TODO(domfarolino): Explain how decoding pointers work.
 template <typename T>
 struct Pointer {
   void Set(T* ptr) {
@@ -353,7 +357,7 @@ struct Pointer {
 };
 
 struct SendInvitationParams {
-  char inviter_name[15];
+  char inviter_name[kIdentifierSize];
   // This is the remote node name that the inviter has generated for the target
   // recipient. The target recipient is responsible for generating its own node
   // name though. We tell the target what we've temporarily named it (via this
@@ -361,9 +365,9 @@ struct SendInvitationParams {
   // actual name back to us. In order to understand why we even tell the target
   // its temporary name at all, see the comments below in
   // `SendAcceptInvitationParams`.
-  char temporary_remote_node_name[15];
-  char intended_endpoint_name[15];
-  char intended_endpoint_peer_name[15];
+  char temporary_remote_node_name[kIdentifierSize];
+  char intended_endpoint_name[kIdentifierSize];
+  char intended_endpoint_peer_name[kIdentifierSize];
 };
 
 struct SendAcceptInvitationParams {
@@ -373,8 +377,8 @@ struct SendAcceptInvitationParams {
   // before. Therefore we identify ourself with the temporary node name that we
   // know the inviter is aware of. It will take our actual node name and update
   // its map of nodes.
-  char temporary_remote_node_name[15];
-  char actual_node_name[15];
+  char temporary_remote_node_name[kIdentifierSize];
+  char actual_node_name[kIdentifierSize];
 };
 
 }; // namspace mage

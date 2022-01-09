@@ -26,8 +26,8 @@ void Node::InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1,
                                           std::shared_ptr<Endpoint> ep2) {
   CHECK_ON_THREAD(base::ThreadType::UI);
   // Initialize the endpoints.
-  ep1->name = util::RandomString();
-  ep2->name = util::RandomString();
+  ep1->name = util::RandomIdentifier();
+  ep2->name = util::RandomIdentifier();
 
   // Both endpoints are local initially.
   ep1->peer_address.node_name = name_;
@@ -89,7 +89,7 @@ MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
 
   MageHandle local_endpoint_handle = Core::Get()->GetNextMageHandle();
 
-  NodeName temporary_remote_node_name = util::RandomString();
+  NodeName temporary_remote_node_name = util::RandomIdentifier();
 
   std::unique_ptr<Channel> channel(new Channel(fd, /*delegate=*/this));
   channel->Start();
@@ -167,15 +167,17 @@ void Node::OnReceivedInvitation(Message message) {
   SendInvitationParams* params = message.GetView<SendInvitationParams>();
 
   // Deserialize
-  std::string inviter_name(params->inviter_name, params->inviter_name + 15);
+  std::string inviter_name(params->inviter_name,
+                           params->inviter_name + kIdentifierSize);
   std::string temporary_remote_node_name(
-    params->temporary_remote_node_name,
-    params->temporary_remote_node_name + 15);
-  std::string intended_endpoint_name(params->intended_endpoint_name,
-                                     params->intended_endpoint_name + 15);
+      params->temporary_remote_node_name,
+      params->temporary_remote_node_name + kIdentifierSize);
+  std::string intended_endpoint_name(
+      params->intended_endpoint_name,
+      params->intended_endpoint_name + kIdentifierSize);
   std::string intended_endpoint_peer_name(
-    params->intended_endpoint_peer_name,
-    params->intended_endpoint_peer_name + 15);
+      params->intended_endpoint_peer_name,
+      params->intended_endpoint_peer_name + kIdentifierSize);
 
   printf("Node::OnReceivedInvitation getpid(): %d\n", getpid());
   printf("  inviter_name:                %s\n", inviter_name.c_str());
@@ -198,7 +200,7 @@ void Node::OnReceivedInvitation(Message message) {
   std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
   // TODO(domfarolino): Why aren't we setting the new local endpoint's name to
   // `intended_endpoint_name`.
-  local_endpoint->name = util::RandomString();
+  local_endpoint->name = util::RandomIdentifier();
   local_endpoint->peer_address.node_name = inviter_name;
   local_endpoint->peer_address.endpoint_name = intended_endpoint_peer_name;
   local_endpoints_.insert({local_endpoint->name, local_endpoint});
@@ -220,12 +222,12 @@ void Node::OnReceivedInvitation(Message message) {
 void Node::OnReceivedAcceptInvitation(Message message) {
   CHECK_ON_THREAD(base::ThreadType::IO);
   SendAcceptInvitationParams* params =
-    message.GetView<SendAcceptInvitationParams>();
+      message.GetView<SendAcceptInvitationParams>();
   std::string temporary_remote_node_name(
-    params->temporary_remote_node_name,
-    params->temporary_remote_node_name + 15);
+      params->temporary_remote_node_name,
+      params->temporary_remote_node_name + kIdentifierSize);
   std::string actual_node_name(params->actual_node_name,
-                               params->actual_node_name + 15);
+                               params->actual_node_name + kIdentifierSize);
 
   printf("Node::OnReceivedAcceptInvitation [getpid(): %d] from: %s (actually %s)\n",
          getpid(), temporary_remote_node_name.c_str(), actual_node_name.c_str());
