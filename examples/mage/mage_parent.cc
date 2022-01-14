@@ -11,6 +11,7 @@
 #include "mage/bindings/remote.h"
 
 #include "examples/mage/magen/child_process.magen.h" // Generated
+#include "examples/mage/magen/child_process_2.magen.h" // Generated
 
 int main() {
   // Set up the main thread (this thread) to have a `base::TaskLoop` bound to it
@@ -51,7 +52,15 @@ int main() {
   remote.Bind(message_pipe);
   remote->PrintMessage("Hello from the parent process!!!");
 
+  std::vector<mage::MageHandle> mage_handles = mage::Core::CreateMessagePipes();
   base::Thread::sleep_for(std::chrono::milliseconds(1000));
+  remote->PassHandle(mage_handles[1]);
+
+  mage::Remote<magen::ChildProcess2> remote_2;
+  remote_2.Bind(mage_handles[0]);
+  remote_2->PrintMessage2("This is the second message from the parent1!");
+
+  base::Thread::sleep_for(std::chrono::milliseconds(3000));
   int tmp;
   std::cout << "Pess any button and hit enter to kill the parent and child "
             << "processes";

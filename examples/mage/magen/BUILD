@@ -7,14 +7,17 @@ genrule(
   tools = [
     "//mage/parser:gen",
     "child_process.magen",
+    "child_process_2.magen",
   ],
   outs = [
     "child_process.magen.h",
+    "child_process_2.magen.h",
   ],
   cmd = " && ".join([
     # Follow the pattern below:
     # python3 $(location //generated:gen) <input *.mage file> <output *.magen.h file>
     "python3 $(location //mage/parser:gen) $(location child_process.magen) $(location child_process.magen.h)",
+    "python3 $(location //mage/parser:gen) $(location child_process_2.magen) $(location child_process_2.magen.h)",
   ]),
 )
 

@@ -40,6 +40,7 @@ class Core {
   static void SendMessage(MageHandle local_handle, Message message) {
     auto endpoint_it = Get()->handle_table_.find(local_handle);
     CHECK_NE(endpoint_it, Get()->handle_table_.end());
+    printf("Core::SendMessage\n");
     Get()->node_->SendMessage(endpoint_it->second, std::move(message));
   }
   static void BindReceiverDelegateToEndpoint(
@@ -50,6 +51,56 @@ class Core {
     CHECK_NE(endpoint_it, Get()->handle_table_.end());
     std::shared_ptr<Endpoint> endpoint = endpoint_it->second;
     endpoint->RegisterDelegate(delegate, std::move(delegate_task_runner));
+  }
+  // This method takes a handle that is about to be sent over an existing
+  // connection, and a handle that represents said existing connection. If the
+  // handle representing the existing connection indeed has a remote peer, that
+  // means the handle-to-send is going to be sent cross-process. In this case,
+  // we must find the endpoint associated with it, and put it in a proxying
+  // state so that it knows how to forward things to the non-proxying endpoint
+  // in the remote node.
+  static void PutHandleToSendInProxyingStateIfTargetIsRemote(
+      MageHandle handle_to_send,
+      MageHandle local_handle,
+      EndpointInfo& endpoint_info_to_populate) {
+    std::shared_ptr<Endpoint> local_endpoint = Get()->handle_table_.find(local_handle)->second;
+    CHECK(local_endpoint);
+
+    std::string peer_node_name = local_endpoint->peer_address.node_name;
+    std::string peer_endpoint_name = local_endpoint->peer_address.endpoint_name;
+    // We do nothing if `handle_to_send` will be sent locally.
+    if (peer_node_name == Get()->node_->name_) {
+      printf("*****************PutHandleToSendInProxyingStateIfTargetIsRemote() early return\n");
+      return;
+    }
+    printf("**************PutHandleToSendInProxyingStateIfTargetIsRemote() CONTINUGIN\n");
+
+    // At this point we know that `handle_to_send` is going to be sent to a
+    // remote peer node. This means we have to put the `Endpoint` it represents
+    // into a proxying state, so whenever it receives messages, it forwards them
+    // to the new endpoint that the remote peer node will set up for it.
+    std::shared_ptr<Endpoint> endpoint_to_proxy = Get()->handle_table_.find(handle_to_send)->second;
+    CHECK_EQ(Get()->node_->name_, endpoint_to_proxy->peer_address.node_name);
+    memcpy(endpoint_info_to_populate.endpoint_name, endpoint_to_proxy->name.c_str(), kIdentifierSize);
+    memcpy(endpoint_info_to_populate.peer_node_name, endpoint_to_proxy->peer_address.node_name.c_str(), kIdentifierSize);
+    memcpy(endpoint_info_to_populate.peer_endpoint_name, endpoint_to_proxy->peer_address.endpoint_name.c_str(), kIdentifierSize);
+    printf("    PutHandl() peer_node_name: %s\n", peer_node_name.c_str());
+    endpoint_to_proxy->SetProxying(/*node_to_proxy_to=*/peer_node_name);
+  }
+  static MageHandle RecoverMageHandleFromEndpointInfo(EndpointInfo& endpoint_info) {
+    printf("Core::RecoverMageHandleFromEndpointInfo(ep)\n");
+    printf("endpoint_info: %s\n", endpoint_info.endpoint_name);
+    printf("endpoint_info: %s\n", endpoint_info.peer_node_name);
+    printf("endpoint_info: %s\n", endpoint_info.peer_endpoint_name);
+
+    std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
+    std::string endpoint_name(endpoint_info.endpoint_name,
+                              endpoint_info.endpoint_name + kIdentifierSize);
+
+    local_endpoint->name = endpoint_name;
+    MageHandle local_handle = Core::Get()->GetNextMageHandle();
+    Core::Get()->RegisterLocalHandle(local_handle, local_endpoint);
+    return local_handle;
   }
 
   MageHandle GetNextMageHandle();

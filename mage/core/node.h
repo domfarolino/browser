@@ -40,6 +40,9 @@ class Node : public Channel::Delegate {
   void OnReceivedUserMessage(Message message);
 
  private:
+  // TODO(domfarolino): This is a bit nasty. It is only needed for `Core` to
+  // access `name_`. We should remove this.
+  friend class Core;
   friend class MageTest;
 
   std::string name_;

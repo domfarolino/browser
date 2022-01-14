@@ -62,15 +62,24 @@ source.close()
 def GetNativeType(magen_type):
   if magen_type == "string":
     return "std::string"
+  elif magen_type == "MageHandle":
+    return "mage::MageHandle"
   return magen_type
 
 def GetMagenParamsType(magen_type):
   if magen_type == "string":
     return "mage::Pointer<mage::ArrayHeader<char>>"
+  elif magen_type == "MageHandle":
+    return "mage::EndpointInfo"
   return magen_type
 
 def IsArrayType(magen_type):
   if magen_type == "string":
+    return True
+  return False
+
+def IsHandleType(magen_type):
+  if magen_type == "MageHandle":
     return True
   return False
 ################################################# END HELPERS USED IN TEMPLATING
@@ -150,8 +159,7 @@ class {{Interface}}Proxy {
     local_handle_ = local_handle;
   }
 
-  // TODO(domfarolino): Can we just make this `= default;`?
-  {{Interface}}Proxy() {}
+  {{Interface}}Proxy() = default;
 
   {%- for Method in Methods %}
   void {{Method.name}}(
@@ -168,9 +176,9 @@ class {{Interface}}Proxy {
     message_fragment.Allocate();
 
 {%- for argument_pair in Method.arguments %}
-  {% if not IsArrayType(argument_pair[0]) %}
+  {% if not IsArrayType(argument_pair[0]) and not IsHandleType(argument_pair[0]) %}
     message_fragment.data()->{{ argument_pair[1] }} = {{ argument_pair[1] }};
-  {% else %}
+  {% elif IsArrayType(argument_pair[0]) %}
     {
       // Create a new array message fragment.
 
@@ -181,6 +189,10 @@ class {{Interface}}Proxy {
       memcpy(array.data()->array_storage(), {{ argument_pair[1] }}.c_str(), {{ argument_pair[1] }}.size());
       message_fragment.data()->{{ argument_pair[1] }}.Set(array.data());
     }
+  {% elif IsHandleType(argument_pair[0]) %}
+    // TODO(domfarolino): Do the handle stuff
+    mage::EndpointInfo& endpoint_info_to_populate = message_fragment.data()->{{ argument_pair[1] }};
+    mage::Core::PutHandleToSendInProxyingStateIfTargetIsRemote({{argument_pair[1]}}, local_handle_, endpoint_info_to_populate);
   {% endif %}
 {%- endfor %}
 
@@ -231,13 +243,16 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
 
         // Deserialize each argument into its corresponding variable above.
         {%- for argument_pair in Method.arguments %}
-          {% if not IsArrayType(argument_pair[0]) %}
+          {% if not IsArrayType(argument_pair[0]) and not IsHandleType(argument_pair[0]) %}
             {{ argument_pair[1] }} = params->{{ argument_pair[1] }};
-          {% else %}
+          {% elif IsArrayType(argument_pair[0]) %}
             {{ argument_pair[1] }} = std::string(
               params->{{ argument_pair[1] }}.Get()->array_storage(),
               params->{{ argument_pair[1] }}.Get()->array_storage() + params->{{ argument_pair[1] }}.Get()->num_elements
             );
+          {% elif IsHandleType(argument_pair[0]) %}
+            mage::EndpointInfo& incoming_endpoint_info = params->{{ argument_pair[1] }};
+            {{ argument_pair[1] }} = mage::Core::RecoverMageHandleFromEndpointInfo(incoming_endpoint_info);
           {% endif %}
         {%- endfor %}
 
@@ -276,6 +291,7 @@ generated_magen_template = generated_magen_template.render(
                              GetNativeType=GetNativeType,
                              GetMagenParamsType=GetMagenParamsType,
                              IsArrayType=IsArrayType,
+                             IsHandleType=IsHandleType,
                            )
 
 destination = sys.argv[1:][1]

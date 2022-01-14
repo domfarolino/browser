@@ -138,6 +138,14 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
   if (peer_is_local) {
     std::shared_ptr<Endpoint> local_peer_endpoint = endpoint_it->second;
     CHECK(local_peer_endpoint);
+
+    if (local_peer_endpoint->state == Endpoint::State::kUnboundAndProxying) {
+      printf("Whoahhhhhhhhhh\n");
+      auto proxying_target = node_channel_map_.find(local_peer_endpoint->node_to_proxy_to);
+      CHECK_NE(proxying_target, node_channel_map_.end());
+      proxying_target->second->SendMessage(std::move(message));
+      return;
+    }
     local_peer_endpoint->AcceptMessage(std::move(message));
   } else {
     channel_it->second->SendMessage(std::move(message));

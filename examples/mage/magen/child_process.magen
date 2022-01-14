@@ -1,3 +1,4 @@
 interface ChildProcess {
   PrintMessage(string msg);
+  PassHandle(MageHandle handle);
 }

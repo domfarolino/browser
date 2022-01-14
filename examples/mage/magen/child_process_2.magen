@@ -1,0 +1,3 @@
+interface ChildProcess2 {
+  PrintMessage2(string msg);
+}

@@ -381,6 +381,13 @@ struct SendAcceptInvitationParams {
   char actual_node_name[kIdentifierSize];
 };
 
+// TODO(domfarolino): Document this.
+struct EndpointInfo {
+  char endpoint_name[kIdentifierSize];
+  char peer_node_name[kIdentifierSize];
+  char peer_endpoint_name[kIdentifierSize];
+};
+
 }; // namspace mage
 
 #endif // MAGE_CORE_MESSAGE_H_

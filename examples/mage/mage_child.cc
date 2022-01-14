@@ -13,6 +13,24 @@
 #include "mage/core/core.h"
 
 #include "examples/mage/magen/child_process.magen.h"  // Generated.
+#include "examples/mage/magen/child_process_2.magen.h"  // Generated.
+
+class ChildProcessImpl2 : public magen::ChildProcess2 {
+ public:
+  ChildProcessImpl2(mage::MageHandle message_pipe) {
+    receiver_.Bind(message_pipe, this);
+  }
+
+  void PrintMessage2(std::string msg) override {
+    printf("\033[34;1mChildProcessImpl2 is printing a message from the "
+           "parent:\033[0m\n");
+    printf("\033[34;1m%s\033[0m\n", msg.c_str());
+  }
+
+ private:
+  mage::Receiver<magen::ChildProcess2> receiver_;
+};
+std::unique_ptr<ChildProcessImpl2> global_child_process_impl_2;
 
 class ChildProcessImpl : public magen::ChildProcess {
  public:
@@ -26,10 +44,14 @@ class ChildProcessImpl : public magen::ChildProcess {
     printf("\033[34;1m%s\033[0m\n", msg.c_str());
   }
 
+  void PassHandle(mage::MageHandle handle) override {
+    printf("\033[34;1mChildProcessImpl::PassHandle\033[0m\n");
+    global_child_process_impl_2 = std::make_unique<ChildProcessImpl2>(handle);
+  }
+
  private:
   mage::Receiver<magen::ChildProcess> receiver_;
 };
-
 std::unique_ptr<ChildProcessImpl> global_child_process_impl;
 
 void OnInvitationAccepted(mage::MageHandle handle) {
