@@ -39,8 +39,8 @@ class Core {
   }
   static void SendMessage(MageHandle local_handle, Message message) {
     auto endpoint_it = Get()->handle_table_.find(local_handle);
-    CHECK_NE(endpoint_it, Get()->handle_table_.end());
     printf("Core::SendMessage\n");
+    CHECK_NE(endpoint_it, Get()->handle_table_.end());
     Get()->node_->SendMessage(endpoint_it->second, std::move(message));
   }
   static void BindReceiverDelegateToEndpoint(

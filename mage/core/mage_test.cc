@@ -255,13 +255,13 @@ TEST_F(MageTest, ParentIsInviterAndReceiver) {
   // when something like it exists.
   std::unique_ptr<TestInterfaceImpl> impl(
     new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, main_thread.get())));
-  printf("[FROMUI]: Run()\n");
+  printf("[FROMUI] [Process: %d]: Run()\n", getpid());
   main_thread->Run();
   EXPECT_EQ(impl->received_int, 1);
   EXPECT_EQ(impl->received_double, .5);
   EXPECT_EQ(impl->received_string, "message");
 
-  printf("[FROMUI]: Run()\n");
+  printf("[FROMUI] [Process: %d]: Run()\n", getpid());
   main_thread->Run();
   EXPECT_EQ(impl->received_amount, 1000);
   EXPECT_EQ(impl->received_currency, "JPY");

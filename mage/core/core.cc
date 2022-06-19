@@ -42,7 +42,7 @@ void Core::OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint) {
   MageHandle local_handle = GetNextMageHandle();
   handle_table_.insert({local_handle, std::move(local_endpoint)});
   CHECK(finished_accepting_invitation_callback_);
-  origin_task_runner_->PostTask([&](){
+  origin_task_runner_->PostTask([=](){
     finished_accepting_invitation_callback_(local_handle);
   });
 }
