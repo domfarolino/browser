@@ -52,7 +52,7 @@ class Endpoint {
 
     if (state == State::kBound) {
       CHECK(delegate_);
-      printf("Endpoint has accepted a message. Now forwarding it to `delegate_`\n");
+      printf("Endpoint has accepted a message. Now forwarding it to `delegate_` on the delegate's task runner\n");
       // We should consider whether or not we need to be unconditionally posting a
       // task here. If this method is already running on the TaskLoop/thread that
       // `delegate_` is bound to, do we need to post a task at all? It depends on

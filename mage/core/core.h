@@ -73,7 +73,10 @@ class Core {
       printf("*****************PutHandleToSendInProxyingStateIfTargetIsRemote() early return\n");
       return;
     }
-    printf("**************PutHandleToSendInProxyingStateIfTargetIsRemote() CONTINUGIN\n");
+    printf("**************PutHandleToSendInProxyingStateIfTargetIsRemote() CONTINUING\n");
+    printf("    sending endpoint name: %s\n", local_endpoint->name.c_str());
+    printf("    sending endpoint [peer node: %s]\n", peer_node_name.c_str());
+    printf("    sending endpoint [peer endpoint: %s]\n", peer_endpoint_name.c_str());
 
     // At this point we know that `handle_to_send` is going to be sent to a
     // remote peer node. This means we have to put the `Endpoint` it represents
@@ -81,10 +84,13 @@ class Core {
     // to the new endpoint that the remote peer node will set up for it.
     std::shared_ptr<Endpoint> endpoint_to_proxy = Get()->handle_table_.find(handle_to_send)->second;
     CHECK_EQ(Get()->node_->name_, endpoint_to_proxy->peer_address.node_name);
+    printf("    endpoint_to_proxy \n");
     memcpy(endpoint_info_to_populate.endpoint_name, endpoint_to_proxy->name.c_str(), kIdentifierSize);
     memcpy(endpoint_info_to_populate.peer_node_name, endpoint_to_proxy->peer_address.node_name.c_str(), kIdentifierSize);
     memcpy(endpoint_info_to_populate.peer_endpoint_name, endpoint_to_proxy->peer_address.endpoint_name.c_str(), kIdentifierSize);
-    printf("    PutHandl() peer_node_name: %s\n", peer_node_name.c_str());
+    printf("endpoint_info_to_populate.endpoint_name: %s\n", endpoint_info_to_populate.endpoint_name);
+    printf("endpoint_info_to_populate.peer_node_name: %s\n", endpoint_info_to_populate.peer_node_name);
+    printf("endpoint_info_to_populate.peer_endpoint_name: %s\n", endpoint_info_to_populate.peer_endpoint_name);
     endpoint_to_proxy->SetProxying(/*node_to_proxy_to=*/peer_node_name);
   }
   static MageHandle RecoverMageHandleFromEndpointInfo(EndpointInfo& endpoint_info) {
@@ -99,7 +105,7 @@ class Core {
 
     local_endpoint->name = endpoint_name;
     MageHandle local_handle = Core::Get()->GetNextMageHandle();
-    Core::Get()->RegisterLocalHandle(local_handle, local_endpoint);
+    Core::Get()->RegisterLocalHandle(local_handle, std::move(local_endpoint));
     return local_handle;
   }
 

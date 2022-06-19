@@ -38,6 +38,10 @@ void PrintFullMessageContents(Message& message) {
       break;
   }
   printf("| int user_message_id = %d\n", header->user_message_id);
+  char target_endpoint_buffer[16];
+  memcpy(target_endpoint_buffer, header->target_endpoint, kIdentifierSize);
+  target_endpoint_buffer[15] = '\0';
+  printf("| str target_endpoint = %s \n", target_endpoint_buffer);
   printf("+-------- Message Body --------+\n");
 
   printf("|");

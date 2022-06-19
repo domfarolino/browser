@@ -50,7 +50,12 @@ void Core::OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint) {
 void Core::RegisterLocalHandle(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint) {
   auto endpoint_it = handle_table_.find(local_handle);
   CHECK_EQ(endpoint_it, handle_table_.end());
+
   handle_table_.insert({local_handle, local_endpoint});
+  // TODO(domfarolino): This is ugly, we should centralize this in `Node` or
+  // something.
+  printf("Core::RegisterLocalHandle registering local handle and node endpoint with name: %s\n", local_endpoint->name.c_str());
+  node_->local_endpoints_.insert({local_endpoint->name, local_endpoint});
 }
 
 }; // namspace mage

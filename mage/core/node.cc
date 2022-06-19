@@ -119,6 +119,7 @@ void Node::AcceptInvitation(int fd) {
 
 void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,        
                        Message message) {
+  CHECK_EQ(message.GetMutableMessageHeader().type, MessageType::USER_MESSAGE);
   // If we're sending a message, one of the following, but not both, must be
   // true:
   //   1.) The peer endpoint is already in the remote node, in which case we can
@@ -134,13 +135,18 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
   CHECK_NE((endpoint_it == local_endpoints_.end()),
            (channel_it == node_channel_map_.end()));
 
+  // We have to write the `peer_endpoint_name` to the message, so that the
+  // ultimate recipient can dispatch it correctly.
+  CHECK_EQ(peer_endpoint_name.size(), kIdentifierSize);
+  memcpy(message.GetMutableMessageHeader().target_endpoint, peer_endpoint_name.c_str(), kIdentifierSize);
+
   bool peer_is_local = (endpoint_it != local_endpoints_.end());
   if (peer_is_local) {
     std::shared_ptr<Endpoint> local_peer_endpoint = endpoint_it->second;
     CHECK(local_peer_endpoint);
 
     if (local_peer_endpoint->state == Endpoint::State::kUnboundAndProxying) {
-      printf("Whoahhhhhhhhhh\n");
+      printf("Node::SendMessage forwarding message to local endpoint\n");
       auto proxying_target = node_channel_map_.find(local_peer_endpoint->node_to_proxy_to);
       CHECK_NE(proxying_target, node_channel_map_.end());
       proxying_target->second->SendMessage(std::move(message));
@@ -206,9 +212,7 @@ void Node::OnReceivedInvitation(Message message) {
   // We can also create a new local |Endpoint|, and wire it up to point to its
   // peer that we just learned about from the inviter's message.
   std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
-  // TODO(domfarolino): Why aren't we setting the new local endpoint's name to
-  // `intended_endpoint_name`.
-  local_endpoint->name = util::RandomIdentifier();
+  local_endpoint->name = intended_endpoint_name;
   local_endpoint->peer_address.node_name = inviter_name;
   local_endpoint->peer_address.endpoint_name = intended_endpoint_peer_name;
   local_endpoints_.insert({local_endpoint->name, local_endpoint});
@@ -299,10 +303,14 @@ void Node::OnReceivedUserMessage(Message message) {
   CHECK_ON_THREAD(base::ThreadType::IO);
   printf("Node::OnReceivedUserMessage getpid(): %d\n", getpid());
   // 1. Extract the endpoint that the message is bound for.
-  // TODO(domfarolino): Do this by extracting the intended endpoint name from
-  // the message. The hacky way of doing it below only works because we only
-  // ever have one endpoint.
-  CHECK_EQ(local_endpoints_.size(), 1);
+  char* target_endpoint_buffer = message.GetMutableMessageHeader().target_endpoint;
+  std::string local_target_endpoint_name(
+      target_endpoint_buffer,
+      target_endpoint_buffer + kIdentifierSize);
+  printf("    OnReceivedUserMessage() looking for local_target_endpoint_name: %s to dispatch message to\n", local_target_endpoint_name.c_str());
+  auto endpoint_it = local_endpoints_.find(local_target_endpoint_name);
+  CHECK_NE(endpoint_it, local_endpoints_.end());
+
   std::shared_ptr<Endpoint> endpoint = local_endpoints_.begin()->second;
   CHECK(endpoint);
 

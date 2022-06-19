@@ -124,6 +124,9 @@ struct MessageHeader {
   // in an interface this message corresponds to, so it can be deserialized and
   // dispatched correctly to the interface implementation.
   int user_message_id;
+
+  // TODO(domfarolino): Document this.
+  char target_endpoint[15];
 };
 
 class Message final {
