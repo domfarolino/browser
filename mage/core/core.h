@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "base/callback.h"
-#include "base/scheduling/task_loop_for_io.h"
+#include "base/scheduling/scheduling_handles.h"
 #include "mage/core/endpoint.h"
 #include "mage/core/handles.h"
 #include "mage/core/message.h"
@@ -94,10 +94,10 @@ class Core {
     endpoint_to_proxy->SetProxying(/*node_to_proxy_to=*/peer_node_name);
   }
   static MageHandle RecoverMageHandleFromEndpointInfo(EndpointInfo& endpoint_info) {
-    printf("Core::RecoverMageHandleFromEndpointInfo(ep)\n");
-    printf("endpoint_info: %s\n", endpoint_info.endpoint_name);
-    printf("endpoint_info: %s\n", endpoint_info.peer_node_name);
-    printf("endpoint_info: %s\n", endpoint_info.peer_endpoint_name);
+    printf("Core::RecoverMageHandleFromEndpointInfo(endpoint_info)\n");
+    printf("  endpoint_info: %s\n", endpoint_info.endpoint_name);
+    printf("  endpoint_info: %s\n", endpoint_info.peer_node_name);
+    printf("  endpoint_info: %s\n", endpoint_info.peer_endpoint_name);
 
     std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
     std::string endpoint_name(endpoint_info.endpoint_name,

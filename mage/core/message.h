@@ -4,9 +4,11 @@
 #include <inttypes.h>
 
 #include <string>
+#include <queue>
 #include <vector>
 
 #include "base/check.h"
+#include "mage/core/handles.h"
 
 namespace mage {
 
@@ -109,156 +111,6 @@ enum MessageType : int {
   // longer be getting messages from endpoints other than its peer. This could
   // be useful, but before implementing it, it's not clear if it is necessary.
   USER_MESSAGE,
-};
-
-struct MessageHeader {
-  // The *overall* message size, including the MessageHeader.
-  int size;
-  // All message types that are not |MessageType::USER_MESSAGE| are considered
-  // "control" messages, in that they don't target a particular endpoint, but
-  // are destined for the node itself. |Node| uses this member to distinguish
-  // control messages from user messages, so they can be handled correctly.
-  MessageType type;
-  // When |type == MessageType::USER_MESSAGE|, this message will correspond to a
-  // mage method within an interface. This member identifies which mage method
-  // in an interface this message corresponds to, so it can be deserialized and
-  // dispatched correctly to the interface implementation.
-  int user_message_id;
-
-  // Messages are sent over a particular endpoint. That endpoint tells us the
-  // name of the target node and the target endpoint. The name of the target
-  // node is outside the scope of the message, since it is used by `Node` and
-  // `Channel`. But once the message leaves an origin node and ends up in the
-  // target node, it must tell the target node which particular remote endpoint
-  // it is targeting, which is described by this member.
-  char target_endpoint[kIdentifierSize];
-};
-
-class Message final {
- public:
-  Message(MessageType type);
-
-  Message(const Message&) = delete;
-  Message operator=(const Message&) = delete;
-  Message(Message&& other);
-
-  // This method will always start reading at the first byte after the
-  // MessageHeader in memory. In order to read or maniupulate the MessageHeader,
-  // use |GetMutableMessageHeader()|.
-  template <typename MessageFragment>
-  MessageFragment* Get(int starting_index) {
-    CHECK_GE(starting_index, 0);
-    return reinterpret_cast<MessageFragment*>(payload_buffer_.data() +
-                                              starting_index);
-  }
-
-  template <typename MessageFragment>
-  MessageFragment* GetView() {
-    return Get<MessageFragment>(/*starting_index=*/sizeof(MessageHeader));
-  }
-
-  MessageHeader& GetMutableMessageHeader() {
-    return *Get<MessageHeader>(/*starting_index=*/0);
-  }
-
-  // Must be called before actually sending the message.
-  void FinalizeSize() {
-    GetMutableMessageHeader().size = payload_buffer_.size();
-  }
-
-  void ConsumeBuffer(std::vector<char>&& incoming_buffer) {
-    payload_buffer_ = std::move(incoming_buffer);
-  }
-
-  std::vector<char>& payload_buffer() {
-    return payload_buffer_;
-  }
-
-  int Size() {
-    return GetMutableMessageHeader().size;
-  }
-
-  MessageType Type() {
-    return GetMutableMessageHeader().type;
-  }
-
- private:
-  std::vector<char> payload_buffer_;
-};
-
-template <typename T>
-class MessageFragment {
- public:
-  MessageFragment(Message& message) : message_(message), starting_index_(kInvalidFragmentStartingIndex) {}
-
-  void Allocate() {
-    // Cache the starting index of the block of data that we'll allocate. Note
-    // that this index is invalid at this moment, but right when the buffer is
-    // resized to make room for however many bytes |T| takes up, then this index
-    // will point to the first byte of our freshly-allocated block.
-    starting_index_ = message_.payload_buffer().size();
-
-    // Allocate enough bytes in the underlying message buffer for T.
-    int num_bytes_to_allocate = sizeof(T);
-    message_.payload_buffer().resize(message_.payload_buffer().size() + num_bytes_to_allocate);
-  }
-
-  T* data() {
-    // Must only be invoked after |Allocate()|.
-    return message_.Get<T>(starting_index_);
-  }
-
- private:
-  Message& message_;
-  int starting_index_;
-};
-
-template <typename T>
-struct ArrayHeader {
-  T* array_storage() {
-    // Take our address, and jump ahead "1" of "us", which is really jumping
-    // ahead |sizeof(*this)| bytes. This will get us to the very first byte
-    // after |this|, which is where the array data is actually stored.
-    return reinterpret_cast<T*>(this + 1);
-  }
-
-  int num_elements;
-};
-
-template <typename T>
-class MessageFragment<ArrayHeader<T>> {
- public:
-  MessageFragment(Message& message) : message_(message), starting_index_(kInvalidFragmentStartingIndex) {}
-
-  void AllocateArray(int num_elements) {
-    // See comment in |MessageFragment<T>::Allocate()|.
-    starting_index_ = message_.payload_buffer().size();
-
-    // Allocate enough bytes for the ArrayHeader + the actual array data.
-    int num_bytes_to_allocate = sizeof(ArrayHeader<T>) + (sizeof(T) * num_elements);
-    message_.payload_buffer().resize(message_.payload_buffer().size() + num_bytes_to_allocate);
-
-    // Get a pointer to the ArrayHeader<T>* that we just allocated above, and
-    // set its |num_elements| member. This writes that number to the underlying
-    // message buffer where the |ArrayHeader<T>| is allocated, so we can recover
-    // it later.
-    ArrayHeader<T>* array_header = data();
-    array_header->num_elements = num_elements;
-  }
-
-  // Gets a pointer to the first byte of data that we allocated. Note that above
-  // we allocated enough bytes for the array header as well as the actual array
-  // data, so when we get a pointer to the first byte that we allocated, our
-  // intention is to reference the ArrayHeader at that place. If you want to
-  // access the actual array *storage* (which starts at the first byte after the
-  // ArrayHeader), then you should use |ArrayHeader::array_storage()|.
-  ArrayHeader<T>* data() {
-    return message_.Get<ArrayHeader<T>>(starting_index_);
-  }
-
- private:
-  Message& message_;
-  int starting_index_;
 };
 
 // CS101 Lesson: Traditionally, a pointer is a stack-allocated variable (and
@@ -364,6 +216,199 @@ struct Pointer {
   uint64_t offset = 0;
 };
 
+// TODO(domfarolino): Document how this related to `Pointer` above.
+template <typename T>
+struct ArrayHeader {
+  T* array_storage() {
+    // Take our address, and jump ahead "1" of "us", which is really jumping
+    // ahead |sizeof(*this)| bytes. This will get us to the very first byte
+    // after |this|, which is where the array data is actually stored.
+    return reinterpret_cast<T*>(this + 1);
+  }
+
+  int num_elements;
+};
+
+// TODO(domfarolino): Document this.
+struct EndpointInfo {
+  char endpoint_name[kIdentifierSize];
+  char peer_node_name[kIdentifierSize];
+  char peer_endpoint_name[kIdentifierSize];
+
+  void Print() {
+    printf("  endpoint_name: %s\n", endpoint_name);
+    printf("  peer_node_name: %s\n", peer_node_name);
+    printf("  peer_endpoint_name: %s\n", peer_endpoint_name);
+  }
+};
+
+struct MessageHeader {
+  // The *overall* message size, including the MessageHeader.
+  int size;
+  // All message types that are not |MessageType::USER_MESSAGE| are considered
+  // "control" messages, in that they don't target a particular endpoint, but
+  // are destined for the node itself. |Node| uses this member to distinguish
+  // control messages from user messages, so they can be handled correctly.
+  MessageType type;
+  // When |type == MessageType::USER_MESSAGE|, this message will correspond to a
+  // mage method within an interface. This member identifies which mage method
+  // in an interface this message corresponds to, so it can be deserialized and
+  // dispatched correctly to the interface implementation.
+  int user_message_id;
+
+  // Messages are sent over a particular endpoint. That endpoint tells us the
+  // name of the target node and the target endpoint. The name of the target
+  // node is outside the scope of the message, since it is used by `Node` and
+  // `Channel`. But once the message leaves an origin node and ends up in the
+  // target node, it must tell the target node which particular remote endpoint
+  // it is targeting, which is described by this member.
+  char target_endpoint[kIdentifierSize];
+
+  // Both user and control messages can carry `MageHandle`s to expand the number
+  // of connections between two nodes/processes. User message deserialization
+  // happens on the thread that the `Receiver` is bound to (typically this is
+  // the UI thread) by interface-specific generated code.
+  // However, if a user message carries `MageHandle`s with it (which serialize
+  // to `EndpointInfo`s in the actual message buffer), we must unpack these and
+  // create concrete `Endpoint`s to represent these handles on the IO thread,
+  // before we dispatch the message to the `Receiver`. These `Endpoint`s must be
+  // created and registered before message dispatching because the very next
+  // message that may come in on the IO thread might be bound for one of the
+  // `Endpoint`s described by the previous message.
+  // Therefore, `num_endpoints_in_message` tells us up-front how many
+  // `EndpointInfo`s we have to unpack and memorialize before we do the
+  // message-specific deserialization and dispatching on the `Receiver` thread.
+  Pointer<ArrayHeader<EndpointInfo>> endpoints_in_message;
+};
+
+class Message final {
+ public:
+  Message(MessageType type);
+
+  Message(const Message&) = delete;
+  Message operator=(const Message&) = delete;
+  Message(Message&& other);
+
+  // This method will always start reading at the first byte after the
+  // MessageHeader in memory. In order to read or maniupulate the MessageHeader,
+  // use |GetMutableMessageHeader()|.
+  template <typename MessageFragment>
+  MessageFragment* Get(int starting_index) {
+    CHECK_GE(starting_index, 0);
+    return reinterpret_cast<MessageFragment*>(payload_buffer_.data() +
+                                              starting_index);
+  }
+
+  template <typename MessageFragment>
+  MessageFragment* GetView() {
+    return Get<MessageFragment>(/*starting_index=*/sizeof(MessageHeader));
+  }
+
+  MessageHeader& GetMutableMessageHeader() {
+    return *Get<MessageHeader>(/*starting_index=*/0);
+  }
+
+  // Must be called before actually sending the message.
+  void FinalizeSize() {
+    GetMutableMessageHeader().size = payload_buffer_.size();
+  }
+
+  void ConsumeBuffer(std::vector<char>&& incoming_buffer) {
+    payload_buffer_ = std::move(incoming_buffer);
+  }
+
+  std::vector<char>& payload_buffer() {
+    return payload_buffer_;
+  }
+
+  int Size() {
+    return GetMutableMessageHeader().size;
+  }
+
+  MessageType Type() {
+    return GetMutableMessageHeader().type;
+  }
+
+  MageHandle TakeNextHandle() {
+    CHECK(handles_.size());
+    MageHandle return_handle = handles_.front();
+    handles_.pop();
+    return return_handle;
+  }
+
+  void QueueHandle(MageHandle handle) {
+    handles_.push(handle);
+  }
+
+ private:
+  // TODO(domfarolino): Document this.
+  std::queue<MageHandle> handles_;
+  std::vector<char> payload_buffer_;
+};
+
+template <typename T>
+class MessageFragment {
+ public:
+  MessageFragment(Message& message) : message_(message), starting_index_(kInvalidFragmentStartingIndex) {}
+
+  void Allocate() {
+    // Cache the starting index of the block of data that we'll allocate. Note
+    // that this index is invalid at this moment, but right when the buffer is
+    // resized to make room for however many bytes |T| takes up, then this index
+    // will point to the first byte of our freshly-allocated block.
+    starting_index_ = message_.payload_buffer().size();
+
+    // Allocate enough bytes in the underlying message buffer for T.
+    int num_bytes_to_allocate = sizeof(T);
+    message_.payload_buffer().resize(message_.payload_buffer().size() + num_bytes_to_allocate);
+  }
+
+  T* data() {
+    // Must only be invoked after |Allocate()|.
+    return message_.Get<T>(starting_index_);
+  }
+
+ private:
+  Message& message_;
+  int starting_index_;
+};
+
+template <typename T>
+class MessageFragment<ArrayHeader<T>> {
+ public:
+  MessageFragment(Message& message) : message_(message), starting_index_(kInvalidFragmentStartingIndex) {}
+
+  void AllocateArray(int num_elements) {
+    // See comment in |MessageFragment<T>::Allocate()|.
+    starting_index_ = message_.payload_buffer().size();
+
+    // Allocate enough bytes for the ArrayHeader + the actual array data.
+    int num_bytes_to_allocate = sizeof(ArrayHeader<T>) + (sizeof(T) * num_elements);
+    message_.payload_buffer().resize(message_.payload_buffer().size() + num_bytes_to_allocate);
+
+    // Get a pointer to the ArrayHeader<T>* that we just allocated above, and
+    // set its |num_elements| member. This writes that number to the underlying
+    // message buffer where the |ArrayHeader<T>| is allocated, so we can recover
+    // it later.
+    ArrayHeader<T>* array_header = data();
+    array_header->num_elements = num_elements;
+  }
+
+  // Gets a pointer to the first byte of data that we allocated. Note that above
+  // we allocated enough bytes for the array header as well as the actual array
+  // data, so when we get a pointer to the first byte that we allocated, our
+  // intention is to reference the ArrayHeader at that place. If you want to
+  // access the actual array *storage* (which starts at the first byte after the
+  // ArrayHeader), then you should use |ArrayHeader::array_storage()|.
+  ArrayHeader<T>* data() {
+    return message_.Get<ArrayHeader<T>>(starting_index_);
+  }
+
+ private:
+  Message& message_;
+  int starting_index_;
+};
+
 struct SendInvitationParams {
   char inviter_name[kIdentifierSize];
   // This is the remote node name that the inviter has generated for the target
@@ -387,13 +432,6 @@ struct SendAcceptInvitationParams {
   // its map of nodes.
   char temporary_remote_node_name[kIdentifierSize];
   char actual_node_name[kIdentifierSize];
-};
-
-// TODO(domfarolino): Document this.
-struct EndpointInfo {
-  char endpoint_name[kIdentifierSize];
-  char peer_node_name[kIdentifierSize];
-  char peer_endpoint_name[kIdentifierSize];
 };
 
 }; // namspace mage

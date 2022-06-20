@@ -311,8 +311,9 @@ void Node::OnReceivedUserMessage(Message message) {
   auto endpoint_it = local_endpoints_.find(local_target_endpoint_name);
   CHECK_NE(endpoint_it, local_endpoints_.end());
 
-  std::shared_ptr<Endpoint> endpoint = local_endpoints_.begin()->second;
+  std::shared_ptr<Endpoint> endpoint = endpoint_it->second;
   CHECK(endpoint);
+  CHECK_EQ(local_target_endpoint_name, endpoint->name);
 
   // 2. Tell the endpoint to handle the message.
   endpoint->AcceptMessage(std::move(message));

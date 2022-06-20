@@ -38,10 +38,12 @@ void PrintFullMessageContents(Message& message) {
       break;
   }
   printf("| int user_message_id = %d\n", header->user_message_id);
-  char target_endpoint_buffer[16];
+  char target_endpoint_buffer[kIdentifierSize + 1];
   memcpy(target_endpoint_buffer, header->target_endpoint, kIdentifierSize);
-  target_endpoint_buffer[15] = '\0';
+  target_endpoint_buffer[kIdentifierSize] = '\0';
   printf("| str target_endpoint = %s \n", target_endpoint_buffer);
+  int num_endpoints_in_message = header->endpoints_in_message.Get() ? header->endpoints_in_message.Get()->num_elements : 0;
+  printf("| Pointer<ArrayHeader<EndpointInfo>>->num_endpoints_in_message = %d \n", num_endpoints_in_message);
   printf("+-------- Message Body --------+\n");
 
   printf("|");

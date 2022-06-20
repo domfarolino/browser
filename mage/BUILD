@@ -16,6 +16,7 @@ cc_library(
   srcs = [
     "core/channel.cc",
     "core/core.cc",
+    "core/endpoint.cc",
     "core/message.cc",
     "core/node.cc",
     "core/util.cc",

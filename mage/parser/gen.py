@@ -175,6 +175,20 @@ class {{Interface}}Proxy {
     mage::MessageFragment<{{Interface}}_{{Method.name}}_Params> message_fragment(message);
     message_fragment.Allocate();
 
+{# At template substition time we generate the total number of handles that a
+   message contains; this is better than doing it at runtime by looping in C++.
+   TODO(domfarolino): Maybe get rid of this since it does not seem necessary. #}
+{% set num_endpoints_in_message_jinja = [] %}
+{%- for argument_pair in Method.arguments %}
+  {% if IsHandleType(argument_pair[0]) %}
+    {% set __ = num_endpoints_in_message_jinja.append(1) %}
+  {% endif %}
+{%- endfor%}
+    // Pre-compute the number of handles this message is going to send, if any.
+    const int num_endpoints_in_message = {{ num_endpoints_in_message_jinja|length }};
+    std::vector<mage::EndpointInfo> endpoints_to_write;
+    // End pre-compute.
+
 {%- for argument_pair in Method.arguments %}
   {% if not IsArrayType(argument_pair[0]) and not IsHandleType(argument_pair[0]) %}
     message_fragment.data()->{{ argument_pair[1] }} = {{ argument_pair[1] }};
@@ -190,13 +204,33 @@ class {{Interface}}Proxy {
       message_fragment.data()->{{ argument_pair[1] }}.Set(array.data());
     }
   {% elif IsHandleType(argument_pair[0]) %}
-    // TODO(domfarolino): Do the handle stuff
+    // Take that handle that we're sending, find its underlying `Endpoint`, and
+    // use it to fill out a `mage::EndpointInfo` which is written to the message
+    // buffer.
     mage::EndpointInfo& endpoint_info_to_populate = message_fragment.data()->{{ argument_pair[1] }};
     mage::Core::PutHandleToSendInProxyingStateIfTargetIsRemote({{argument_pair[1]}}, local_handle_, endpoint_info_to_populate);
+    endpoints_to_write.push_back(endpoint_info_to_populate);
   {% endif %}
 {%- endfor %}
 
     message.GetMutableMessageHeader().user_message_id = {{Interface}}_{{Method.name}}_ID;
+
+    // Write the endpoints last in the header. See the documentation above
+    // `mage::MessageHeader::endpoints_in_message` to see why this is necessary.
+    CHECK_EQ(num_endpoints_in_message, endpoints_to_write.size());
+    mage::MessageFragment<mage::ArrayHeader<mage::EndpointInfo>> endpoint_array_at_end_of_message(message);
+    endpoint_array_at_end_of_message.AllocateArray(num_endpoints_in_message);
+    for (int i = 0; i < num_endpoints_in_message; ++i) {
+      const int byte_offset_for_writing = i * sizeof(mage::EndpointInfo);
+      char* endpoint_as_bytes = reinterpret_cast<char*>(&endpoints_to_write[i]);
+      // Write the endpoint.
+      memcpy(endpoint_array_at_end_of_message.data()->array_storage() + byte_offset_for_writing,
+             /*source=*/endpoint_as_bytes,
+             /*source_size=*/sizeof(mage::EndpointInfo));
+    }
+    message.GetMutableMessageHeader().endpoints_in_message.Set(endpoint_array_at_end_of_message.data());
+    // End writing endpoints.
+
     message.FinalizeSize();
     mage::Core::SendMessage(local_handle_, std::move(message));
   }
@@ -251,8 +285,9 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
               params->{{ argument_pair[1] }}.Get()->array_storage() + params->{{ argument_pair[1] }}.Get()->num_elements
             );
           {% elif IsHandleType(argument_pair[0]) %}
-            mage::EndpointInfo& incoming_endpoint_info = params->{{ argument_pair[1] }};
-            {{ argument_pair[1] }} = mage::Core::RecoverMageHandleFromEndpointInfo(incoming_endpoint_info);
+            // The handle and endpoint have already been processed on the IO
+            // thread, so we can just grab the handle directly from the message.
+            {{ argument_pair[1] }} = message.TakeNextHandle();
           {% endif %}
         {%- endfor %}
 
