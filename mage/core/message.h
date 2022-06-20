@@ -125,8 +125,13 @@ struct MessageHeader {
   // dispatched correctly to the interface implementation.
   int user_message_id;
 
-  // TODO(domfarolino): Document this.
-  char target_endpoint[15];
+  // Messages are sent over a particular endpoint. That endpoint tells us the
+  // name of the target node and the target endpoint. The name of the target
+  // node is outside the scope of the message, since it is used by `Node` and
+  // `Channel`. But once the message leaves an origin node and ends up in the
+  // target node, it must tell the target node which particular remote endpoint
+  // it is targeting, which is described by this member.
+  char target_endpoint[kIdentifierSize];
 };
 
 class Message final {
