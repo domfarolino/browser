@@ -55,14 +55,6 @@ void PrintFullMessageContents(Message& message) {
   printf("+-------- End Message --------+\n");
 }
 
-bool IsOnUIThread() {
-  return base::GetUIThreadTaskLoop() == base::GetCurrentThreadTaskLoop();
-}
-
-bool IsOnIOThread() {
-  return base::GetCurrentThreadTaskLoop() == base::GetIOThreadTaskLoop();
-}
-
 }; // namespace
 
 Channel::Channel(int fd, Delegate* delegate) :
@@ -70,28 +62,28 @@ Channel::Channel(int fd, Delegate* delegate) :
     delegate_(delegate),
     io_task_loop_(*std::static_pointer_cast<base::TaskLoopForIO>(
       base::GetIOThreadTaskLoop())) {
-  CHECK(IsOnUIThread());
+  CHECK_ON_THREAD(base::ThreadType::UI);
 }
 
 Channel::~Channel() {
-  CHECK(IsOnUIThread());
+  CHECK_ON_THREAD(base::ThreadType::UI);
   io_task_loop_.UnwatchSocket(this);
 }
 
 void Channel::Start() {
-  CHECK(IsOnUIThread());
+  CHECK_ON_THREAD(base::ThreadType::UI);
   io_task_loop_.WatchSocket(this);
 }
 
 void Channel::SetRemoteNodeName(const std::string& name) {
-  CHECK(IsOnUIThread());
+  CHECK_ON_THREAD(base::ThreadType::UI);
   remote_node_name_ = name;
 }
 
 void Channel::SendInvitation(std::string inviter_name,
                              std::string intended_endpoint_name,
                              std::string intended_endpoint_peer_name) {
-  CHECK(IsOnUIThread());
+  CHECK_ON_THREAD(base::ThreadType::UI);
   Message message(MessageType::SEND_INVITATION);
   MessageFragment<SendInvitationParams> params(message);
   params.Allocate();
