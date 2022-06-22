@@ -14,7 +14,11 @@
 #include "mage/test/magen/test.magen.h"  // Generated.
 
 int main(int argc, char** argv) {
-  auto task_loop = base::TaskLoop::Create(base::ThreadType::IO);
+  std::shared_ptr<base::TaskLoop> main_thread = base::TaskLoop::Create(base::ThreadType::UI);
+  base::Thread io_thread(base::ThreadType::IO);
+  io_thread.Start();
+  io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
+  main_thread->Run();
   mage::Core::Init();
 
   int fd = std::stoi(argv[1]);
@@ -31,6 +35,6 @@ int main(int argc, char** argv) {
 
   // This will spin the loop until the lambda above is invoked. This process
   // will exit after the above mage message is sent.
-  task_loop->Run();
+  main_thread->Run();
   return 0;
 }

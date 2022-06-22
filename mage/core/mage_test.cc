@@ -271,7 +271,8 @@ TEST_F(MageTest, ParentIsInviterAndReceiver) {
 TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
   launcher->Launch(MageTestProcessType::kChildIsInviterAndRemote);
 
-  mage::Core::AcceptInvitation(launcher->GetLocalFd(), std::bind([&](MageHandle message_pipe){
+  mage::Core::AcceptInvitation(launcher->GetLocalFd(),
+                               std::bind([&](MageHandle message_pipe){
     CHECK_ON_THREAD(base::ThreadType::UI);
     std::unique_ptr<TestInterfaceImpl> impl(
       new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, base::GetCurrentThreadTaskLoop().get())));
@@ -292,7 +293,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
     EXPECT_EQ(impl->received_amount, 1000);
     EXPECT_EQ(impl->received_currency, "JPY");
 
-    base::GetUIThreadTaskLoop()->Quit();
+    base::GetCurrentThreadTaskLoop()->Quit();
   }, std::placeholders::_1));
 
   // This will run the loop until we get the accept invitation. Then the above
@@ -300,27 +301,25 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
   main_thread->Run();
 }
 
-/*
 // This test is the exact same as above, with the exception that the remote
-// process we spawn (which sends the invitation) doesn't use its mage::Remote to
-// talk to us until it receives our invitation acceptance. This is a subtle use
-// case to test because there is an internal difference with how mage messages
-// are queued vs immediately sent depending on whether or not the mage::Remote
-// is used before or after it learns that we accepted the invitation. This
-// should be completely opaque to the user, which is why we have to test it.
+// process we spawn (which sends the invitation and all of the messages that we
+// receive) doesn't use its mage::Remote to talk to us until it receives our
+// invitation acceptance. This is a subtle use-case to test because there is an
+// internal difference with how mage messages are queued vs immediately sent
+// depending on whether or not the mage::Remote is used before or after it
+// learns that we accepted the invitation. This should be completely opaque to
+// the user, which is why we have to test it.
 TEST_F(MageTest, InviteeAsReceiverBlockOnAcceptance) {
-  ProcessLauncher launcher(MageTestProcessType::kInviterAsRemoteBlockOnAcceptance);
-  launcher.Start();
-  std::shared_ptr<base::TaskLoop> task_loop_for_io =
-    base::TaskLoop::Create(base::ThreadType::IO);
+  launcher->Launch(MageTestProcessType::kInviterAsRemoteBlockOnAcceptance);
 
-  mage::Core::AcceptInvitation(launcher.GetLocalFd(),
+  mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MageHandle message_pipe){
+    CHECK_ON_THREAD(base::ThreadType::UI);
     std::unique_ptr<TestInterfaceImpl> impl(
-      new TestInterfaceImpl(message_pipe, task_loop_for_io->QuitClosure()));
+      new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, main_thread.get())));
 
     // Let the message come in from the remote inviter.
-    task_loop_for_io->Run();
+    base::GetCurrentThreadTaskLoop()->Run();
 
     // Once the mage method is invoked, the task loop will quit the above Run()
     // and we can check the results.
@@ -329,18 +328,17 @@ TEST_F(MageTest, InviteeAsReceiverBlockOnAcceptance) {
     EXPECT_EQ(impl->received_string, "message");
 
     // Let another message come in from the remote inviter.
-    task_loop_for_io->Run();
+    base::GetCurrentThreadTaskLoop()->Run();
     EXPECT_EQ(impl->received_amount, 1000);
     EXPECT_EQ(impl->received_currency, "JPY");
 
-    task_loop_for_io->Quit();
+    base::GetCurrentThreadTaskLoop()->Quit();
   }, std::placeholders::_1));
 
   // This will run the loop until we get the accept invitation. Then the above
   // lambda invokes, and the test continues in there.
-  task_loop_for_io->Run();
+  main_thread->Run();
 }
-*/
 
 TEST_F(MageTest, InProcess) {
   std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
