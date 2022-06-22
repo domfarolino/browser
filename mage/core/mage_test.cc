@@ -466,4 +466,24 @@ TEST_F(MageTest, InProcessCrossThread) {
   EXPECT_TRUE(impl->has_called_send_money);
 }
 
+/*
+  Scenarios to test:
+    - Send and invitation and synchronously queue messages on the message pipe.
+      Verify that all of the messages make it to the other end.
+    - Send and invitation and synchronously queue a message (with an
+      EndpointDescriptor) on the message pipe. Synchronously queue another
+      message on the child pipe (with another EndpointDescriptor) on it. Make
+      sure that all messages on all pipes are delivered properly.
+    - Asynchronously after an invitation is accepted, create a message pipe pair
+      and start queueing messages that bear EndpointDescriptors on it, multiple
+      levels deep. Finally send the outermost endpoint cross-process and verify
+      that all messages get delivered cross-process.
+    - Proxying:
+      - General proxying: A multi-process chain of messages works, and avoids
+        the `NOTREACHED()` in `Endpoint::AcceptMessage()`.
+      - The same as the "Asynchronously after an invitation..." case above, but
+        some of the messages get delivered to endpoints (in the other process)
+        that are proxying to another process.
+*/
+
 }; // namespace mage
