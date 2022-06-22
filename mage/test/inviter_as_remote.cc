@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
       CHECK_ON_THREAD(base::ThreadType::UI);
       // Asynchronously quit the test now that we know that below message, that
       // was queued synchronously, has been sent to the remote process.
-      // base::GetCurrentThreadTaskLoop()->Quit();
+      base::GetCurrentThreadTaskLoop()->Quit();
     });
 
   mage::Remote<magen::TestInterface> remote;
