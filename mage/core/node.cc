@@ -260,7 +260,7 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   std::shared_ptr<Endpoint> local_endpoint = local_endpoint_it->second;
   local_endpoint->peer_address.node_name = actual_node_name;
 
-  printf("Our local endpoint now recognizes its peer as: (%s, %s)\n",
+  printf("  Our local endpoint now recognizes its peer as: (%s, %s)\n",
          local_endpoint_it->second->peer_address.node_name.c_str(),
          local_endpoint_it->second->peer_address.endpoint_name.c_str());
 
@@ -276,13 +276,55 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   node_channel_map_.insert({actual_node_name, std::move(channel)});
 
   //   4.) Forward any messages that were queued in |remote_endpoint| so that
-  //       the remote node's endpoint gets them.
+  //       the remote node's endpoint gets them. Note that the messages queued
+  //       in `remote_endpoint` might be carrying `EndpointDescriptor`s, each of
+  //       which we have to examine so we can:
+  //         1.) Take all of the queued messages in the endpoint described by
+  //             the info, and forward them to the remote node (is it guaranteed
+  //             to be remote?)
+  //         2.) Set the endpoint described by the info to the proxying mode (or
+  //             maybe just delete it? Figure this out....)
   std::queue<Message> messages_to_forward =
-    remote_endpoint->TakeQueuedMessages();
+      remote_endpoint->TakeQueuedMessages();
+  printf("    Node has %lu messages queued up in the remote invitation endpoint\n", messages_to_forward.size());
   while (!messages_to_forward.empty()) {
-    printf("    Forwarding a message\n");
-    node_channel_map_[actual_node_name]->SendMessage(
-      std::move(messages_to_forward.front()));
+    Message message_to_forward = std::move(messages_to_forward.front());
+
+    // Push possibly many more messages to `message_to_forward`.
+    // TODO(domfarolino): This whole process only happens for the endpoint that
+    // is able to receive messages while we're waiting in invitation acceptance.
+    // It does not happen for normal endpoints that have nothing to do with
+    // invitations. We should generalize this procedure and move it somewhere
+    // usable by both places.
+    printf("      Forwarding a message NumberOfHandles(): %d\n", message_to_forward.NumberOfHandles());
+    std::vector<EndpointDescriptor> infos = message_to_forward.GetEndpointDescriptors();
+    for (const EndpointDescriptor& info : infos) {
+      std::string endpoint_name(info.endpoint_name, 15);
+      printf("        One EndpointDescriptor in this message has the name: %s\n", endpoint_name.c_str());
+      auto it = local_endpoints_.find(endpoint_name);
+      CHECK_NE(it, local_endpoints_.end());
+
+      std::shared_ptr<Endpoint> endpoint_from_info = it->second;
+      std::queue<Message> sub_messages = endpoint_from_info->TakeQueuedMessages();
+      while (!sub_messages.empty()) {
+        messages_to_forward.push(std::move(sub_messages.front()));
+        sub_messages.pop();
+      }
+
+      // TODO(domfarolino): We have two options for dealing with the endpoint
+      // we're sending:
+      //   1.) Put it in the proxying state (by calling
+      //       `Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState()`
+      //       I think)
+      //   2.) Delete it
+      // For now we're deleting it because it is simpler, but I think we should
+      // really put it in a proxying state, as with all endpoints being sent to
+      // another node.
+      local_endpoints_.erase(it);
+    }
+
+    // Forward the message and remove it from the queue.
+    node_channel_map_[actual_node_name]->SendMessage(std::move(message_to_forward));
     messages_to_forward.pop();
   }
 

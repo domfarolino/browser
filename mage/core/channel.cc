@@ -42,8 +42,7 @@ void PrintFullMessageContents(Message& message) {
   memcpy(target_endpoint_buffer, header->target_endpoint, kIdentifierSize);
   target_endpoint_buffer[kIdentifierSize] = '\0';
   printf("| str target_endpoint = %s \n", target_endpoint_buffer);
-  int num_endpoints_in_message = header->endpoints_in_message.Get() ? header->endpoints_in_message.Get()->num_elements : 0;
-  printf("| Pointer<ArrayHeader<EndpointInfo>>->num_endpoints_in_message = %d \n", num_endpoints_in_message);
+  printf("| Pointer<ArrayHeader<EndpointDescriptor>>->num_endpoints_in_message = %d \n", message.NumberOfHandles());
   printf("+-------- Message Body --------+\n");
 
   printf("|");
@@ -129,7 +128,7 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
 }
 
 void Channel::SendMessage(Message message) {
-  printf("Channel::SendMessage(): getpid(): %d, fd_: %d\n", getpid(), fd_);
+  printf("\n\nChannel::SendMessage(): getpid(): %d, fd_: %d\n", getpid(), fd_);
   // CHECK_ON_THREAD(base::ThreadType::UI);
   PrintFullMessageContents(message);
 
@@ -140,7 +139,7 @@ void Channel::SendMessage(Message message) {
 }
 
 void Channel::OnCanReadFromSocket() {
-  printf("Channel::OnCanReadFromSocket() getpid: %d\n", getpid());
+  printf("\n\nChannel::OnCanReadFromSocket() getpid: %d\n", getpid());
   CHECK_ON_THREAD(base::ThreadType::IO);
   std::vector<char> full_message_buffer;
 

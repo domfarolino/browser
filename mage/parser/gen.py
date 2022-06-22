@@ -70,7 +70,7 @@ def GetMagenParamsType(magen_type):
   if magen_type == "string":
     return "mage::Pointer<mage::ArrayHeader<char>>"
   elif magen_type == "MageHandle":
-    return "mage::EndpointInfo"
+    return "mage::EndpointDescriptor"
   return magen_type
 
 def IsArrayType(magen_type):
@@ -186,7 +186,7 @@ class {{Interface}}Proxy {
 {%- endfor%}
     // Pre-compute the number of handles this message is going to send, if any.
     const int num_endpoints_in_message = {{ num_endpoints_in_message_jinja|length }};
-    std::vector<mage::EndpointInfo> endpoints_to_write;
+    std::vector<mage::EndpointDescriptor> endpoints_to_write;
     // End pre-compute.
 
 {%- for argument_pair in Method.arguments %}
@@ -205,11 +205,11 @@ class {{Interface}}Proxy {
     }
   {% elif IsHandleType(argument_pair[0]) %}
     // Take that handle that we're sending, find its underlying `Endpoint`, and
-    // use it to fill out a `mage::EndpointInfo` which is written to the message
+    // use it to fill out a `mage::EndpointDescriptor` which is written to the message
     // buffer.
-    mage::EndpointInfo& endpoint_info_to_populate = message_fragment.data()->{{ argument_pair[1] }};
-    mage::Core::PutHandleToSendInProxyingStateIfTargetIsRemote({{argument_pair[1]}}, local_handle_, endpoint_info_to_populate);
-    endpoints_to_write.push_back(endpoint_info_to_populate);
+    mage::EndpointDescriptor& endpoint_descriptor_to_populate = message_fragment.data()->{{ argument_pair[1] }};
+    mage::Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState({{argument_pair[1]}}, local_handle_, endpoint_descriptor_to_populate);
+    endpoints_to_write.push_back(endpoint_descriptor_to_populate);
   {% endif %}
 {%- endfor %}
 
@@ -217,16 +217,18 @@ class {{Interface}}Proxy {
 
     // Write the endpoints last in the header. See the documentation above
     // `mage::MessageHeader::endpoints_in_message` to see why this is necessary.
+    // TODO(domfarolino): Get rid fo this printf.
+    printf(\"endpoints_to_write.size(): %lu\\n\", endpoints_to_write.size());
     CHECK_EQ(num_endpoints_in_message, endpoints_to_write.size());
-    mage::MessageFragment<mage::ArrayHeader<mage::EndpointInfo>> endpoint_array_at_end_of_message(message);
+    mage::MessageFragment<mage::ArrayHeader<mage::EndpointDescriptor>> endpoint_array_at_end_of_message(message);
     endpoint_array_at_end_of_message.AllocateArray(num_endpoints_in_message);
     for (int i = 0; i < num_endpoints_in_message; ++i) {
-      const int byte_offset_for_writing = i * sizeof(mage::EndpointInfo);
+      const int byte_offset_for_writing = i * sizeof(mage::EndpointDescriptor);
       char* endpoint_as_bytes = reinterpret_cast<char*>(&endpoints_to_write[i]);
       // Write the endpoint.
       memcpy(endpoint_array_at_end_of_message.data()->array_storage() + byte_offset_for_writing,
              /*source=*/endpoint_as_bytes,
-             /*source_size=*/sizeof(mage::EndpointInfo));
+             /*source_size=*/sizeof(mage::EndpointDescriptor));
     }
     message.GetMutableMessageHeader().endpoints_in_message.Set(endpoint_array_at_end_of_message.data());
     // End writing endpoints.

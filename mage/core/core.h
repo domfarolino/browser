@@ -52,56 +52,82 @@ class Core {
     std::shared_ptr<Endpoint> endpoint = endpoint_it->second;
     endpoint->RegisterDelegate(delegate, std::move(delegate_task_runner));
   }
-  // This method takes a handle that is about to be sent over an existing
-  // connection, and a handle that represents said existing connection. If the
-  // handle representing the existing connection indeed has a remote peer, that
-  // means the handle-to-send is going to be sent cross-process. In this case,
-  // we must find the endpoint associated with it, and put it in a proxying
-  // state so that it knows how to forward things to the non-proxying endpoint
-  // in the remote node.
-  static void PutHandleToSendInProxyingStateIfTargetIsRemote(
+  // This method takes a handle `handle_to_send` that is about to be sent over
+  // an existing connection described by
+  // `local_handle_of_preexisting_connection`. If the handle representing the
+  // existing connection indeed has a remote peer [TODO(domfarolino): What does
+  // this mean???? Will it actually have a remote peer or a local peer that is
+  // in the proxying state? I think it should be the latter] then
+  // `handle_to_send` is being sent cross-process. In this case, we must find
+  // the endpoint associated with it, and put it in a proxying state so that it
+  // knows how to forward things to the non-proxying endpoint in the remote node.
+  static void PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
       MageHandle handle_to_send,
-      MageHandle local_handle,
-      EndpointInfo& endpoint_info_to_populate) {
-    std::shared_ptr<Endpoint> local_endpoint = Get()->handle_table_.find(local_handle)->second;
-    CHECK(local_endpoint);
+      MageHandle local_handle_of_preexisting_connection,
+      EndpointDescriptor& endpoint_descriptor_to_populate) {
+    std::shared_ptr<Endpoint> local_endpoint_of_preexisting_connection = Get()->handle_table_.find(local_handle_of_preexisting_connection)->second;
+    CHECK(local_endpoint_of_preexisting_connection);
 
-    std::string peer_node_name = local_endpoint->peer_address.node_name;
-    std::string peer_endpoint_name = local_endpoint->peer_address.endpoint_name;
-    // We do nothing if `handle_to_send` will be sent locally.
-    if (peer_node_name == Get()->node_->name_) {
-      printf("*****************PutHandleToSendInProxyingStateIfTargetIsRemote() early return\n");
-      return;
-    }
-    printf("**************PutHandleToSendInProxyingStateIfTargetIsRemote() CONTINUING\n");
-    printf("    sending endpoint name: %s\n", local_endpoint->name.c_str());
+    std::string peer_node_name = local_endpoint_of_preexisting_connection->peer_address.node_name;
+    std::string peer_endpoint_name = local_endpoint_of_preexisting_connection->peer_address.endpoint_name;
+
+    printf("**************PutHandleToSendInProxyingStateIfTargetIsRemote() populating EndpointDescriptor:\n");
+    printf("    sending endpoint name: %s\n", local_endpoint_of_preexisting_connection->name.c_str());
     printf("    sending endpoint [peer node: %s]\n", peer_node_name.c_str());
     printf("    sending endpoint [peer endpoint: %s]\n", peer_endpoint_name.c_str());
 
-    // At this point we know that `handle_to_send` is going to be sent to a
-    // remote peer node. This means we have to put the `Endpoint` it represents
-    // into a proxying state, so whenever it receives messages, it forwards them
-    // to the new endpoint that the remote peer node will set up for it.
-    std::shared_ptr<Endpoint> endpoint_to_proxy = Get()->handle_table_.find(handle_to_send)->second;
-    CHECK_EQ(Get()->node_->name_, endpoint_to_proxy->peer_address.node_name);
-    printf("    endpoint_to_proxy \n");
-    memcpy(endpoint_info_to_populate.endpoint_name, endpoint_to_proxy->name.c_str(), kIdentifierSize);
-    memcpy(endpoint_info_to_populate.peer_node_name, endpoint_to_proxy->peer_address.node_name.c_str(), kIdentifierSize);
-    memcpy(endpoint_info_to_populate.peer_endpoint_name, endpoint_to_proxy->peer_address.endpoint_name.c_str(), kIdentifierSize);
-    printf("endpoint_info_to_populate.endpoint_name: %s\n", endpoint_info_to_populate.endpoint_name);
-    printf("endpoint_info_to_populate.peer_node_name: %s\n", endpoint_info_to_populate.peer_node_name);
-    printf("endpoint_info_to_populate.peer_endpoint_name: %s\n", endpoint_info_to_populate.peer_endpoint_name);
-    endpoint_to_proxy->SetProxying(/*node_to_proxy_to=*/peer_node_name);
+    // Populating an `EndpointDescriptor` that is bound for another process is
+    // really easy.
+    //   1.) An endpoint's name never changes regardless of what process it
+    //       lives in, so we can get that information from the endpoint in this
+    //       process before we "send it".
+    //   2.) Its peer node name when it lives in another process is just the
+    //       current process that `endpoint_being_sent` lives in before being
+    //       "sent", so we already have that information.
+    //   3.) Its peer endpoint's name that this endpoint will have once it lives
+    //       in another process is also just its current peer endpoint's name,
+    //       since again that will never change.
+    std::shared_ptr<Endpoint> endpoint_being_sent = Get()->handle_table_.find(handle_to_send)->second;
+    CHECK_EQ(Get()->node_->name_, endpoint_being_sent->peer_address.node_name);
+    memcpy(endpoint_descriptor_to_populate.endpoint_name, endpoint_being_sent->name.c_str(), kIdentifierSize);
+    memcpy(endpoint_descriptor_to_populate.peer_node_name, endpoint_being_sent->peer_address.node_name.c_str(), kIdentifierSize);
+    memcpy(endpoint_descriptor_to_populate.peer_endpoint_name, endpoint_being_sent->peer_address.endpoint_name.c_str(), kIdentifierSize);
+    printf("endpoint_descriptor_to_populate.endpoint_name: %s\n", endpoint_descriptor_to_populate.endpoint_name);
+    printf("endpoint_descriptor_to_populate.peer_node_name: %s\n", endpoint_descriptor_to_populate.peer_node_name);
+    printf("endpoint_descriptor_to_populate.peer_endpoint_name: %s\n", endpoint_descriptor_to_populate.peer_endpoint_name);
+
+    // If `handle_to_send` is only being sent locally (staying in the same
+    // process), we do nothing else; we don't put `endpoint_being_sent` in the
+    // proxying state. We only put endpoints into the proxying state when they
+    // are traveling to another node, and therefore have to proxy messages to
+    // another node to find the final non-proxying endpoint.
+    //
+    // Note that it is possible `handle_to_send` is being sent over a purely
+    // local connection whose other end has not been bound yet. If the other end
+    // gets sent to a remote node before being bound, we'll obviously have to
+    // forward all of the messages that were queued over the preexisting local
+    // connection to the remote peer. But some of those messages could contain
+    // handles that also have been queueing their own messages. We have to
+    // recursively flush all queued messages across all sent handles/endpoints
+    // to the remote node in this case, and set each of the corresponding local
+    // peer endpoints into a proxying state. This happens in:
+    // TODO(domfarolino): Figure out where this should finally happen.
+    if (peer_node_name == Get()->node_->name_) {
+      printf("*****************PutHandleToSendInProxyingStateIfTargetIsRemote() returning early without putting endpoint into proxy mode, since it is not going remote\n");
+      return;
+    }
+
+    endpoint_being_sent->SetProxying(/*node_to_proxy_to=*/peer_node_name);
   }
-  static MageHandle RecoverMageHandleFromEndpointInfo(EndpointInfo& endpoint_info) {
-    printf("Core::RecoverMageHandleFromEndpointInfo(endpoint_info)\n");
-    printf("  endpoint_info: %s\n", endpoint_info.endpoint_name);
-    printf("  endpoint_info: %s\n", endpoint_info.peer_node_name);
-    printf("  endpoint_info: %s\n", endpoint_info.peer_endpoint_name);
+  static MageHandle RecoverMageHandleFromEndpointDescriptor(EndpointDescriptor& endpoint_descriptor) {
+    printf("Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
+    printf("  endpoint_descriptor: %s\n", endpoint_descriptor.endpoint_name);
+    printf("  endpoint_descriptor: %s\n", endpoint_descriptor.peer_node_name);
+    printf("  endpoint_descriptor: %s\n", endpoint_descriptor.peer_endpoint_name);
 
     std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
-    std::string endpoint_name(endpoint_info.endpoint_name,
-                              endpoint_info.endpoint_name + kIdentifierSize);
+    std::string endpoint_name(endpoint_descriptor.endpoint_name,
+                              endpoint_descriptor.endpoint_name + kIdentifierSize);
 
     local_endpoint->name = endpoint_name;
     MageHandle local_handle = Core::Get()->GetNextMageHandle();

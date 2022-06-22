@@ -230,7 +230,7 @@ struct ArrayHeader {
 };
 
 // TODO(domfarolino): Document this.
-struct EndpointInfo {
+struct EndpointDescriptor {
   char endpoint_name[kIdentifierSize];
   char peer_node_name[kIdentifierSize];
   char peer_endpoint_name[kIdentifierSize];
@@ -269,16 +269,16 @@ struct MessageHeader {
   // happens on the thread that the `Receiver` is bound to (typically this is
   // the UI thread) by interface-specific generated code.
   // However, if a user message carries `MageHandle`s with it (which serialize
-  // to `EndpointInfo`s in the actual message buffer), we must unpack these and
+  // to `EndpointDescriptor`s in the actual message buffer), we must unpack these and
   // create concrete `Endpoint`s to represent these handles on the IO thread,
   // before we dispatch the message to the `Receiver`. These `Endpoint`s must be
   // created and registered before message dispatching because the very next
   // message that may come in on the IO thread might be bound for one of the
   // `Endpoint`s described by the previous message.
   // Therefore, `num_endpoints_in_message` tells us up-front how many
-  // `EndpointInfo`s we have to unpack and memorialize before we do the
+  // `EndpointDescriptor`s we have to unpack and memorialize before we do the
   // message-specific deserialization and dispatching on the `Receiver` thread.
-  Pointer<ArrayHeader<EndpointInfo>> endpoints_in_message;
+  Pointer<ArrayHeader<EndpointDescriptor>> endpoints_in_message;
 };
 
 class Message final {
@@ -317,6 +317,39 @@ class Message final {
     payload_buffer_ = std::move(incoming_buffer);
   }
 
+  std::vector<EndpointDescriptor> GetEndpointDescriptors() {
+    Pointer<ArrayHeader<EndpointDescriptor>>& endpoints_pointer =
+        GetMutableMessageHeader().endpoints_in_message;
+    if (!endpoints_pointer.Get()) {
+      return {};
+    }
+
+    std::vector<EndpointDescriptor> endpoint_descriptors;
+    for (int i = 0; i < endpoints_pointer.Get()->num_elements; ++i) {
+      EndpointDescriptor info = *(endpoints_pointer.Get()->array_storage() + i);
+      endpoint_descriptors.push_back(info);
+    }
+
+    return endpoint_descriptors;
+  }
+
+  void QueueHandle(MageHandle handle) {
+    handles_.push(handle);
+  }
+
+  int NumberOfHandles() {
+    Pointer<ArrayHeader<EndpointDescriptor>>& endpoints_pointer =
+        GetMutableMessageHeader().endpoints_in_message;
+    return endpoints_pointer.Get() ? endpoints_pointer.Get()->num_elements : 0;
+  }
+
+  MageHandle TakeNextHandle() {
+    CHECK(handles_.size());
+    MageHandle return_handle = handles_.front();
+    handles_.pop();
+    return return_handle;
+  }
+
   std::vector<char>& payload_buffer() {
     return payload_buffer_;
   }
@@ -327,17 +360,6 @@ class Message final {
 
   MessageType Type() {
     return GetMutableMessageHeader().type;
-  }
-
-  MageHandle TakeNextHandle() {
-    CHECK(handles_.size());
-    MageHandle return_handle = handles_.front();
-    handles_.pop();
-    return return_handle;
-  }
-
-  void QueueHandle(MageHandle handle) {
-    handles_.push(handle);
   }
 
  private:

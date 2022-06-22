@@ -56,7 +56,7 @@ void Core::RegisterLocalHandle(MageHandle local_handle, std::shared_ptr<Endpoint
   // something.
   printf("Core::RegisterLocalHandle registering local handle and endpoint with name: %s\n", local_endpoint->name.c_str());
   node_->local_endpoints_.insert({local_endpoint->name, local_endpoint});
-  printf("node_->local_endpoints_.size(): %d\n", node_->local_endpoints_.size());
+  printf("node_->local_endpoints_.size(): %lu\n", node_->local_endpoints_.size());
 }
 
 }; // namspace mage

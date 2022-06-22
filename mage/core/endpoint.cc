@@ -17,48 +17,49 @@ void Endpoint::AcceptMessage(Message message) {
   // TODO(domfarolino): I think the fact that we do this whether or not we're
   // queueing or dispatching IS A BUG. It will likely create the same endpoints
   // twice, which is bad. Write a test for this and fix it.
-  Pointer<ArrayHeader<EndpointInfo>>& endpoints_in_message =
+  Pointer<ArrayHeader<EndpointDescriptor>>& endpoints_in_message =
       message.GetMutableMessageHeader().endpoints_in_message;
   if (endpoints_in_message.Get()) {
     int num_endpoints_in_message = endpoints_in_message.Get()->num_elements;
     printf("  num_endpoints_in_message = %d\n", num_endpoints_in_message);
     for (int i = 0; i < num_endpoints_in_message; ++i) {
-      int byte_offset_for_reading = i * sizeof(EndpointInfo);
-      EndpointInfo& endpoint_info =
-          *reinterpret_cast<EndpointInfo*>(
+      // TODO(domfarolino): Use `Message::GetEndpointDescriptors()` instead.
+      int byte_offset_for_reading = i * sizeof(EndpointDescriptor);
+      EndpointDescriptor& endpoint_descriptor =
+          *reinterpret_cast<EndpointDescriptor*>(
               endpoints_in_message.Get()->array_storage() +
               byte_offset_for_reading);
-      endpoint_info.Print();
+      endpoint_descriptor.Print();
       MageHandle local_handle =
-          mage::Core::RecoverMageHandleFromEndpointInfo(endpoint_info);
+          mage::Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor);
       printf("     Queueing handle!!!!!!!!!\n");
       message.QueueHandle(local_handle);
     }
   }
 
-  if (state == State::kUnboundAndQueueing) {
-    CHECK(!delegate_);
-    printf("Endpoint has accepted a message. Now queueing it\n");
-    incoming_message_queue_.push(std::move(message));
-    return;
+  switch (state) {
+    case State::kUnboundAndQueueing:
+      CHECK(!delegate_);
+      printf("Endpoint has accepted a message. Now queueing it\n");
+      incoming_message_queue_.push(std::move(message));
+      break;
+    case State::kBound:
+      CHECK(delegate_);
+      printf("Endpoint has accepted a message. Now forwarding it to `delegate_` on the delegate's task runner\n");
+      // We should consider whether or not we need to be unconditionally posting a
+      // task here. If this method is already running on the TaskLoop/thread that
+      // `delegate_` is bound to, do we need to post a task at all? It depends on
+      // the async semantics that we're going for. We should also test this.
+      CHECK(delegate_task_runner_);
+      delegate_task_runner_->PostTask(
+          base::BindOnce(&ReceiverDelegate::OnReceivedMessage, delegate_,
+                         std::move(message)));
+      break;
+    case State::kUnboundAndProxying:
+      printf("Uh-oh, not reached!!!\n");
+      NOTREACHED();
+      break;
   }
-
-  if (state == State::kBound) {
-    CHECK(delegate_);
-    printf("Endpoint has accepted a message. Now forwarding it to `delegate_` on the delegate's task runner\n");
-    // We should consider whether or not we need to be unconditionally posting a
-    // task here. If this method is already running on the TaskLoop/thread that
-    // `delegate_` is bound to, do we need to post a task at all? It depends on
-    // the async semantics that we're going for. We should also test this.
-    CHECK(delegate_task_runner_);
-    delegate_task_runner_->PostTask(
-        base::BindOnce(&ReceiverDelegate::OnReceivedMessage, delegate_,
-                       std::move(message)));
-    return;
-  }
-
-  printf("Uh-oh, not reached!!!\n");
-  NOTREACHED();
 }
 
 std::queue<Message> Endpoint::TakeQueuedMessages() {

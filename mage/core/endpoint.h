@@ -36,6 +36,21 @@ class Endpoint {
   Endpoint(const Endpoint&) = delete;
   Endpoint& operator=(const Endpoint&) = delete;
 
+  // This can be called on:
+  //   - The IO thread, when receiving a message that should ultimately end up
+  //     being dispatched to a `ReceiverDelegate`.
+  //   - The UI thread, when receiving a message from a local endpoint. This
+  //     kind of message went through the `peer_is_local` path in
+  //     `Node::SendMessage()`.
+  // In both of these cases, `state` is either:
+  //   - kBound: The message will immediately be dispatched to the underlying
+  //    `delegate_`.
+  //   - kUnboundAndQueueing: The message will be queued in
+  //     `incoming_message_queues_` and will be replayed to `delegate_` once
+  //     bound.
+  // TODO(domfarolino): It seems possible for this to be called for a node in
+  // the proxying state. We should verify this and fix this. Probably messages
+  // received for nodes in the proxying state should be handled by `Node`.
   void AcceptMessage(Message message);
 
   // The messages in |incoming_message_queue_| are queued in this endpoint and
