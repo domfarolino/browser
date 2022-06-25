@@ -204,12 +204,14 @@ class {{Interface}}Proxy {
       message_fragment.data()->{{ argument_pair[1] }}.Set(array.data());
     }
   {% elif IsHandleType(argument_pair[0]) %}
-    // Take that handle that we're sending, find its underlying `Endpoint`, and
-    // use it to fill out a `mage::EndpointDescriptor` which is written to the message
-    // buffer.
-    mage::EndpointDescriptor& endpoint_descriptor_to_populate = message_fragment.data()->{{ argument_pair[1] }};
-    mage::Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState({{argument_pair[1]}}, local_handle_, endpoint_descriptor_to_populate);
-    endpoints_to_write.push_back(endpoint_descriptor_to_populate);
+    {
+      // Take that handle that we're sending, find its underlying `Endpoint`, and
+      // use it to fill out a `mage::EndpointDescriptor` which is written to the message
+      // buffer.
+      mage::EndpointDescriptor& endpoint_descriptor_to_populate = message_fragment.data()->{{ argument_pair[1] }};
+      mage::Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState({{argument_pair[1]}}, local_handle_, endpoint_descriptor_to_populate);
+      endpoints_to_write.push_back(endpoint_descriptor_to_populate);
+    }
   {% endif %}
 {%- endfor %}
 
@@ -223,10 +225,10 @@ class {{Interface}}Proxy {
     mage::MessageFragment<mage::ArrayHeader<mage::EndpointDescriptor>> endpoint_array_at_end_of_message(message);
     endpoint_array_at_end_of_message.AllocateArray(num_endpoints_in_message);
     for (int i = 0; i < num_endpoints_in_message; ++i) {
-      const int byte_offset_for_writing = i * sizeof(mage::EndpointDescriptor);
+      endpoints_to_write[i].Print();
       char* endpoint_as_bytes = reinterpret_cast<char*>(&endpoints_to_write[i]);
       // Write the endpoint.
-      memcpy(endpoint_array_at_end_of_message.data()->array_storage() + byte_offset_for_writing,
+      memcpy(endpoint_array_at_end_of_message.data()->array_storage() + i,
              /*source=*/endpoint_as_bytes,
              /*source_size=*/sizeof(mage::EndpointDescriptor));
     }

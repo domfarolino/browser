@@ -44,9 +44,9 @@ class ChildProcessImpl : public magen::ChildProcess {
     printf("\033[34;1m%s\033[0m\n", msg.c_str());
   }
 
-  void PassHandle(mage::MageHandle handle) override {
+  void PassHandle(mage::MageHandle child_process_2_handle, mage::MageHandle parent_process_handle) override {
     printf("\033[34;1mChildProcessImpl::PassHandle\033[0m\n");
-    global_child_process_impl_2 = std::make_unique<ChildProcessImpl2>(handle);
+    global_child_process_impl_2 = std::make_unique<ChildProcessImpl2>(child_process_2_handle);
   }
 
  private:

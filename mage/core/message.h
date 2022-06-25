@@ -235,10 +235,19 @@ struct EndpointDescriptor {
   char peer_node_name[kIdentifierSize];
   char peer_endpoint_name[kIdentifierSize];
 
-  void Print() {
+  void Print() const {
     printf("  endpoint_name: %s\n", endpoint_name);
     printf("  peer_node_name: %s\n", peer_node_name);
     printf("  peer_endpoint_name: %s\n", peer_endpoint_name);
+  }
+
+  EndpointDescriptor() {}
+
+  EndpointDescriptor(const EndpointDescriptor& other) {
+    printf("Copy constructor for ED\n");
+    memcpy(endpoint_name, other.endpoint_name, kIdentifierSize);
+    memcpy(peer_node_name, other.peer_node_name, kIdentifierSize);
+    memcpy(peer_endpoint_name, other.peer_endpoint_name, kIdentifierSize);
   }
 };
 

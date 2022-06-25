@@ -297,10 +297,12 @@ void Node::OnReceivedAcceptInvitation(Message message) {
     // invitations. We should generalize this procedure and move it somewhere
     // usable by both places.
     printf("      Forwarding a message NumberOfHandles(): %d\n", message_to_forward.NumberOfHandles());
-    std::vector<EndpointDescriptor> infos = message_to_forward.GetEndpointDescriptors();
-    for (const EndpointDescriptor& info : infos) {
-      std::string endpoint_name(info.endpoint_name, 15);
-      printf("        One EndpointDescriptor in this message has the name: %s\n", endpoint_name.c_str());
+    std::vector<EndpointDescriptor> descriptors = message_to_forward.GetEndpointDescriptors();
+    for (const EndpointDescriptor& descriptor : descriptors) {
+      std::string endpoint_name(descriptor.endpoint_name, 15);
+      printf("        An EndpointDescriptor in this message:\n");
+      descriptor.Print();
+
       auto it = local_endpoints_.find(endpoint_name);
       CHECK_NE(it, local_endpoints_.end());
 

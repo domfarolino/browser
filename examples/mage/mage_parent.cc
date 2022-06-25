@@ -9,9 +9,33 @@
 #include "base/threading/thread.h"
 #include "mage/core/core.h"
 #include "mage/bindings/remote.h"
+#include "mage/bindings/receiver.h"
 
 #include "examples/mage/magen/child_process.magen.h" // Generated
 #include "examples/mage/magen/child_process_2.magen.h" // Generated
+#include "examples/mage/magen/parent_process.magen.h" // Generated
+
+class ParentProcessImpl final : public magen::ParentProcess {
+ public:
+  ParentProcessImpl(mage::MageHandle parent_receiver) {
+    receiver_.Bind(parent_receiver, this);
+  }
+
+  // We receive this IPC when the child process is done receiving all messages
+  // we send it. This is how we know how to quit our process and tear down the
+  // child.
+  void NotifyDone() {
+    printf("ParentProcessImpl::NotifyDone().......\n");
+    printf("ParentProcessImpl::NotifyDone().......\n");
+    printf("ParentProcessImpl::NotifyDone().......\n");
+    printf("ParentProcessImpl::NotifyDone().......\n");
+    printf("ParentProcessImpl::NotifyDone().......\n");
+    printf("ParentProcessImpl::NotifyDone().......\n");
+  }
+
+ private:
+  mage::Receiver<magen::ParentProcess> receiver_;
+};
 
 int main() {
   // Set up the main thread (this thread) to have a `base::TaskLoop` bound to it
@@ -52,14 +76,16 @@ int main() {
   remote.Bind(message_pipe);
   remote->PrintMessage("Hello from the parent process!!!");
 
-  std::vector<mage::MageHandle> mage_handles = mage::Core::CreateMessagePipes();
-  remote->PassHandle(mage_handles[1]);
+  std::vector<mage::MageHandle> child_process_2_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MageHandle> parent_process_handles = mage::Core::CreateMessagePipes();
+  remote->PassHandle(child_process_2_handles[1], parent_process_handles[1]);
 
   mage::Remote<magen::ChildProcess2> remote_2;
-  remote_2.Bind(mage_handles[0]);
+  remote_2.Bind(child_process_2_handles[0]);
   remote_2->PrintMessage2("This is the second message from the parent!");
 
-  base::Thread::sleep_for(std::chrono::milliseconds(2000));
+  std::unique_ptr<ParentProcessImpl> parent(new ParentProcessImpl(parent_process_handles[0]));
+
   int tmp;
   std::cout << "Pess any button and hit enter to kill the parent and child "
             << "processes";

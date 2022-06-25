@@ -29,10 +29,10 @@ void Endpoint::AcceptMessage(Message message) {
           *reinterpret_cast<EndpointDescriptor*>(
               endpoints_in_message.Get()->array_storage() +
               byte_offset_for_reading);
-      endpoint_descriptor.Print();
       MageHandle local_handle =
           mage::Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor);
-      printf("     Queueing handle!!!!!!!!!\n");
+      endpoint_descriptor.Print();
+      printf("     Queueing handle to message after recovering endpoint\n");
       message.QueueHandle(local_handle);
     }
   }

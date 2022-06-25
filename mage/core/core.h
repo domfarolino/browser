@@ -121,13 +121,11 @@ class Core {
   }
   static MageHandle RecoverMageHandleFromEndpointDescriptor(EndpointDescriptor& endpoint_descriptor) {
     printf("Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
-    printf("  endpoint_descriptor: %s\n", endpoint_descriptor.endpoint_name);
-    printf("  endpoint_descriptor: %s\n", endpoint_descriptor.peer_node_name);
-    printf("  endpoint_descriptor: %s\n", endpoint_descriptor.peer_endpoint_name);
 
     std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
     std::string endpoint_name(endpoint_descriptor.endpoint_name,
                               endpoint_descriptor.endpoint_name + kIdentifierSize);
+    endpoint_descriptor.Print();
 
     local_endpoint->name = endpoint_name;
     MageHandle local_handle = Core::Get()->GetNextMageHandle();
