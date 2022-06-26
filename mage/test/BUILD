@@ -36,3 +36,15 @@ cc_binary(
   ],
   visibility = ["//visibility:public"],
 )
+cc_binary(
+  name = "child_as_receiver_and_callback",
+  srcs = [
+    "child_as_receiver_and_callback.cc",
+  ],
+  deps = [
+    "//base:base",
+    "//mage:mage",
+    "//mage/test/magen:include",
+  ],
+  visibility = ["//visibility:public"],
+)

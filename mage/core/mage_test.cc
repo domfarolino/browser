@@ -13,6 +13,9 @@
 #include "mage/bindings/remote.h"
 #include "mage/core/core.h"
 #include "mage/core/handles.h"
+#include "mage/test/magen/callback_interface.magen.h" // Generated.
+#include "mage/test/magen/first_interface.magen.h" // Generated.
+#include "mage/test/magen/second_interface.magen.h" // Generated.
 #include "mage/test/magen/test.magen.h" // Generated.
 
 namespace mage {
@@ -78,10 +81,32 @@ class TestInterfaceImpl : public magen::TestInterface {
   std::function<void()> quit_closure_;
 };
 
+// A concrete implementation of a mage test-only interface. This interface
+// is used for remote process to tell the parent process when all operations are
+// done.
+class CallbackInterfaceImpl: public magen::CallbackInterface {
+ public:
+  CallbackInterfaceImpl(MageHandle message_pipe, std::function<void()> quit_closure)
+      : quit_closure_(std::move(quit_closure)) {
+    receiver_.Bind(message_pipe, this);
+  }
+
+  void NotifyDone() {
+    quit_closure_();
+  }
+
+ private:
+  mage::Receiver<magen::CallbackInterface> receiver_;
+
+  // Can be called any number of times.
+  std::function<void()> quit_closure_;
+};
+
 enum class MageTestProcessType {
   kChildIsAccepterAndRemote,
   kChildIsInviterAndRemote,
   kInviterAsRemoteBlockOnAcceptance,
+  kChildReceiveHandle,
   kNone,
 };
 
@@ -90,6 +115,7 @@ enum class MageTestProcessType {
 static const char kChildAcceptorAndRemoteBinary[] = "./bazel-bin/mage/test/invitee_as_remote";
 static const char kChildInviterAndRemoteBinary[] = "./bazel-bin/mage/test/inviter_as_remote";
 static const char kInviterAsRemoteBlockOnAcceptancePath[] = "./bazel-bin/mage/test/inviter_as_remote_block_on_acceptance";
+static const char kChildReceiveHandleBinary[] = "./bazel-bin/mage/test/child_as_receiver_and_callback";
 
 class ProcessLauncher {
  public:
@@ -125,6 +151,10 @@ class ProcessLauncher {
           break;
         case MageTestProcessType::kInviterAsRemoteBlockOnAcceptance:
           rv = execl(kInviterAsRemoteBlockOnAcceptancePath, "--mage-socket=", fd_as_string.c_str(), NULL);
+          break;
+        case MageTestProcessType::kChildReceiveHandle:
+          rv = execl(kChildReceiveHandleBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
+          break;
         case MageTestProcessType::kNone:
           NOTREACHED();
           break;
@@ -309,7 +339,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
 // depending on whether or not the mage::Remote is used before or after it
 // learns that we accepted the invitation. This should be completely opaque to
 // the user, which is why we have to test it.
-TEST_F(MageTest, InviteeAsReceiverBlockOnAcceptance) {
+TEST_F(MageTest, ParentIsAcceptorAndReceiverButChildBlocksOnAcceptance) {
   launcher->Launch(MageTestProcessType::kInviterAsRemoteBlockOnAcceptance);
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
@@ -339,6 +369,79 @@ TEST_F(MageTest, InviteeAsReceiverBlockOnAcceptance) {
   // lambda invokes, and the test continues in there.
   main_thread->Run();
 }
+
+// The next five tests exercise the scenario where we send an invitation to
+// another process, and send handle-bearing messages to the invited process. We
+// expect messages that were queued on the handle being sent to get delivered to
+// the remote process. There are five different ways to test this scenario, each
+// varying in the timing of various events. We test all of them to protect
+// against fragile implementation regressions.
+//
+// 01:
+//   1.) Send invitation (pipe used for FirstInterface)
+//   2.) Create message pipes for SecondInterface and callback
+//   3.) Send one of SecondInterface's handles to other process via FirstInterface
+//   4.) Start sending messages to SecondInterface
+//
+// 02:
+//   1.) Send invitation (pipe used for FirstInterface)
+//   2.) Create messages pipes for SecondInterface and callback
+//   3.) Start sending messages to SecondInterface
+//   4.) Send one of SecondInterface's handles to other process via FirstInterface
+//
+// 03:
+//   1.) Create messages pipes for SecondInterface and callback
+//   2.) Send invitation (pipe used for FirstInterface)
+//   3.) Start sending messages to SecondInterface
+//   4.) Send one of SecondInterface's handles to other process via FirstInterface
+//
+// 04:
+//   1.) Create messages pipes for SecondInterface and callback
+//   2.) Send invitation (pipe used for FirstInterface)
+//   3.) Send one of SecondInterface's handles to other process via FirstInterface
+//   4.) Start sending messages to SecondInterface
+//
+// 05:
+//   1.) Create messages pipes for SecondInterface and callback
+//   2.) Start sending messages to SecondInterface
+//   3.) Send invitation (pipe used for FirstInterface)
+//   4.) Send one of SecondInterface's handles to other process via FirstInterface
+TEST_F(MageTest, SendHandleOverInitialPipe_01) {
+  launcher->Launch(MageTestProcessType::kChildReceiveHandle);
+
+  // 1.) Send invitation (pipe used for FirstInterface)
+  MageHandle invitation_pipe =
+    mage::Core::SendInvitationAndGetMessagePipe(
+      launcher->GetLocalFd()
+    );
+
+  // TODO(domfarolino): Add assertions for number of endpoints, handles, etc.,
+  // throughout this test.
+  // 2.) Create message pipes for SecondInterface and callback
+  std::vector<mage::MageHandle> second_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MageHandle> callback_handles = mage::Core::CreateMessagePipes();
+
+  // 3.) Send one of SecondInterface's handles to other process via FirstInterface
+  mage::Remote<magen::FirstInterface> remote;
+  remote.Bind(invitation_pipe);
+  remote->SendString("Message for FirstInterface");
+  remote->SendHandles(second_handles[1], callback_handles[1]);
+
+  // 4.) Start sending messages to SecondInterface
+  mage::Remote<magen::SecondInterface> second_remote;
+  second_remote.Bind(second_handles[0]);
+  second_remote->SendString("Message for SecondInterface");
+
+  std::unique_ptr<CallbackInterfaceImpl> impl(
+    new CallbackInterfaceImpl(callback_handles[0],
+        std::bind(&base::TaskLoop::Quit, main_thread.get())));
+
+  // This will run the loop until we get the callback from the child saying
+  // everything went through OK.
+  main_thread->Run();
+}
+
+
 
 TEST_F(MageTest, InProcess) {
   std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
@@ -466,12 +569,6 @@ TEST_F(MageTest, InProcessCrossThread) {
 
 /*
   Scenarios to test:
-    - Send and invitation and synchronously queue messages on the message pipe.
-      Verify that all of the messages make it to the other end.
-    - Send and invitation and synchronously queue a message (with an
-      EndpointDescriptor) on the message pipe. Synchronously queue another
-      message on the child pipe (with another EndpointDescriptor) on it. Make
-      sure that all messages on all pipes are delivered properly.
     - Asynchronously after an invitation is accepted, create a message pipe pair
       and start queueing messages that bear EndpointDescriptors on it, multiple
       levels deep. Finally send the outermost endpoint cross-process and verify

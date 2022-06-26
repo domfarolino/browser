@@ -33,6 +33,7 @@ filegroup(
     "//mage/test:invitee_as_remote",
     "//mage/test:inviter_as_remote",
     "//mage/test:inviter_as_remote_block_on_acceptance",
+    "//mage/test:child_as_receiver_and_callback",
   ],
 )
 cc_test(

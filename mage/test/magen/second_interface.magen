@@ -1,0 +1,3 @@
+interface SecondInterface {
+  SendString(string msg);
+}

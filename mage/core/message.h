@@ -244,7 +244,6 @@ struct EndpointDescriptor {
   EndpointDescriptor() {}
 
   EndpointDescriptor(const EndpointDescriptor& other) {
-    printf("Copy constructor for ED\n");
     memcpy(endpoint_name, other.endpoint_name, kIdentifierSize);
     memcpy(peer_node_name, other.peer_node_name, kIdentifierSize);
     memcpy(peer_endpoint_name, other.peer_endpoint_name, kIdentifierSize);
