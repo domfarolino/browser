@@ -10,10 +10,12 @@
 #include "base/scheduling/scheduling_handles.h"
 #include "base/threading/thread.h"
 #include "mage/bindings/receiver.h"
+#include "mage/bindings/remote.h"
 #include "mage/core/core.h"
 
 #include "examples/mage/magen/child_process.magen.h"  // Generated.
 #include "examples/mage/magen/child_process_2.magen.h"  // Generated.
+#include "examples/mage/magen/parent_process.magen.h"  // Generated.
 
 class ChildProcessImpl2 : public magen::ChildProcess2 {
  public:
@@ -47,6 +49,9 @@ class ChildProcessImpl : public magen::ChildProcess {
   void PassHandle(mage::MageHandle child_process_2_handle, mage::MageHandle parent_process_handle) override {
     printf("\033[34;1mChildProcessImpl::PassHandle\033[0m\n");
     global_child_process_impl_2 = std::make_unique<ChildProcessImpl2>(child_process_2_handle);
+    mage::Remote<magen::ParentProcess> remote;
+    remote.Bind(parent_process_handle);
+    remote->NotifyDone();
   }
 
  private:

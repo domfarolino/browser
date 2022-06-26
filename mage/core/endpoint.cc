@@ -24,11 +24,7 @@ void Endpoint::AcceptMessage(Message message) {
     printf("  num_endpoints_in_message = %d\n", num_endpoints_in_message);
     for (int i = 0; i < num_endpoints_in_message; ++i) {
       // TODO(domfarolino): Use `Message::GetEndpointDescriptors()` instead.
-      int byte_offset_for_reading = i * sizeof(EndpointDescriptor);
-      EndpointDescriptor& endpoint_descriptor =
-          *reinterpret_cast<EndpointDescriptor*>(
-              endpoints_in_message.Get()->array_storage() +
-              byte_offset_for_reading);
+      EndpointDescriptor endpoint_descriptor = *(endpoints_in_message.Get()->array_storage() + i);
       MageHandle local_handle =
           mage::Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor);
       endpoint_descriptor.Print();

@@ -25,12 +25,8 @@ class ParentProcessImpl final : public magen::ParentProcess {
   // we send it. This is how we know how to quit our process and tear down the
   // child.
   void NotifyDone() {
-    printf("ParentProcessImpl::NotifyDone().......\n");
-    printf("ParentProcessImpl::NotifyDone().......\n");
-    printf("ParentProcessImpl::NotifyDone().......\n");
-    printf("ParentProcessImpl::NotifyDone().......\n");
-    printf("ParentProcessImpl::NotifyDone().......\n");
-    printf("ParentProcessImpl::NotifyDone().......\n");
+    printf("\033[34;1mParentProcessImpl::NotifyDone() being called from child\033[0m\n");
+    base::GetCurrentThreadTaskLoop()->Quit();
   }
 
  private:
@@ -85,6 +81,7 @@ int main() {
   remote_2->PrintMessage2("This is the second message from the parent!");
 
   std::unique_ptr<ParentProcessImpl> parent(new ParentProcessImpl(parent_process_handles[0]));
+  main_thread->Run();
 
   int tmp;
   std::cout << "Pess any button and hit enter to kill the parent and child "
