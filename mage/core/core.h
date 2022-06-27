@@ -119,7 +119,7 @@ class Core {
 
     endpoint_being_sent->SetProxying(/*node_to_proxy_to=*/peer_node_name);
   }
-  static MageHandle RecoverMageHandleFromEndpointDescriptor(EndpointDescriptor& endpoint_descriptor) {
+  static MageHandle RecoverMageHandleFromEndpointDescriptor(const EndpointDescriptor& endpoint_descriptor) {
     printf("Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
     endpoint_descriptor.Print();
 

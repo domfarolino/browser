@@ -14,21 +14,14 @@ void Endpoint::AcceptMessageOnIOThread(Message message) {
 
   // Process and register all of the endpoints that `message` is carrying before
   // we either queue or dispatch it.
-  Pointer<ArrayHeader<EndpointDescriptor>>& endpoints_in_message =
-      message.GetMutableMessageHeader().endpoints_in_message;
-  if (endpoints_in_message.Get()) {
-    int num_endpoints_in_message = endpoints_in_message.Get()->num_elements;
-    printf("  num_endpoints_in_message = %d\n", num_endpoints_in_message);
-    for (int i = 0; i < num_endpoints_in_message; ++i) {
-      // TODO(domfarolino): Use `Message::GetEndpointDescriptors()` instead.
-      EndpointDescriptor endpoint_descriptor =
-          *(endpoints_in_message.Get()->array_storage() + i);
-      MageHandle local_handle =
-          mage::Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor);
-      endpoint_descriptor.Print();
-      printf("     Queueing handle to message after recovering endpoint\n");
-      message.QueueHandle(local_handle);
-    }
+  std::vector<EndpointDescriptor> endpoints_in_message = message.GetEndpointDescriptors();
+  printf("  endpoints_in_message.sie()= %lu\n", endpoints_in_message.size());
+  for (const EndpointDescriptor& endpoint_descriptor : endpoints_in_message) {
+    MageHandle local_handle =
+        mage::Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor);
+    endpoint_descriptor.Print();
+    printf("     Queueing handle to message after recovering endpoint\n");
+    message.QueueHandle(local_handle);
   }
 
   AcceptMessage(std::move(message));
