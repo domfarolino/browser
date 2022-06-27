@@ -10,20 +10,8 @@
 
 namespace mage {
 
-std::vector<MageHandle> Node::CreateMessagePipes() {
-  CHECK_ON_THREAD(base::ThreadType::UI);
-  std::shared_ptr<Endpoint> endpoint_1(new Endpoint()),
-                            endpoint_2(new Endpoint());
-  InitializeAndEntangleEndpoints(endpoint_1, endpoint_2);
-  MageHandle handle_1 = Core::Get()->GetNextMageHandle(),
-             handle_2 = Core::Get()->GetNextMageHandle();
-  Core::Get()->RegisterLocalHandle(handle_1, endpoint_1);
-  Core::Get()->RegisterLocalHandle(handle_2, endpoint_2);
-  return {handle_1, handle_2};
-}
-
 void Node::InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1,
-                                          std::shared_ptr<Endpoint> ep2) {
+                                          std::shared_ptr<Endpoint> ep2) const {
   CHECK_ON_THREAD(base::ThreadType::UI);
   // Initialize the endpoints.
   ep1->name = util::RandomIdentifier();
@@ -37,13 +25,30 @@ void Node::InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1,
   ep1->peer_address.endpoint_name = ep2->name;
   ep2->peer_address.endpoint_name = ep1->name;
 
-  local_endpoints_.insert({ep1->name, ep1});
-  local_endpoints_.insert({ep2->name, ep2});
-
   printf("Initialized and entangled the following endpoints:\n"
          "  endpoint1: (%s, %s)\n"
          "  endpoint2: (%s, %s)\n", name_.c_str(), ep1->name.c_str(),
          name_.c_str(), ep2->name.c_str());
+}
+
+std::vector<MageHandle> Node::CreateMessagePipes() {
+  CHECK_ON_THREAD(base::ThreadType::UI);
+  std::vector<std::pair<MageHandle, std::shared_ptr<Endpoint>>>
+      pipes_and_endpoints = Node::CreateMessagePipesAndGetEndpoints();
+  return {pipes_and_endpoints[0].first, pipes_and_endpoints[1].first};
+}
+
+std::vector<std::pair<MageHandle, std::shared_ptr<Endpoint>>>
+Node::CreateMessagePipesAndGetEndpoints() {
+  CHECK_ON_THREAD(base::ThreadType::UI);
+  std::shared_ptr<Endpoint> endpoint_1(new Endpoint()),
+                            endpoint_2(new Endpoint());
+  InitializeAndEntangleEndpoints(endpoint_1, endpoint_2);
+  MageHandle handle_1 = Core::Get()->GetNextMageHandle(),
+             handle_2 = Core::Get()->GetNextMageHandle();
+  Core::Get()->RegisterLocalHandle(handle_1, endpoint_1);
+  Core::Get()->RegisterLocalHandle(handle_2, endpoint_2);
+  return {std::make_pair(handle_1, endpoint_1), std::make_pair(handle_2, endpoint_2)};
 }
 
 MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
@@ -83,11 +88,10 @@ MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
   //         |local_endpoint| that will eventually be delivered to the remote
   //         process.
 
-  std::shared_ptr<Endpoint> local_endpoint(new Endpoint()),
-                            remote_endpoint(new Endpoint());
-  InitializeAndEntangleEndpoints(local_endpoint, remote_endpoint);
-
-  MageHandle local_endpoint_handle = Core::Get()->GetNextMageHandle();
+  std::vector<std::pair<mage::MageHandle, std::shared_ptr<Endpoint>>>
+      pipes = CreateMessagePipesAndGetEndpoints();
+  std::shared_ptr<Endpoint> local_endpoint = pipes[0].second,
+                            remote_endpoint = pipes[1].second;
 
   NodeName temporary_remote_node_name = util::RandomIdentifier();
 
@@ -102,7 +106,7 @@ MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
   node_channel_map_.insert({temporary_remote_node_name, std::move(channel)});
   pending_invitations_.insert({temporary_remote_node_name, remote_endpoint});
 
-  Core::Get()->RegisterLocalHandle(local_endpoint_handle, local_endpoint);
+  MageHandle local_endpoint_handle = pipes[0].first;
   return local_endpoint_handle;
 }
 
@@ -360,7 +364,7 @@ void Node::OnReceivedUserMessage(Message message) {
   CHECK_EQ(local_target_endpoint_name, endpoint->name);
 
   // 2. Tell the endpoint to handle the message.
-  endpoint->AcceptMessage(std::move(message));
+  endpoint->AcceptMessageOnIOThread(std::move(message));
 }
 
 }; // namespace mage

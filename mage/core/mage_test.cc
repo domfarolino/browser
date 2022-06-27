@@ -228,7 +228,7 @@ TEST_F(MageTest, InitializeAndEntangleEndpointsUnitTest) {
   Node().InitializeAndEntangleEndpoints(local, remote);
 
   EXPECT_EQ(CoreHandleTable().size(), 0);
-  EXPECT_EQ(NodeLocalEndpoints().size(), 2);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 0);
 
   EXPECT_EQ(local->name.size(), 15);
   EXPECT_EQ(remote->name.size(), 15);
@@ -249,7 +249,7 @@ TEST_F(MageTest, SendInvitationUnitTest) {
     );
 
   EXPECT_NE(message_pipe, 0);
-  EXPECT_EQ(CoreHandleTable().size(), 1);
+  EXPECT_EQ(CoreHandleTable().size(), 2);
   EXPECT_EQ(NodeLocalEndpoints().size(), 2);
 
   // Test that we can queue messages.
@@ -415,17 +415,24 @@ TEST_F(MageTest, SendHandleOverInitialPipe_01) {
       launcher->GetLocalFd()
     );
 
-  // TODO(domfarolino): Add assertions for number of endpoints, handles, etc.,
-  // throughout this test.
+  EXPECT_EQ(CoreHandleTable().size(), 2);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 2);
+
   // 2.) Create message pipes for SecondInterface and callback
   std::vector<mage::MageHandle> second_handles = mage::Core::CreateMessagePipes();
   std::vector<mage::MageHandle> callback_handles = mage::Core::CreateMessagePipes();
+
+  EXPECT_EQ(CoreHandleTable().size(), 6);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 
   // 3.) Send one of SecondInterface's handles to other process via FirstInterface
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(invitation_pipe);
   remote->SendString("Message for FirstInterface");
   remote->SendHandles(second_handles[1], callback_handles[1]);
+
+  EXPECT_EQ(CoreHandleTable().size(), 6);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 
   // 4.) Start sending messages to SecondInterface
   mage::Remote<magen::SecondInterface> second_remote;
@@ -436,9 +443,16 @@ TEST_F(MageTest, SendHandleOverInitialPipe_01) {
     new CallbackInterfaceImpl(callback_handles[0],
         std::bind(&base::TaskLoop::Quit, main_thread.get())));
 
+  EXPECT_EQ(CoreHandleTable().size(), 6);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 6);
+
   // This will run the loop until we get the callback from the child saying
   // everything went through OK.
   main_thread->Run();
+
+  // TODO(domfarolino): Fix these assertions.
+  // EXPECT_EQ(CoreHandleTable().size(), 6);
+  // EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 }
 
 

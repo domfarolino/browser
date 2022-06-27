@@ -37,11 +37,12 @@ class Endpoint {
   Endpoint& operator=(const Endpoint&) = delete;
 
   // This can be called on:
-  //   - The IO thread, when receiving a message that should ultimately end up
-  //     being dispatched to a `ReceiverDelegate`.
-  //   - The UI thread, when receiving a message from a local endpoint. This
-  //     kind of message went through the `peer_is_local` path in
-  //     `Node::SendMessage()`.
+  //   - The IO thread, by `AcceptMessageOnIOThread()` (see below)
+  //   - The UI or a worker thread, when receiving a message from a local
+  //     endpoint. This kind of message went through the `peer_is_local` path in
+  //     `Node::SendMessage()`. This is also called for each message in
+  //     `incoming_message_queue_` when `delegate_` is bound (i.e., going from
+  //     `kUnboundAndQueueing` state to `kBound`).
   // In both of these cases, `state` is either:
   //   - kBound: The message will immediately be dispatched to the underlying
   //    `delegate_`.
@@ -52,6 +53,20 @@ class Endpoint {
   // the proxying state. We should verify this and fix this. Probably messages
   // received for nodes in the proxying state should be handled by `Node`.
   void AcceptMessage(Message message);
+
+  // This method is called by `Node` on the IO thread. It is only called when a
+  // message is received from a remote node/process via `Channel`. When this is
+  // called, `state` is either:
+  //   - kBound: We post a task to deliver this message to `delegate_`
+  //   - kUnboundAndQueueing: The message will be queued to
+  //     `incoming_message_queue_` and replayed to `delegate_` once bound, if
+  //     ever.
+  // This method always processes the `EndpointDescriptors` in `message` if any,
+  // by registering them with the local `Node`. We expect that the endpoints in
+  // this message do not exist until we create them. They might already exist if
+  // the endpoints are traveling back to a process they've already been at
+  // before, but we do not support that use-case currently.
+  void AcceptMessageOnIOThread(Message message);
 
   // The messages in |incoming_message_queue_| are queued in this endpoint and
   // are waiting to be dispatched to |delegate_| once it is bound. However if

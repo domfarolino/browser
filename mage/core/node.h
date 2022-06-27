@@ -8,6 +8,7 @@
 #include <string>
 #include <queue>
 
+#include "gtest/gtest_prod.h"
 #include "mage/core/channel.h"
 #include "mage/core/handles.h"
 #include "mage/core/message.h"
@@ -27,7 +28,6 @@ class Node : public Channel::Delegate {
   ~Node() = default;
 
   std::vector<MageHandle> CreateMessagePipes();
-  void InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1, std::shared_ptr<Endpoint> ep2);
   MageHandle SendInvitationAndGetMessagePipe(int fd);
   void AcceptInvitation(int fd);
   void SendMessage(std::shared_ptr<Endpoint> local_endpoint, Message message);
@@ -40,10 +40,15 @@ class Node : public Channel::Delegate {
   void OnReceivedUserMessage(Message message);
 
  private:
-  // TODO(domfarolino): This is a bit nasty. It is only needed for `Core` to
-  // access `name_`. We should remove this.
+  // TODO(domfarolino): This is a bit nasty. Can we remove this.
   friend class Core;
   friend class MageTest;
+  FRIEND_TEST(MageTest, InitializeAndEntangleEndpointsUnitTest);
+
+  std::vector<std::pair<MageHandle, std::shared_ptr<Endpoint>>>
+      CreateMessagePipesAndGetEndpoints();
+  void InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1,
+                                      std::shared_ptr<Endpoint> ep2) const;
 
   std::string name_;
 

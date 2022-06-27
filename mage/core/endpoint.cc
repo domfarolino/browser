@@ -5,18 +5,15 @@
 
 namespace mage {
 
-void Endpoint::AcceptMessage(Message message) {
-  printf("Endpoint::AcceptMessage [this=%p]\n", this);
+void Endpoint::AcceptMessageOnIOThread(Message message) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
+  printf("Endpoint::AcceptMessageOnIOThread [this=%p]\n", this);
   printf("  name: %s\n", name.c_str());
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
 
-  // Register all of the endpoints that this message is carrying before we
-  // either queue or dispatch it.
-  //
-  // TODO(domfarolino): I think the fact that we do this whether or not we're
-  // queueing or dispatching IS A BUG. It will likely create the same endpoints
-  // twice, which is bad. Write a test for this and fix it.
+  // Process and register all of the endpoints that `message` is carrying before
+  // we either queue or dispatch it.
   Pointer<ArrayHeader<EndpointDescriptor>>& endpoints_in_message =
       message.GetMutableMessageHeader().endpoints_in_message;
   if (endpoints_in_message.Get()) {
@@ -24,7 +21,8 @@ void Endpoint::AcceptMessage(Message message) {
     printf("  num_endpoints_in_message = %d\n", num_endpoints_in_message);
     for (int i = 0; i < num_endpoints_in_message; ++i) {
       // TODO(domfarolino): Use `Message::GetEndpointDescriptors()` instead.
-      EndpointDescriptor endpoint_descriptor = *(endpoints_in_message.Get()->array_storage() + i);
+      EndpointDescriptor endpoint_descriptor =
+          *(endpoints_in_message.Get()->array_storage() + i);
       MageHandle local_handle =
           mage::Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor);
       endpoint_descriptor.Print();
@@ -33,10 +31,19 @@ void Endpoint::AcceptMessage(Message message) {
     }
   }
 
+  AcceptMessage(std::move(message));
+}
+
+void Endpoint::AcceptMessage(Message message) {
+  printf("Endpoint::AcceptMessage [this=%p]\n", this);
+  printf("  name: %s\n", name.c_str());
+  printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
+  printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
+
   switch (state) {
     case State::kUnboundAndQueueing:
       CHECK(!delegate_);
-      printf("Endpoint has accepted a message. Now queueing it\n");
+      printf("Endpoint is queueing a message to `incoming_message_queue_`\n");
       incoming_message_queue_.push(std::move(message));
       break;
     case State::kBound:
@@ -79,10 +86,10 @@ void Endpoint::RegisterDelegate(
   CHECK(!delegate_task_runner_);
   delegate_task_runner_ = delegate_task_runner;
 
-  printf("  Endpoint::RegisterDelegate seeing if we have messages queued to deliver\n");
-  // We may have messages for our `delegate_` already 
+  printf("  Endpoint::RegisterDelegate seeing if we have queued messages to deliver\n");
+  // We may have messages queued up for our `delegate_` already .
   while (!incoming_message_queue_.empty()) {
-    printf("  >> Accepting a queued message\n");
+    printf("  >> Calling AcceptMessage() on queued message to forward to delegate\n");
     AcceptMessage(std::move(incoming_message_queue_.front()));
     incoming_message_queue_.pop();
   }

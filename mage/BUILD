@@ -21,7 +21,10 @@ cc_library(
     "core/node.cc",
     "core/util.cc",
   ],
-  deps = ["//base:base"],
+  deps = [
+    "//base:base",
+    "@gtest//:gtest_prod",
+  ],
   visibility = ["//visibility:public"],
 )
 
