@@ -150,7 +150,7 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
     CHECK(local_peer_endpoint);
 
     if (local_peer_endpoint->state == Endpoint::State::kUnboundAndProxying) {
-      printf("Node::SendMessage forwarding message to local endpoint\n");
+      printf("Node::SendMessage() endpoint is in proxying state; forwarding message to local endpoint\n");
       auto proxying_target = node_channel_map_.find(local_peer_endpoint->node_to_proxy_to);
       CHECK_NE(proxying_target, node_channel_map_.end());
       proxying_target->second->SendMessage(std::move(message));
@@ -255,18 +255,16 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   CHECK_NE(remote_endpoint_it, pending_invitations_.end());
   std::shared_ptr<Endpoint> remote_endpoint = remote_endpoint_it->second;
 
-  // In order to acknowledge the invitation acceptance, we must do five things:
-  //   1.) Update our local endpoint's peer address to point to the remote
-  //       endpoint that we now know the full address of.
-  auto local_endpoint_it =
-    local_endpoints_.find(remote_endpoint->peer_address.endpoint_name);
-  CHECK_NE(local_endpoint_it, local_endpoints_.end());
-  std::shared_ptr<Endpoint> local_endpoint = local_endpoint_it->second;
-  local_endpoint->peer_address.node_name = actual_node_name;
+  // In order to acknowledge the invitation acceptance, we must do four things:
+  //   1.) Put |remote_endpoint| in the `kUnboundAndProxying` state, so that
+  //       when `SendMessage()` gets message bound for it, it knows to forward
+  //       them to the appropriate remote node.
+  CHECK_NE(local_endpoints_.find(remote_endpoint->name),
+           local_endpoints_.end());
+  remote_endpoint->SetProxying(actual_node_name);
 
-  printf("  Our local endpoint now recognizes its peer as: (%s, %s)\n",
-         local_endpoint_it->second->peer_address.node_name.c_str(),
-         local_endpoint_it->second->peer_address.endpoint_name.c_str());
+  printf("  Our `remote_endpoint` now recognizes its proxy target as: (%s)\n",
+         remote_endpoint->node_to_proxy_to.c_str());
 
   //   2.) Remove the pending invitation from |pending_invitations_|.
   pending_invitations_.erase(temporary_remote_node_name);
@@ -317,32 +315,19 @@ void Node::OnReceivedAcceptInvitation(Message message) {
         sub_messages.pop();
       }
 
-      // TODO(domfarolino): We have two options for dealing with the endpoint
-      // we're sending:
-      //   1.) Put it in the proxying state (by calling
-      //       `Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState()`
-      //       I think)
-      //   2.) Delete it
-      // For now we're deleting it because it is simpler, but I think we should
-      // really put it in a proxying state, as with all endpoints being sent to
-      // another node.
-      local_endpoints_.erase(it);
+      // We know that the real endpoint was sent to `actual_node_name`. By now,
+      // it is possible that endpoint was sent yet again to another process, and
+      // so on. Its ultimate location doesn't matter to us. We know the next
+      // place it went was `actual_node_name` which is either the ultimate
+      // destination, or the node with the next closest proxy. We'll send the
+      // message to that node and let it figure out what to do from there.
+      endpoint_from_info->SetProxying(actual_node_name);
     }
 
     // Forward the message and remove it from the queue.
     node_channel_map_[actual_node_name]->SendMessage(std::move(message_to_forward));
     messages_to_forward.pop();
   }
-
-  //   5.) Erase |remote_endpoint|. This is important, because this Endpoint
-  //       should no longer be used now that it is done proxying. If we leave
-  //       this Endpoint in |local_endpoints_|, the next time we go to send a
-  //       message to the remote endpoint, |SendMessage()| will get confused
-  //       because the remote endpoint will be both local and remote at the same
-  //       time, which is obviously wrong.
-  CHECK_NE(local_endpoints_.find(remote_endpoint->name),
-           local_endpoints_.end());
-  local_endpoints_.erase(remote_endpoint->name);
 
   Core::Get()->OnReceivedAcceptInvitation();
 }

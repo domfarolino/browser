@@ -450,9 +450,8 @@ TEST_F(MageTest, SendHandleOverInitialPipe_01) {
   // everything went through OK.
   main_thread->Run();
 
-  // TODO(domfarolino): Fix these assertions.
-  // EXPECT_EQ(CoreHandleTable().size(), 6);
-  // EXPECT_EQ(NodeLocalEndpoints().size(), 6);
+  EXPECT_EQ(CoreHandleTable().size(), 6);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 }
 
 
