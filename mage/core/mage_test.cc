@@ -381,31 +381,36 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiverButChildBlocksOnAcceptance) {
 //   1.) Send invitation (pipe used for FirstInterface)
 //   2.) Create message pipes for SecondInterface and callback
 //   3.) Send one of SecondInterface's handles to other process via FirstInterface
-//   4.) Start sending messages to SecondInterface
+//   4.) Send messages to SecondInterface and assert everything was received
+//   5.) Send more messages and assert they are received
 //
 // 02:
 //   1.) Send invitation (pipe used for FirstInterface)
-//   2.) Create messages pipes for SecondInterface and callback
-//   3.) Start sending messages to SecondInterface
-//   4.) Send one of SecondInterface's handles to other process via FirstInterface
+//   2.) Create message pipes for SecondInterface and callback
+//   3.) Send messages to SecondInterface
+//   4.) Send one of SecondInterface's handles to other process via
+//       FirstInterface and assert everything was received
+//   5.) Send more messages and assert they are received
 //
-// 03:
-//   1.) Create messages pipes for SecondInterface and callback
+// 03 (Not tested; too similar):
+//   1.) Create message pipes for SecondInterface and callback
 //   2.) Send invitation (pipe used for FirstInterface)
-//   3.) Start sending messages to SecondInterface
-//   4.) Send one of SecondInterface's handles to other process via FirstInterface
+//   3.) Send messages to SecondInterface
+//   4.) Send one of SecondInterface's handles to other process via
+//       FirstInterface and assert everything was received
 //
-// 04:
-//   1.) Create messages pipes for SecondInterface and callback
+// 04 (Not tested; too similar):
+//   1.) Create message pipes for SecondInterface and callback
 //   2.) Send invitation (pipe used for FirstInterface)
 //   3.) Send one of SecondInterface's handles to other process via FirstInterface
-//   4.) Start sending messages to SecondInterface
+//   4.) Send messages to SecondInterface and assert everything was received
 //
 // 05:
-//   1.) Create messages pipes for SecondInterface and callback
-//   2.) Start sending messages to SecondInterface
+//   1.) Create message pipes for SecondInterface and callback
+//   2.) Send messages to SecondInterface
 //   3.) Send invitation (pipe used for FirstInterface)
-//   4.) Send one of SecondInterface's handles to other process via FirstInterface
+//   4.) Send one of SecondInterface's handles to other process via
+//       FirstInterface and assert everything was received
 TEST_F(MageTest, SendHandleOverInitialPipe_01) {
   launcher->Launch(MageTestProcessType::kChildReceiveHandle);
 
@@ -425,7 +430,8 @@ TEST_F(MageTest, SendHandleOverInitialPipe_01) {
   EXPECT_EQ(CoreHandleTable().size(), 6);
   EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 
-  // 3.) Send one of SecondInterface's handles to other process via FirstInterface
+  // 3.) Send one of SecondInterface's handles to other process via
+  //     FirstInterface
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(invitation_pipe);
   remote->SendString("Message for FirstInterface");
@@ -434,7 +440,7 @@ TEST_F(MageTest, SendHandleOverInitialPipe_01) {
   EXPECT_EQ(CoreHandleTable().size(), 6);
   EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 
-  // 4.) Start sending messages to SecondInterface
+  // 4.) Send messages to SecondInterface and assert everything was received
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_handles[0]);
   second_remote->SendString("Message for SecondInterface");
@@ -452,8 +458,109 @@ TEST_F(MageTest, SendHandleOverInitialPipe_01) {
 
   EXPECT_EQ(CoreHandleTable().size(), 6);
   EXPECT_EQ(NodeLocalEndpoints().size(), 6);
-}
 
+  // 5.) Send more messages and assert they are received
+  second_remote->SendStringAndNotifyDone("Parent string (2)");
+  main_thread->Run();
+}
+TEST_F(MageTest, SendHandleOverInitialPipe_02) {
+  launcher->Launch(MageTestProcessType::kChildReceiveHandle);
+
+  // 1.) Send invitation (pipe used for FirstInterface)
+  MageHandle invitation_pipe =
+    mage::Core::SendInvitationAndGetMessagePipe(
+      launcher->GetLocalFd()
+    );
+
+  EXPECT_EQ(CoreHandleTable().size(), 2);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 2);
+
+  // 2.) Create message pipes for SecondInterface and callback
+  std::vector<mage::MageHandle> second_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MageHandle> callback_handles = mage::Core::CreateMessagePipes();
+
+  EXPECT_EQ(CoreHandleTable().size(), 6);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 6);
+
+  // 3.) Send messages to SecondInterface
+  mage::Remote<magen::SecondInterface> second_remote;
+  second_remote.Bind(second_handles[0]);
+  second_remote->SendString("Message for SecondInterface");
+
+  // 4.) Send one of SecondInterface's handles to other process via
+  //     FirstInterface and assert everything was received
+  mage::Remote<magen::FirstInterface> remote;
+  remote.Bind(invitation_pipe);
+  remote->SendString("Message for FirstInterface");
+  remote->SendHandles(second_handles[1], callback_handles[1]);
+
+  EXPECT_EQ(CoreHandleTable().size(), 6);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 6);
+
+  std::unique_ptr<CallbackInterfaceImpl> impl(
+    new CallbackInterfaceImpl(callback_handles[0],
+        std::bind(&base::TaskLoop::Quit, main_thread.get())));
+
+  // This will run the loop until we get the callback from the child saying
+  // everything went through OK.
+  main_thread->Run();
+
+  EXPECT_EQ(CoreHandleTable().size(), 6);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 6);
+
+  // 5.) Send more messages and assert they are received
+  second_remote->SendStringAndNotifyDone("Parent string (2)");
+  main_thread->Run();
+}
+TEST_F(MageTest, SendHandleOverInitialPipe_05) {
+  launcher->Launch(MageTestProcessType::kChildReceiveHandle);
+
+  // 1.) Create message pipes for SecondInterface and callback
+  std::vector<mage::MageHandle> second_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MageHandle> callback_handles = mage::Core::CreateMessagePipes();
+
+  EXPECT_EQ(CoreHandleTable().size(), 4);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 4);
+
+  // 2.) Send messages to SecondInterface
+  mage::Remote<magen::SecondInterface> second_remote;
+  second_remote.Bind(second_handles[0]);
+  second_remote->SendString("Message for SecondInterface");
+
+  // 3.) Send invitation (pipe used for FirstInterface)
+  MageHandle invitation_pipe =
+    mage::Core::SendInvitationAndGetMessagePipe(
+      launcher->GetLocalFd()
+    );
+
+  EXPECT_EQ(CoreHandleTable().size(), 6);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 6);
+
+  // 4.) Send one of SecondInterface's handles to other process via
+  //     FirstInterface and assert everything was received
+  mage::Remote<magen::FirstInterface> remote;
+  remote.Bind(invitation_pipe);
+  remote->SendString("Message for FirstInterface");
+  remote->SendHandles(second_handles[1], callback_handles[1]);
+
+  EXPECT_EQ(CoreHandleTable().size(), 6);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 6);
+
+  std::unique_ptr<CallbackInterfaceImpl> impl(
+    new CallbackInterfaceImpl(callback_handles[0],
+        std::bind(&base::TaskLoop::Quit, main_thread.get())));
+
+  // This will run the loop until we get the callback from the child saying
+  // everything went through OK.
+  main_thread->Run();
+
+  EXPECT_EQ(CoreHandleTable().size(), 6);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 6);
+
+  // 5.) Send more messages and assert they are received
+  second_remote->SendStringAndNotifyDone("Parent string (2)");
+  main_thread->Run();
+}
 
 
 TEST_F(MageTest, InProcess) {

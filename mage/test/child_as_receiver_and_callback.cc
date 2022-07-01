@@ -23,6 +23,7 @@
 //   1.) FirstInterface::SendString()
 //   2.) FirstInterface::SendHandles()
 //   3.) SecondInterface::SendString()
+//   5.) SecondInterface::SendStringAndNotifyDone()
 
 bool first_interface_received_send_string = false;
 bool first_interface_received_send_handles = false;
@@ -46,6 +47,11 @@ class SecondInterfaceImpl final : public magen::SecondInterface {
            message.c_str());
     // This will notify the parent process that we've received all of the
     // messages, so it can tear things down.
+    callback_->NotifyDone();
+  }
+
+  void SendStringAndNotifyDone(std::string message) {
+    CHECK_EQ(message, "Parent string (2)");
     callback_->NotifyDone();
 
     // This allows the loop, and therefore this process, to terminate.

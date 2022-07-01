@@ -1,3 +1,4 @@
 interface SecondInterface {
   SendString(string msg);
+  SendStringAndNotifyDone(string msg);
 }
