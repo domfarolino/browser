@@ -49,6 +49,7 @@ class Node : public Channel::Delegate {
       CreateMessagePipesAndGetEndpoints();
   void InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1,
                                       std::shared_ptr<Endpoint> ep2) const;
+  void SendMessagesAndRecursiveDependants(std::queue<Message> messages, std::shared_ptr<Endpoint>);
 
   std::string name_;
 

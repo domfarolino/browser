@@ -16,6 +16,8 @@
 #include "mage/test/magen/callback_interface.magen.h" // Generated.
 #include "mage/test/magen/first_interface.magen.h" // Generated.
 #include "mage/test/magen/second_interface.magen.h" // Generated.
+#include "mage/test/magen/third_interface.magen.h" // Generated.
+#include "mage/test/magen/fourth_interface.magen.h" // Generated.
 #include "mage/test/magen/test.magen.h" // Generated.
 
 namespace mage {
@@ -443,7 +445,7 @@ TEST_F(MageTest, SendHandleOverInitialPipe_01) {
   // 4.) Send messages to SecondInterface and assert everything was received
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_handles[0]);
-  second_remote->SendString("Message for SecondInterface");
+  second_remote->SendStringAndNotifyDone("Message for SecondInterface");
 
   std::unique_ptr<CallbackInterfaceImpl> impl(
     new CallbackInterfaceImpl(callback_handles[0],
@@ -460,7 +462,7 @@ TEST_F(MageTest, SendHandleOverInitialPipe_01) {
   EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 
   // 5.) Send more messages and assert they are received
-  second_remote->SendStringAndNotifyDone("Parent string (2)");
+  second_remote->NotifyDoneAndQuit();
   main_thread->Run();
 }
 TEST_F(MageTest, SendHandleOverInitialPipe_02) {
@@ -485,7 +487,7 @@ TEST_F(MageTest, SendHandleOverInitialPipe_02) {
   // 3.) Send messages to SecondInterface
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_handles[0]);
-  second_remote->SendString("Message for SecondInterface");
+  second_remote->SendStringAndNotifyDone("Message for SecondInterface");
 
   // 4.) Send one of SecondInterface's handles to other process via
   //     FirstInterface and assert everything was received
@@ -509,7 +511,7 @@ TEST_F(MageTest, SendHandleOverInitialPipe_02) {
   EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 
   // 5.) Send more messages and assert they are received
-  second_remote->SendStringAndNotifyDone("Parent string (2)");
+  second_remote->NotifyDoneAndQuit();
   main_thread->Run();
 }
 TEST_F(MageTest, SendHandleOverInitialPipe_05) {
@@ -525,7 +527,7 @@ TEST_F(MageTest, SendHandleOverInitialPipe_05) {
   // 2.) Send messages to SecondInterface
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_handles[0]);
-  second_remote->SendString("Message for SecondInterface");
+  second_remote->SendStringAndNotifyDone("Message for SecondInterface");
 
   // 3.) Send invitation (pipe used for FirstInterface)
   MageHandle invitation_pipe =
@@ -558,12 +560,75 @@ TEST_F(MageTest, SendHandleOverInitialPipe_05) {
   EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 
   // 5.) Send more messages and assert they are received
-  second_remote->SendStringAndNotifyDone("Parent string (2)");
+  second_remote->NotifyDoneAndQuit();
   main_thread->Run();
 }
 
+// This test is very similar to the above although it builds off of it.... TODO(domfarolino): Explain.
+TEST_F(MageTest, QueuedMessagesAfterAcceptInvitation) {
+  launcher->Launch(MageTestProcessType::kChildReceiveHandle);
 
-TEST_F(MageTest, InProcess) {
+  // 1.) Send invitation (pipe used for FirstInterface)
+  MageHandle invitation_pipe =
+    mage::Core::SendInvitationAndGetMessagePipe(
+      launcher->GetLocalFd()
+    );
+
+  // 2.) Create message pipes for SecondInterface and callback
+  std::vector<mage::MageHandle> second_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MageHandle> callback_handles = mage::Core::CreateMessagePipes();
+
+  // 3.) Send one of SecondInterface's handles to other process via
+  //     FirstInterface and assert everything was received
+  mage::Remote<magen::FirstInterface> remote;
+  remote.Bind(invitation_pipe);
+  remote->SendString("Message for FirstInterface");
+  remote->SendHandles(second_handles[1], callback_handles[1]);
+
+  // 4.) Send messages to SecondInterface and assert everything was received
+  mage::Remote<magen::SecondInterface> second_remote;
+  second_remote.Bind(second_handles[0]);
+  second_remote->SendStringAndNotifyDone("Message for SecondInterface");
+
+  std::unique_ptr<CallbackInterfaceImpl> impl(
+    new CallbackInterfaceImpl(callback_handles[0],
+        std::bind(&base::TaskLoop::Quit, main_thread.get())));
+
+  // This will run the loop until we get the callback from the child saying
+  // everything went through OK.
+  main_thread->Run();
+
+  // This is where the real meat of this test starts. We:
+  //   1.) Create pipes for ThirdInterface
+  //   2.) Bind a remote to ThirdInterface
+  std::vector<mage::MageHandle> third_interface_handles = mage::Core::CreateMessagePipes();
+  mage::Remote<magen::ThirdInterface> third_remote;
+  third_remote.Bind(third_interface_handles[0]);
+
+  //   3.) Create pipes for FourthInterface
+  //   4.) Bind a remote to FourthInterface
+  std::vector<mage::MageHandle> fourth_interface_handles = mage::Core::CreateMessagePipes();
+  mage::Remote<magen::FourthInterface> fourth_remote;
+  fourth_remote.Bind(fourth_interface_handles[0]);
+
+  // Start queueing local messages on ThirdInterface and FourthInterface.
+  third_remote->SendReceiverForFourthInterface(fourth_interface_handles[1]);
+  fourth_remote->SendStringAndNotifyDone("Message for FourthInterface");
+
+  // At this point we've queued a message on `third_remote` that sends a handle
+  // over for `FourthInterface` and we've queued a message on `fourth_remote`.
+  // This gives us two-levels deep of local queueing, which should be completely
+  // flushed once we finally send the ThirdInterface receiver over to the child
+  // process below.
+
+  second_remote->SendReceiverForThirdInterface(third_interface_handles[1]);
+  main_thread->Run();
+
+  fourth_remote->NotifyDoneAndQuit();
+  main_thread->Run();
+}
+
+TEST_F(MageTest, InProcessQueuedMessagesAfterReceiverBound) {
   std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
   EXPECT_EQ(mage_handles.size(), 2);
 
@@ -574,26 +639,37 @@ TEST_F(MageTest, InProcess) {
   std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(remote_handle, std::bind(&base::TaskLoop::Quit, base::GetCurrentThreadTaskLoop().get())));
 
   // At this point both the local and remote endpoints are bound. Invoke methods
-  // on the remote, and see if the receiver's implementation is called
+  // on the remote, and verify that the receiver's implementation is not invoked
   // synchronously.
   remote->Method1(6000, .78, "some text");
   remote->SendMoney(5000, "USD");
   EXPECT_FALSE(impl->has_called_method1);
   EXPECT_FALSE(impl->has_called_send_money);
 
+  // Verify that if a receiver is bound and multiple messages are queued on the
+  // bound endpoint, each is delivered in their own task and they are not
+  // delivered synchronously with respect to each other. `mage::Endpoint`
+  // achieves this by posting a task to deliever each message to the receiving
+  // delegate bound to the endpoint, which means in between each delivered
+  // message, we return to the `TaskLoop` (that the receiving delegate was bound
+  // on). In this case when the first message is delivered to the receiver, it
+  // tells the `TaskLoop` to quit, so when we return to the `TaskLoop` before
+  // posting the next message, we quit and continue running the assertions after
+  // `Run()` below.
   main_thread->Run();
   EXPECT_TRUE(impl->has_called_method1);
+  EXPECT_FALSE(impl->has_called_send_money);
   EXPECT_EQ(impl->received_int, 6000);
   EXPECT_EQ(impl->received_double, .78);
   EXPECT_EQ(impl->received_string, "some text");
 
   main_thread->Run();
+  EXPECT_TRUE(impl->has_called_method1);
   EXPECT_TRUE(impl->has_called_send_money);
   EXPECT_EQ(impl->received_amount, 5000);
   EXPECT_EQ(impl->received_currency, "USD");
 }
-
-TEST_F(MageTest, InProcessQueuedMessages) {
+TEST_F(MageTest, InProcessQueuedMessagesBeforeReceiverBound) {
   std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
   EXPECT_EQ(mage_handles.size(), 2);
 
@@ -611,8 +687,12 @@ TEST_F(MageTest, InProcessQueuedMessages) {
   EXPECT_FALSE(impl->has_called_method1);
   EXPECT_FALSE(impl->has_called_send_money);
 
+  // Just like the `InProcessQueuedMessagesAfterReceiverBound` test above,
+  // verify that multiple messages are not delivered to a receiver
+  // synchronously.
   main_thread->Run();
   EXPECT_TRUE(impl->has_called_method1);
+  EXPECT_FALSE(impl->has_called_send_money);
   EXPECT_EQ(impl->received_int, 6000);
   EXPECT_EQ(impl->received_double, .78);
   EXPECT_EQ(impl->received_string, "some text");
@@ -621,6 +701,111 @@ TEST_F(MageTest, InProcessQueuedMessages) {
   EXPECT_TRUE(impl->has_called_send_money);
   EXPECT_EQ(impl->received_amount, 5000);
   EXPECT_EQ(impl->received_currency, "USD");
+}
+
+// These two interface implementations are specifically for the
+// `OrderingNotPreservedBetweenPipes` test that follows them.
+class SecondInterfaceImpl final : public magen::SecondInterface {
+ public:
+  // Called asynchronously by `FirstInterfaceImpl`.
+  void Bind(MageHandle receiver) {
+    receiver_.Bind(receiver, this);
+  }
+
+  void SendStringAndNotifyDone(std::string msg) override {
+    send_string_and_notify_done_called = true;
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+  void NotifyDoneAndQuit() override { NOTREACHED(); }
+  // Not used for this test.
+  void SendReceiverForThirdInterface(MageHandle) override { NOTREACHED(); }
+
+  bool send_string_and_notify_done_called = false;
+
+ private:
+  mage::Receiver<magen::SecondInterface> receiver_;
+};
+class FirstInterfaceImpl final : public magen::FirstInterface {
+ public:
+  FirstInterfaceImpl(MageHandle handle, SecondInterfaceImpl& second_impl) :
+      second_impl_(second_impl) {
+    receiver_.Bind(handle, this);
+  }
+
+  void SendString(std::string msg) override {
+    send_string_called = true;
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+  void SendSecondInterfaceReceiver(MageHandle receiver) override {
+    send_second_interface_receiver_called = true;
+    second_impl_.Bind(receiver);
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+  void SendHandles(MageHandle, MageHandle) override { NOTREACHED(); }
+
+  bool send_string_called = false;
+  bool send_second_interface_receiver_called = false;
+
+ private:
+  mage::Receiver<magen::FirstInterface> receiver_;
+  SecondInterfaceImpl& second_impl_;
+};
+
+// This test demonstrates that the ordering between message pipes cannot be
+// guaranteed. In fact, the ordering of messages sent on two different message
+// pipes (i.e., remote/receiver pairs) can almost always be guaranteed if both
+// receivers are in the same process, but since there are cases where the
+// ordering *is not* relied upon, the official guarantee is that ordering cannot
+// be preserved between distinct message pipes. This test demonstrates that. We
+// have two different interfaces `FirstInterface` and `SecondInterface`. We send
+// the following messages:
+//   1.) FirstInterface (carry SecondInterface)
+//   2.) SecondInterface
+//   3.) FirstInterface
+//
+// But we observe that the messages get delivered in the following order:
+//  1.) FirstInterface (carry SecondInterface)
+//  2.) FirstInterface
+//  3.) SecondInterface
+TEST_F(MageTest, OrderingNotPreservedBetweenPipes) {
+  std::vector<MageHandle> first_interface_handles = mage::Core::CreateMessagePipes();
+  MageHandle first_remote_handle = first_interface_handles[0],
+             first_receiver_handle = first_interface_handles[1];
+  mage::Remote<magen::FirstInterface> first_remote;
+  first_remote.Bind(first_remote_handle);
+
+  std::vector<MageHandle> second_interface_handles = mage::Core::CreateMessagePipes();
+  MageHandle second_remote_handle = second_interface_handles[0],
+             second_receiver_handle = second_interface_handles[1];
+  mage::Remote<magen::SecondInterface> second_remote;
+  second_remote.Bind(second_remote_handle);
+
+  // The actual message sending:
+  first_remote->SendSecondInterfaceReceiver(second_receiver_handle);
+  second_remote->SendStringAndNotifyDone("message");
+  first_remote->SendString("Second message for FirstInterface");
+
+  // The two backing implementations of our mage interfaces. `first_impl` gets
+  // bound immediately, and `second_impl` gets bound asynchronously by `first_impl`.
+  SecondInterfaceImpl second_impl;
+  FirstInterfaceImpl first_impl(first_receiver_handle, second_impl);
+
+  // Observe the messages being received "out-of-order" compared to the order
+  // they were sent in.
+  main_thread->Run();
+  EXPECT_TRUE(first_impl.send_second_interface_receiver_called);
+  EXPECT_FALSE(first_impl.send_string_called);
+  EXPECT_FALSE(second_impl.send_string_and_notify_done_called);
+
+  main_thread->Run();
+  EXPECT_TRUE(first_impl.send_second_interface_receiver_called);
+  EXPECT_TRUE(first_impl.send_string_called);
+  EXPECT_FALSE(second_impl.send_string_and_notify_done_called);
+
+  main_thread->Run();
+  EXPECT_TRUE(first_impl.send_second_interface_receiver_called);
+  EXPECT_TRUE(first_impl.send_string_called);
+  EXPECT_TRUE(second_impl.send_string_and_notify_done_called);
 }
 
 // A concrete implementation of a mage test-only interface that runs on a worker
@@ -689,10 +874,6 @@ TEST_F(MageTest, InProcessCrossThread) {
 
 /*
   Scenarios to test:
-    - Asynchronously after an invitation is accepted, create a message pipe pair
-      and start queueing messages that bear EndpointDescriptors on it, multiple
-      levels deep. Finally send the outermost endpoint cross-process and verify
-      that all messages get delivered cross-process.
     - Proxying:
       - General proxying: A multi-process chain of messages works, and avoids
         the `NOTREACHED()` in `Endpoint::AcceptMessage()`.

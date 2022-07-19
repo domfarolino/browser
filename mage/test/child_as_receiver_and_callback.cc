@@ -17,50 +17,98 @@
 #include "mage/test/magen/callback_interface.magen.h"  // Generated.
 #include "mage/test/magen/first_interface.magen.h"  // Generated.
 #include "mage/test/magen/second_interface.magen.h"  // Generated.
+#include "mage/test/magen/third_interface.magen.h"  // Generated.
+#include "mage/test/magen/fourth_interface.magen.h"  // Generated.
 
 // The correct sequence of message that this binary will receive from the parent
 // process (test runner) is:
 //   1.) FirstInterface::SendString()
 //   2.) FirstInterface::SendHandles()
-//   3.) SecondInterface::SendString()
-//   5.) SecondInterface::SendStringAndNotifyDone()
+//   3.) SecondInterface::SendStringAndNotifyDone()
+//   4.) SecondInterface::NotifyDoneAndQuit() (only if the test stops here)
+//   5.) [Maybe] SecondInterface::SendReceiverForThirdInterface()
+//   6.) [If above] ThirdInterface::SendReceiverForFourthInterface()
+//   7.) [If above] FourthInterface::SendStringAndNotifyDone()
+//   8/) [If above] FourthInterface::NotifyDoneAndQuit()
 
 bool first_interface_received_send_string = false;
 bool first_interface_received_send_handles = false;
-bool second_interface_received_send_string = false;
 
-class SecondInterfaceImpl final : public magen::SecondInterface {
+mage::Remote<magen::CallbackInterface> global_callback_remote;
+
+class FourthInterfaceImpl final : public magen::FourthInterface {
  public:
-  SecondInterfaceImpl(mage::MageHandle receiver, mage::MageHandle callback_handle) {
+  FourthInterfaceImpl(mage::MageHandle receiver) {
     receiver_.Bind(receiver, this);
-    callback_.Bind(callback_handle);
-  }
-
-  void SendString(std::string message) {
-    CHECK(first_interface_received_send_string);
-    CHECK(first_interface_received_send_handles);
-    CHECK(!second_interface_received_send_string);
-    second_interface_received_send_string = true;
-
-    CHECK_EQ(message, "Message for SecondInterface");
-    printf("\033[34;1mSecondInterfaceImpl received message: %s\033[0m\n",
-           message.c_str());
-    // This will notify the parent process that we've received all of the
-    // messages, so it can tear things down.
-    callback_->NotifyDone();
   }
 
   void SendStringAndNotifyDone(std::string message) {
-    CHECK_EQ(message, "Parent string (2)");
-    callback_->NotifyDone();
+    printf("\033[34;1mFourthInterfaceImpl received message: %s\033[0m\n",
+           message.c_str());
+
+    global_callback_remote->NotifyDone();
+  }
+
+  void NotifyDoneAndQuit() {
+    global_callback_remote->NotifyDone();
 
     // This allows the loop, and therefore this process, to terminate.
     base::GetCurrentThreadTaskLoop()->Quit();
   }
 
  private:
+  mage::Receiver<magen::FourthInterface> receiver_;
+};
+std::unique_ptr<FourthInterfaceImpl> global_fourth_interface;
+
+class ThirdInterfaceImpl final : public magen::ThirdInterface {
+ public:
+  ThirdInterfaceImpl(mage::MageHandle receiver) {
+    receiver_.Bind(receiver, this);
+  }
+
+  void SendReceiverForFourthInterface(mage::MageHandle receiver) {
+    printf("\033[34;1mThirdInterfaceImpl got receiver to bootstrap magen::FourthInterface\033[0m\n");
+    global_fourth_interface = std::make_unique<FourthInterfaceImpl>(receiver);
+  }
+
+ private:
+  mage::Receiver<magen::ThirdInterface> receiver_;
+
+};
+std::unique_ptr<ThirdInterfaceImpl> global_third_interface;
+
+class SecondInterfaceImpl final : public magen::SecondInterface {
+ public:
+  SecondInterfaceImpl(mage::MageHandle receiver) {
+    receiver_.Bind(receiver, this);
+  }
+
+  void SendStringAndNotifyDone(std::string message) override {
+    CHECK(first_interface_received_send_string);
+    CHECK(first_interface_received_send_handles);
+
+    CHECK_EQ(message, "Message for SecondInterface");
+    printf("\033[34;1mSecondInterfaceImpl received message: %s\033[0m\n",
+           message.c_str());
+    // This will notify the parent process that we've received all of the
+    // messages, so it can tear things down.
+    global_callback_remote->NotifyDone();
+  }
+
+  void NotifyDoneAndQuit() override {
+    global_callback_remote->NotifyDone();
+
+    // This allows the loop, and therefore this process, to terminate.
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+
+  void SendReceiverForThirdInterface(mage::MageHandle receiver) override {
+    global_third_interface = std::make_unique<ThirdInterfaceImpl>(receiver);
+  }
+
+ private:
   mage::Receiver<magen::SecondInterface> receiver_;
-  mage::Remote<magen::CallbackInterface> callback_;
 };
 std::unique_ptr<SecondInterfaceImpl> global_second_interface;
 
@@ -70,21 +118,28 @@ class FirstInterfaceImpl final : public magen::FirstInterface {
     receiver_.Bind(handle, this);
   }
 
-  void SendString(std::string message) {
+  void SendString(std::string message) override {
     CHECK_EQ(message, "Message for FirstInterface");
     printf("\033[34;1mFirstInterfaceImpl received message: %s\033[0m\n",
            message.c_str());
     first_interface_received_send_string = true;
   }
 
+  // Not used for this test.
+  void SendSecondInterfaceReceiver(mage::MageHandle) override { NOTREACHED(); }
+
   void SendHandles(mage::MageHandle second_interface,
-                   mage::MageHandle callback_handle) {
+                   mage::MageHandle callback_handle) override {
     CHECK(first_interface_received_send_string);
     CHECK(!first_interface_received_send_handles);
     first_interface_received_send_handles = true;
 
     global_second_interface =
-        std::make_unique<SecondInterfaceImpl>(second_interface, callback_handle);
+        std::make_unique<SecondInterfaceImpl>(second_interface);
+
+    // One-time initialization of the callback remote that we use to tell the parent that we
+    // received its messages.
+    global_callback_remote.Bind(callback_handle);
   }
 
  private:

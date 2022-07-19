@@ -32,6 +32,7 @@ void Endpoint::AcceptMessage(Message message) {
   printf("  name: %s\n", name.c_str());
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
+  printf("  number_of_handles: %d\n", message.NumberOfHandles());
 
   switch (state) {
     case State::kUnboundAndQueueing:
@@ -99,8 +100,8 @@ void Endpoint::UnregisterDelegate() {
 void Endpoint::SetProxying(std::string in_node_to_proxy_to) {
   CHECK_EQ(state, State::kUnboundAndQueueing);
   state = State::kUnboundAndProxying;
-  printf("Endpoint::SetProxying() node_to_proxy_to: %s\n", node_to_proxy_to.c_str());
   node_to_proxy_to = in_node_to_proxy_to;
+  printf("Endpoint::SetProxying() node_to_proxy_to: %s\n", node_to_proxy_to.c_str());
 }
 
 }; // namspace mage

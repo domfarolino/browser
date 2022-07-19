@@ -1,0 +1,4 @@
+interface FourthInterface {
+  SendStringAndNotifyDone(string msg);
+  NotifyDoneAndQuit();
+}

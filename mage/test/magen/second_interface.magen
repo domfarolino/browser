@@ -1,4 +1,6 @@
 interface SecondInterface {
-  SendString(string msg);
   SendStringAndNotifyDone(string msg);
+  NotifyDoneAndQuit();
+
+  SendReceiverForThirdInterface(MageHandle receiver);
 }

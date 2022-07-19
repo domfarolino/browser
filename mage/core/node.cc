@@ -150,14 +150,21 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
     CHECK(local_peer_endpoint);
 
     if (local_peer_endpoint->state == Endpoint::State::kUnboundAndProxying) {
-      printf("Node::SendMessage() endpoint is in proxying state; forwarding message to local endpoint\n");
-      auto proxying_target = node_channel_map_.find(local_peer_endpoint->node_to_proxy_to);
-      CHECK_NE(proxying_target, node_channel_map_.end());
-      proxying_target->second->SendMessage(std::move(message));
+      std::string actual_node_name = local_peer_endpoint->node_to_proxy_to;
+      printf("Node::SendMessage() local peer endpoint is in proxying state; "
+             "forwarding message to remote channel named: %s (length: %lu)\n",
+             actual_node_name.c_str(), actual_node_name.length());
+      std::queue<Message> messages_to_send;
+      messages_to_send.push(std::move(message));
+      SendMessagesAndRecursiveDependants(std::move(messages_to_send), local_peer_endpoint);
       return;
     }
+
+    // TODO(domfarolino): Have this path also forward recursive messages to the
+    // locally-bound endpoint.
     local_peer_endpoint->AcceptMessage(std::move(message));
   } else {
+    // TODO(domfarolino): Remove this pathway!
     channel_it->second->SendMessage(std::move(message));
   }
 }
@@ -289,17 +296,18 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   std::queue<Message> messages_to_forward =
       remote_endpoint->TakeQueuedMessages();
   printf("    Node has %lu messages queued up in the remote invitation endpoint\n", messages_to_forward.size());
-  while (!messages_to_forward.empty()) {
-    Message message_to_forward = std::move(messages_to_forward.front());
+  SendMessagesAndRecursiveDependants(std::move(messages_to_forward), remote_endpoint);
+  Core::Get()->OnReceivedAcceptInvitation();
+}
 
-    // Push possibly many more messages to `message_to_forward`.
-    // TODO(domfarolino): This whole process only happens for the endpoint that
-    // is able to receive messages while we're waiting in invitation acceptance.
-    // It does not happen for normal endpoints that have nothing to do with
-    // invitations. We should generalize this procedure and move it somewhere
-    // usable by both places.
-    printf("      Forwarding a message NumberOfHandles(): %d\n", message_to_forward.NumberOfHandles());
-    std::vector<EndpointDescriptor> descriptors = message_to_forward.GetEndpointDescriptors();
+void Node::SendMessagesAndRecursiveDependants(std::queue<Message> messages_to_send, std::shared_ptr<Endpoint> local_peer_endpoint) {
+  std::string target_node_name = local_peer_endpoint->node_to_proxy_to;
+  while (!messages_to_send.empty()) {
+    Message message_to_send = std::move(messages_to_send.front());
+
+    // Push possibly many more messages to `message_to_send`.
+    printf("      Forwarding a message NumberOfHandles(): %d\n", message_to_send.NumberOfHandles());
+    std::vector<EndpointDescriptor> descriptors = message_to_send.GetEndpointDescriptors();
     for (const EndpointDescriptor& descriptor : descriptors) {
       std::string endpoint_name(descriptor.endpoint_name, 15);
       printf("        An EndpointDescriptor in this message:\n");
@@ -311,25 +319,23 @@ void Node::OnReceivedAcceptInvitation(Message message) {
       std::shared_ptr<Endpoint> endpoint_from_info = it->second;
       std::queue<Message> sub_messages = endpoint_from_info->TakeQueuedMessages();
       while (!sub_messages.empty()) {
-        messages_to_forward.push(std::move(sub_messages.front()));
+        messages_to_send.push(std::move(sub_messages.front()));
         sub_messages.pop();
       }
 
-      // We know that the real endpoint was sent to `actual_node_name`. By now,
+      // We know that the real endpoint was sent to `target_node_name`. By now,
       // it is possible that endpoint was sent yet again to another process, and
       // so on. Its ultimate location doesn't matter to us. We know the next
-      // place it went was `actual_node_name` which is either the ultimate
+      // place it went was `target_node_name` which is either the ultimate
       // destination, or the node with the next closest proxy. We'll send the
       // message to that node and let it figure out what to do from there.
-      endpoint_from_info->SetProxying(actual_node_name);
+      endpoint_from_info->SetProxying(target_node_name);
     }
 
     // Forward the message and remove it from the queue.
-    node_channel_map_[actual_node_name]->SendMessage(std::move(message_to_forward));
-    messages_to_forward.pop();
+    node_channel_map_[target_node_name]->SendMessage(std::move(message_to_send));
+    messages_to_send.pop();
   }
-
-  Core::Get()->OnReceivedAcceptInvitation();
 }
 
 void Node::OnReceivedUserMessage(Message message) {
