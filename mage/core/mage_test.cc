@@ -767,7 +767,7 @@ class FirstInterfaceImpl final : public magen::FirstInterface {
 //  1.) FirstInterface (carry SecondInterface)
 //  2.) FirstInterface
 //  3.) SecondInterface
-TEST_F(MageTest, OrderingNotPreservedBetweenPipes) {
+TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendBeforeReceiverBound) {
   std::vector<MageHandle> first_interface_handles = mage::Core::CreateMessagePipes();
   MageHandle first_remote_handle = first_interface_handles[0],
              first_receiver_handle = first_interface_handles[1];
@@ -789,6 +789,50 @@ TEST_F(MageTest, OrderingNotPreservedBetweenPipes) {
   // bound immediately, and `second_impl` gets bound asynchronously by `first_impl`.
   SecondInterfaceImpl second_impl;
   FirstInterfaceImpl first_impl(first_receiver_handle, second_impl);
+
+  // Observe the messages being received "out-of-order" compared to the order
+  // they were sent in.
+  main_thread->Run();
+  EXPECT_TRUE(first_impl.send_second_interface_receiver_called);
+  EXPECT_FALSE(first_impl.send_string_called);
+  EXPECT_FALSE(second_impl.send_string_and_notify_done_called);
+
+  main_thread->Run();
+  EXPECT_TRUE(first_impl.send_second_interface_receiver_called);
+  EXPECT_TRUE(first_impl.send_string_called);
+  EXPECT_FALSE(second_impl.send_string_and_notify_done_called);
+
+  main_thread->Run();
+  EXPECT_TRUE(first_impl.send_second_interface_receiver_called);
+  EXPECT_TRUE(first_impl.send_string_called);
+  EXPECT_TRUE(second_impl.send_string_and_notify_done_called);
+}
+TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendAfterReceiverBound) {
+  std::vector<MageHandle> first_interface_handles = mage::Core::CreateMessagePipes();
+  MageHandle first_remote_handle = first_interface_handles[0],
+             first_receiver_handle = first_interface_handles[1];
+  mage::Remote<magen::FirstInterface> first_remote;
+  first_remote.Bind(first_remote_handle);
+
+  std::vector<MageHandle> second_interface_handles = mage::Core::CreateMessagePipes();
+  MageHandle second_remote_handle = second_interface_handles[0],
+             second_receiver_handle = second_interface_handles[1];
+  mage::Remote<magen::SecondInterface> second_remote;
+  second_remote.Bind(second_remote_handle);
+
+  // The two backing implementations of our mage interfaces. `first_impl` gets
+  // bound immediately, and `second_impl` gets bound asynchronously by `first_impl`.
+  SecondInterfaceImpl second_impl;
+  FirstInterfaceImpl first_impl(first_receiver_handle, second_impl);
+
+  // This test is identical to the one above
+  // (`OrderingNotPreservedBetweenPipes_SendBeforeReceiverBound`) except for the
+  // fact that this sending code comes *after* the receiver set-up a couple
+  // lines above.
+  // The actual message sending:
+  first_remote->SendSecondInterfaceReceiver(second_receiver_handle);
+  second_remote->SendStringAndNotifyDone("message");
+  first_remote->SendString("Second message for FirstInterface");
 
   // Observe the messages being received "out-of-order" compared to the order
   // they were sent in.

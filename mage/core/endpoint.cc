@@ -26,6 +26,26 @@ void Endpoint::AcceptMessageOnIOThread(Message message) {
 
   AcceptMessage(std::move(message));
 }
+void Endpoint::AcceptMessageOnDelegateThread(Message message) {
+  printf("Endpoint::AcceptMessageOnDelegateThread [this=%p]\n", this);
+  printf("  name: %s\n", name.c_str());
+  printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
+  printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
+
+  // Process and register all of the endpoints that `message` is carrying before
+  // we either queue or dispatch it.
+  std::vector<EndpointDescriptor> endpoints_in_message = message.GetEndpointDescriptors();
+  printf("  endpoints_in_message.size()= %lu\n", endpoints_in_message.size());
+  for (const EndpointDescriptor& endpoint_descriptor : endpoints_in_message) {
+    MageHandle local_handle =
+        mage::Core::RecoverExistingMageHandleFromEndpointDescriptor(endpoint_descriptor);
+    endpoint_descriptor.Print();
+    printf("     Queueing handle to message after recovering endpoint\n");
+    message.QueueHandle(local_handle);
+  }
+
+  AcceptMessage(std::move(message));
+}
 
 void Endpoint::AcceptMessage(Message message) {
   printf("Endpoint::AcceptMessage [this=%p]\n", this);

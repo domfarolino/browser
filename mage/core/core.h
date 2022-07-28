@@ -119,14 +119,36 @@ class Core {
 
     endpoint_being_sent->SetProxying(/*node_to_proxy_to=*/peer_node_name);
   }
+
+  static MageHandle RecoverExistingMageHandleFromEndpointDescriptor(
+      const EndpointDescriptor& endpoint_descriptor) {
+    printf("Core::RecoverExistingMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
+    std::string endpoint_name(endpoint_descriptor.endpoint_name,
+                              endpoint_descriptor.endpoint_name + kIdentifierSize);
+
+    std::map<MageHandle, std::shared_ptr<Endpoint>>& handle_table =
+        Core::Get()->handle_table_;
+    // First see if the endpoint is already registered. If so, just early-return
+    // the handle associated with it.
+    for (std::map<MageHandle, std::shared_ptr<Endpoint>>::const_iterator it =
+             handle_table.begin();
+         it != handle_table.end(); it++) {
+      if (it->second->name == endpoint_name) {
+        return it->first;
+      }
+    }
+
+    NOTREACHED();
+  }
+
   static MageHandle RecoverMageHandleFromEndpointDescriptor(const EndpointDescriptor& endpoint_descriptor) {
     printf("Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
     endpoint_descriptor.Print();
 
-    std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
     std::string endpoint_name(endpoint_descriptor.endpoint_name,
                               endpoint_descriptor.endpoint_name + kIdentifierSize);
 
+    std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
     local_endpoint->name = endpoint_name;
     local_endpoint->peer_address.node_name.assign(endpoint_descriptor.peer_node_name, kIdentifierSize);
     local_endpoint->peer_address.endpoint_name.assign(endpoint_descriptor.peer_endpoint_name, kIdentifierSize);

@@ -160,11 +160,21 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
       return;
     }
 
-    // TODO(domfarolino): Have this path also forward recursive messages to the
-    // locally-bound endpoint.
-    local_peer_endpoint->AcceptMessage(std::move(message));
+    // If `local_peer_endpoint` is in the `kUnboundAndQueueing` or `kBound`
+    // state, than we can just pass this single message to the peer without
+    // recursively looking at dependant messages. That's because if we *did*
+    // recursively look through all of the dependant messages and try and
+    // forward them, we'd just be forwarding them to *their* local peers in the
+    // same node, which is where those messages already are.
+    local_peer_endpoint->AcceptMessageOnDelegateThread(std::move(message));
   } else {
-    // TODO(domfarolino): Remove this pathway!
+    // TODO(domfarolino): Consider removing this pathway. The only time an
+    // endpoint does *not* have a local peer is inside a child process that
+    // accepts an invitation. In that case, we only create a single endpoint
+    // representing the recovered MageHandle, and the peer is remote. In every
+    // other case, each endpoint has a local peer, and the local peer's `state`
+    // is often `kUnboundAndProxying`, in which case it is really representing
+    // an endpoint in a separate process that we forward the message to.
     channel_it->second->SendMessage(std::move(message));
   }
 }
