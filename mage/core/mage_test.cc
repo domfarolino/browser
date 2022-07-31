@@ -104,16 +104,34 @@ class CallbackInterfaceImpl: public magen::CallbackInterface {
   std::function<void()> quit_closure_;
 };
 
-// TODO(domfarolino): It appears that theses all need the `./bazel-bin/` prefix
-// to run correctly locally, but this breaks the GH workflow. Look into this.
-static const char kChildAcceptorAndRemote[] = "./bazel-bin/mage/test/invitee_as_remote";
-static const char kChildInviterAndRemote[] = "./bazel-bin/mage/test/inviter_as_remote";
-static const char kInviterAsRemoteBlockOnAcceptance[] = "./bazel-bin/mage/test/inviter_as_remote_block_on_acceptance";
-static const char kChildReceiveHandle[] = "./bazel-bin/mage/test/child_as_receiver_and_callback";
-static const char kParentReceiveHandle[] = "./bazel-bin/mage/test/child_as_handle_sender";
-static const char kChildSendsAcceptInvitationPipeToParent[] = "./bazel-bin/mage/test/child_sends_accept_invitation_pipe_to_parent";
-static const char kChildSendsSendInvitationPipeToParent[] = "./bazel-bin/mage/test/child_sends_send_invitation_pipe_to_parent";
-static const char kChildSendsTwoPipesToParent[] = "./bazel-bin/mage/test/child_sends_two_pipes_to_parent";
+// The path for test binaries differs depending on whether the test is running
+// as a result of a direct testing binary run (i.e., `./bazel-bin/[...]`) or the
+// `bazel test` command. When `bazel test` is run, the `BAZEL_TEST` preprocessor
+// directive is defined which helps us work out the right prefix.
+#ifdef BAZEL_TEST
+#define TEST_BINARY_PREFIX ""
+#else
+#define TEST_BINARY_PREFIX "./bazel-bin/"
+#endif
+
+#define RESOLVE_BINARY_PATH(x) TEST_BINARY_PREFIX #x
+
+static const char kChildAcceptorAndRemote[] =
+    RESOLVE_BINARY_PATH(mage/test/invitee_as_remote);
+static const char kChildInviterAndRemote[] =
+    RESOLVE_BINARY_PATH(mage/test/inviter_as_remote);
+static const char kInviterAsRemoteBlockOnAcceptance[] =
+    RESOLVE_BINARY_PATH(mage/test/inviter_as_remote_block_on_acceptance);
+static const char kChildReceiveHandle[] =
+    RESOLVE_BINARY_PATH(mage/test/child_as_receiver_and_callback);
+static const char kParentReceiveHandle[] =
+    RESOLVE_BINARY_PATH(mage/test/child_as_handle_sender);
+static const char kChildSendsAcceptInvitationPipeToParent[] =
+    RESOLVE_BINARY_PATH(mage/test/child_sends_accept_invitation_pipe_to_parent);
+static const char kChildSendsSendInvitationPipeToParent[] =
+    RESOLVE_BINARY_PATH(mage/test/child_sends_send_invitation_pipe_to_parent);
+static const char kChildSendsTwoPipesToParent[] =
+    RESOLVE_BINARY_PATH(mage/test/child_sends_two_pipes_to_parent_);
 
 class ProcessLauncher {
  public:
@@ -139,6 +157,7 @@ class ProcessLauncher {
     char cwd[1024];
     getcwd(cwd, sizeof(cwd));
     printf("getcwd(): %s\n\n\n", cwd);
+    printf("Running binary: %s", child_binary);
 
     rv = execl(child_binary, "--mage-socket=", fd_as_string.c_str(), NULL);
     ASSERT_EQ(rv, 0);

@@ -43,12 +43,25 @@ filegroup(
     "//mage/test:child_sends_two_pipes_to_parent",
   ],
 )
+
+# See https://stackoverflow.com/a/57396491 for info about this.
+config_setting(
+  name = "set_bazel_test_directive",
+  values = {
+    "define": "BAZEL_TEST=true"
+  }
+)
+
 cc_test(
   name = "mage_tests",
   srcs = [
     "core/mage_test.cc",
   ],
   copts = ["-Iexternal/gtest/include"],
+  defines = select({
+    ":set_bazel_test_directive": ["BAZEL_TEST"],
+    "//conditions:default": [],
+  }),
   deps = [
     "//base:base",
     "//mage:mage",
