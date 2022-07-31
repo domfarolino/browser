@@ -104,32 +104,20 @@ class CallbackInterfaceImpl: public magen::CallbackInterface {
   std::function<void()> quit_closure_;
 };
 
-enum class MageTestProcessType {
-  kChildIsAccepterAndRemote,
-  kChildIsInviterAndRemote,
-  kInviterAsRemoteBlockOnAcceptance,
-  kChildReceiveHandle,
-  kParentReceiveHandle,
-  kChildSendsAcceptInvitationPipeToParent,
-  kChildSendsSendInvitationPipeToParent,
-  kChildSendsTwoPipesToParent,
-  kNone,
-};
-
 // TODO(domfarolino): It appears that theses all need the `./bazel-bin/` prefix
 // to run correctly locally, but this breaks the GH workflow. Look into this.
-static const char kChildAcceptorAndRemoteBinary[] = "./bazel-bin/mage/test/invitee_as_remote";
-static const char kChildInviterAndRemoteBinary[] = "./bazel-bin/mage/test/inviter_as_remote";
-static const char kInviterAsRemoteBlockOnAcceptancePath[] = "./bazel-bin/mage/test/inviter_as_remote_block_on_acceptance";
-static const char kChildReceiveHandleBinary[] = "./bazel-bin/mage/test/child_as_receiver_and_callback";
-static const char kParentReceiveHandleBinary[] = "./bazel-bin/mage/test/child_as_handle_sender";
-static const char kChildSendsAcceptInvitationPipeToParentBinary[] = "./bazel-bin/mage/test/child_sends_accept_invitation_pipe_to_parent";
-static const char kChildSendsSendInvitationPipeToParentBinary[] = "./bazel-bin/mage/test/child_sends_send_invitation_pipe_to_parent";
-static const char kChildSendsTwoPipesToParentBinary[] = "./bazel-bin/mage/test/child_sends_two_pipes_to_parent";
+static const char kChildAcceptorAndRemote[] = "./bazel-bin/mage/test/invitee_as_remote";
+static const char kChildInviterAndRemote[] = "./bazel-bin/mage/test/inviter_as_remote";
+static const char kInviterAsRemoteBlockOnAcceptance[] = "./bazel-bin/mage/test/inviter_as_remote_block_on_acceptance";
+static const char kChildReceiveHandle[] = "./bazel-bin/mage/test/child_as_receiver_and_callback";
+static const char kParentReceiveHandle[] = "./bazel-bin/mage/test/child_as_handle_sender";
+static const char kChildSendsAcceptInvitationPipeToParent[] = "./bazel-bin/mage/test/child_sends_accept_invitation_pipe_to_parent";
+static const char kChildSendsSendInvitationPipeToParent[] = "./bazel-bin/mage/test/child_sends_send_invitation_pipe_to_parent";
+static const char kChildSendsTwoPipesToParent[] = "./bazel-bin/mage/test/child_sends_two_pipes_to_parent";
 
 class ProcessLauncher {
  public:
-  ProcessLauncher() : type_(MageTestProcessType::kNone) {
+  ProcessLauncher() {
     EXPECT_EQ(socketpair(AF_UNIX, SOCK_STREAM, 0, fds_), 0);
     EXPECT_EQ(fcntl(fds_[0], F_SETFL, O_NONBLOCK), 0);
     EXPECT_EQ(fcntl(fds_[1], F_SETFL, O_NONBLOCK), 0);
@@ -140,48 +128,20 @@ class ProcessLauncher {
     // Can we kill the child process too?
   }
 
-  void Launch(MageTestProcessType type) {
-    type_ = type;
-
+  void Launch(const char child_binary[]) {
     std::string fd_as_string = std::to_string(GetRemoteFd());
     pid_t rv = fork();
-    if (rv == 0) { // Child.
-      char cwd[1024];
-      getcwd(cwd, sizeof(cwd));
-      printf("getcwd(): %s\n\n\n", cwd);
-
-      switch (type_) {
-        case MageTestProcessType::kChildIsAccepterAndRemote:
-          rv = execl(kChildAcceptorAndRemoteBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
-          ASSERT_EQ(rv, 0);
-          break;
-        case MageTestProcessType::kChildIsInviterAndRemote:
-          rv = execl(kChildInviterAndRemoteBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
-          ASSERT_EQ(rv, 0);
-          break;
-        case MageTestProcessType::kInviterAsRemoteBlockOnAcceptance:
-          rv = execl(kInviterAsRemoteBlockOnAcceptancePath, "--mage-socket=", fd_as_string.c_str(), NULL);
-          break;
-        case MageTestProcessType::kChildReceiveHandle:
-          rv = execl(kChildReceiveHandleBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
-          break;
-        case MageTestProcessType::kParentReceiveHandle:
-          rv = execl(kParentReceiveHandleBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
-          break;
-        case MageTestProcessType::kChildSendsAcceptInvitationPipeToParent:
-          rv = execl(kChildSendsAcceptInvitationPipeToParentBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
-          break;
-        case MageTestProcessType::kChildSendsSendInvitationPipeToParent:
-          rv = execl(kChildSendsSendInvitationPipeToParentBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
-          break;
-        case MageTestProcessType::kChildSendsTwoPipesToParent:
-          rv = execl(kChildSendsTwoPipesToParentBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
-          break;
-        case MageTestProcessType::kNone:
-          NOTREACHED();
-          break;
-      }
+    if (rv != 0) { // Parent process.
+      return;
     }
+
+    // Child process.
+    char cwd[1024];
+    getcwd(cwd, sizeof(cwd));
+    printf("getcwd(): %s\n\n\n", cwd);
+
+    rv = execl(child_binary, "--mage-socket=", fd_as_string.c_str(), NULL);
+    ASSERT_EQ(rv, 0);
   }
 
   int GetLocalFd() {
@@ -194,7 +154,6 @@ class ProcessLauncher {
 
  private:
   int fds_[2];
-  MageTestProcessType type_;
 };
 
 }; // namespace
@@ -294,7 +253,7 @@ TEST_F(MageTest, AcceptInvitationUnitTest) {
 
 // In this test, the parent process is the inviter and a mage::Receiver.
 TEST_F(MageTest, ParentIsInviterAndReceiver) {
-  launcher->Launch(MageTestProcessType::kChildIsAccepterAndRemote);
+  launcher->Launch(kChildAcceptorAndRemote);
 
   MageHandle message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
@@ -321,7 +280,7 @@ TEST_F(MageTest, ParentIsInviterAndReceiver) {
 
 // In this test, the parent process is the invitee and a mage::Receiver.
 TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
-  launcher->Launch(MageTestProcessType::kChildIsInviterAndRemote);
+  launcher->Launch(kChildInviterAndRemote);
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MageHandle message_pipe){
@@ -366,7 +325,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
 // learns that we accepted the invitation. This should be completely opaque to
 // the user, which is why we have to test it.
 TEST_F(MageTest, ParentIsAcceptorAndReceiverButChildBlocksOnAcceptance) {
-  launcher->Launch(MageTestProcessType::kInviterAsRemoteBlockOnAcceptance);
+  launcher->Launch(kInviterAsRemoteBlockOnAcceptance);
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MageHandle message_pipe){
@@ -442,7 +401,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiverButChildBlocksOnAcceptance) {
 //   4.) Send one of SecondInterface's handles to other process via
 //       FirstInterface and assert everything was received
 TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_01) {
-  launcher->Launch(MageTestProcessType::kChildReceiveHandle);
+  launcher->Launch(kChildReceiveHandle);
 
   // 1.) Send invitation (pipe used for FirstInterface)
   MageHandle invitation_pipe =
@@ -494,7 +453,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_01) {
   main_thread->Run();
 }
 TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_02) {
-  launcher->Launch(MageTestProcessType::kChildReceiveHandle);
+  launcher->Launch(kChildReceiveHandle);
 
   // 1.) Send invitation (pipe used for FirstInterface)
   MageHandle invitation_pipe =
@@ -543,7 +502,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_02) {
   main_thread->Run();
 }
 TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_05) {
-  launcher->Launch(MageTestProcessType::kChildReceiveHandle);
+  launcher->Launch(kChildReceiveHandle);
 
   // 1.) Create message pipes for SecondInterface and callback
   std::vector<mage::MageHandle> second_handles = mage::Core::CreateMessagePipes();
@@ -602,7 +561,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_05) {
 // invitation pipe or a generic pipe made arbitrarily later. This test shows
 // that the two paths have been unified.
 TEST_F(MageTest, SendHandleAndQueuedMessageOverArbitraryPipe) {
-  launcher->Launch(MageTestProcessType::kChildReceiveHandle);
+  launcher->Launch(kChildReceiveHandle);
 
   // 1.) Send invitation (pipe used for FirstInterface)
   MageHandle invitation_pipe =
@@ -686,7 +645,7 @@ class FirstInterfaceImplDummy final : public magen::FirstInterface {
 // case, see the documentation in https://github.com/domfarolino/browser/pull/32
 // under "Design for sending endpoints to other nodes".
 TEST_F(MageTest, ReceiveHandleFromRemoteNode) {
-  launcher->Launch(MageTestProcessType::kParentReceiveHandle);
+  launcher->Launch(kParentReceiveHandle);
 
   MageHandle invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
@@ -758,7 +717,7 @@ class ChildPassInvitationPipeBackToParentMageHandler :
 // name already exists in the parent process (the invitation handle's proxying
 // peer) and blows up.
 TEST_F(MageTest, DISABLED_ChildPassAcceptInvitationPipeBackToParent) {
-  launcher->Launch(MageTestProcessType::kChildSendsAcceptInvitationPipeToParent);
+  launcher->Launch(kChildSendsAcceptInvitationPipeToParent);
 
   MageHandle invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
@@ -798,7 +757,7 @@ TEST_F(MageTest, DISABLED_ChildPassAcceptInvitationPipeBackToParent) {
 //       same name as the remote's peer (aka the parent's accept-invitation
 //       pipe)
 TEST_F(MageTest, DISABLED_ChildPassSendInvitationPipeBackToParent) {
-  launcher->Launch(MageTestProcessType::kChildSendsSendInvitationPipeToParent);
+  launcher->Launch(kChildSendsSendInvitationPipeToParent);
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MageHandle message_pipe){
@@ -862,7 +821,7 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface {
 // This test fails for the same reason that
 // `ChildPassSendInvitationPipeBackToParent` does above.
 TEST_F(MageTest, DISABLED_ChildPassRemoteAndReceiverToParent) {
-  launcher->Launch(MageTestProcessType::kChildSendsTwoPipesToParent);
+  launcher->Launch(kChildSendsTwoPipesToParent);
 
   MageHandle invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
