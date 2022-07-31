@@ -47,7 +47,7 @@ void Core::OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint) {
   });
 }
 
-void Core::RegisterLocalHandle(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint) {
+void Core::RegisterLocalHandleAndEndpoint(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint) {
   // First, we check that `local_handle` doesn't already point to an existing endpoint.
   {
     auto endpoint_it = handle_table_.find(local_handle);

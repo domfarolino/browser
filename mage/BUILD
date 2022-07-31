@@ -37,6 +37,10 @@ filegroup(
     "//mage/test:inviter_as_remote",
     "//mage/test:inviter_as_remote_block_on_acceptance",
     "//mage/test:child_as_receiver_and_callback",
+    "//mage/test:child_as_handle_sender",
+    "//mage/test:child_sends_accept_invitation_pipe_to_parent",
+    "//mage/test:child_sends_send_invitation_pipe_to_parent",
+    "//mage/test:child_sends_two_pipes_to_parent",
   ],
 )
 cc_test(

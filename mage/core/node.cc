@@ -46,8 +46,10 @@ Node::CreateMessagePipesAndGetEndpoints() {
   InitializeAndEntangleEndpoints(endpoint_1, endpoint_2);
   MageHandle handle_1 = Core::Get()->GetNextMageHandle(),
              handle_2 = Core::Get()->GetNextMageHandle();
-  Core::Get()->RegisterLocalHandle(handle_1, endpoint_1);
-  Core::Get()->RegisterLocalHandle(handle_2, endpoint_2);
+  Core::Get()->RegisterLocalHandleAndEndpoint(handle_1, endpoint_1);
+  Core::Get()->RegisterLocalHandleAndEndpoint(handle_2, endpoint_2);
+  CHECK_NE(local_endpoints_.find(endpoint_1->name), local_endpoints_.end());
+  CHECK_NE(local_endpoints_.find(endpoint_2->name), local_endpoints_.end());
   return {std::make_pair(handle_1, endpoint_1), std::make_pair(handle_2, endpoint_2)};
 }
 
@@ -237,9 +239,9 @@ void Node::OnReceivedInvitation(Message message) {
   local_endpoint->peer_address.node_name = inviter_name;
   local_endpoint->peer_address.endpoint_name = intended_endpoint_peer_name;
   local_endpoints_.insert({local_endpoint->name, local_endpoint});
-  printf("local_endpoint->name: %s\n", local_endpoint->name.c_str());
-  printf("local_endpoint->peer_address.node_name: %s\n", local_endpoint->peer_address.node_name.c_str());
-  printf("local_endpoint->peer_address.endpoint_name: %s\n", local_endpoint->peer_address.endpoint_name.c_str());
+  printf("  local_endpoint->name: %s\n", local_endpoint->name.c_str());
+  printf("  local_endpoint->peer_address.node_name: %s\n", local_endpoint->peer_address.node_name.c_str());
+  printf("  local_endpoint->peer_address.endpoint_name: %s\n", local_endpoint->peer_address.endpoint_name.c_str());
 
   node_channel_map_[inviter_name]->SendAcceptInvitation(
     temporary_remote_node_name,

@@ -109,6 +109,10 @@ enum class MageTestProcessType {
   kChildIsInviterAndRemote,
   kInviterAsRemoteBlockOnAcceptance,
   kChildReceiveHandle,
+  kParentReceiveHandle,
+  kChildSendsAcceptInvitationPipeToParent,
+  kChildSendsSendInvitationPipeToParent,
+  kChildSendsTwoPipesToParent,
   kNone,
 };
 
@@ -118,6 +122,10 @@ static const char kChildAcceptorAndRemoteBinary[] = "./bazel-bin/mage/test/invit
 static const char kChildInviterAndRemoteBinary[] = "./bazel-bin/mage/test/inviter_as_remote";
 static const char kInviterAsRemoteBlockOnAcceptancePath[] = "./bazel-bin/mage/test/inviter_as_remote_block_on_acceptance";
 static const char kChildReceiveHandleBinary[] = "./bazel-bin/mage/test/child_as_receiver_and_callback";
+static const char kParentReceiveHandleBinary[] = "./bazel-bin/mage/test/child_as_handle_sender";
+static const char kChildSendsAcceptInvitationPipeToParentBinary[] = "./bazel-bin/mage/test/child_sends_accept_invitation_pipe_to_parent";
+static const char kChildSendsSendInvitationPipeToParentBinary[] = "./bazel-bin/mage/test/child_sends_send_invitation_pipe_to_parent";
+static const char kChildSendsTwoPipesToParentBinary[] = "./bazel-bin/mage/test/child_sends_two_pipes_to_parent";
 
 class ProcessLauncher {
  public:
@@ -156,6 +164,18 @@ class ProcessLauncher {
           break;
         case MageTestProcessType::kChildReceiveHandle:
           rv = execl(kChildReceiveHandleBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
+          break;
+        case MageTestProcessType::kParentReceiveHandle:
+          rv = execl(kParentReceiveHandleBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
+          break;
+        case MageTestProcessType::kChildSendsAcceptInvitationPipeToParent:
+          rv = execl(kChildSendsAcceptInvitationPipeToParentBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
+          break;
+        case MageTestProcessType::kChildSendsSendInvitationPipeToParent:
+          rv = execl(kChildSendsSendInvitationPipeToParentBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
+          break;
+        case MageTestProcessType::kChildSendsTwoPipesToParent:
+          rv = execl(kChildSendsTwoPipesToParentBinary, "--mage-socket=", fd_as_string.c_str(), NULL);
           break;
         case MageTestProcessType::kNone:
           NOTREACHED();
@@ -305,6 +325,10 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MageHandle message_pipe){
+    EXPECT_NE(message_pipe, 0);
+    EXPECT_EQ(CoreHandleTable().size(), 1);
+    EXPECT_EQ(NodeLocalEndpoints().size(), 1);
+
     CHECK_ON_THREAD(base::ThreadType::UI);
     std::unique_ptr<TestInterfaceImpl> impl(
       new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, base::GetCurrentThreadTaskLoop().get())));
@@ -346,6 +370,10 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiverButChildBlocksOnAcceptance) {
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MageHandle message_pipe){
+    EXPECT_NE(message_pipe, 0);
+    EXPECT_EQ(CoreHandleTable().size(), 1);
+    EXPECT_EQ(NodeLocalEndpoints().size(), 1);
+
     CHECK_ON_THREAD(base::ThreadType::UI);
     std::unique_ptr<TestInterfaceImpl> impl(
       new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, main_thread.get())));
@@ -372,7 +400,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiverButChildBlocksOnAcceptance) {
   main_thread->Run();
 }
 
-// The next five tests exercise the scenario where we send an invitation to
+// The next three tests exercise the scenario where we send an invitation to
 // another process, and send handle-bearing messages to the invited process. We
 // expect messages that were queued on the handle being sent to get delivered to
 // the remote process. There are five different ways to test this scenario, each
@@ -413,7 +441,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiverButChildBlocksOnAcceptance) {
 //   3.) Send invitation (pipe used for FirstInterface)
 //   4.) Send one of SecondInterface's handles to other process via
 //       FirstInterface and assert everything was received
-TEST_F(MageTest, SendHandleOverInitialPipe_01) {
+TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_01) {
   launcher->Launch(MageTestProcessType::kChildReceiveHandle);
 
   // 1.) Send invitation (pipe used for FirstInterface)
@@ -465,7 +493,7 @@ TEST_F(MageTest, SendHandleOverInitialPipe_01) {
   second_remote->NotifyDoneAndQuit();
   main_thread->Run();
 }
-TEST_F(MageTest, SendHandleOverInitialPipe_02) {
+TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_02) {
   launcher->Launch(MageTestProcessType::kChildReceiveHandle);
 
   // 1.) Send invitation (pipe used for FirstInterface)
@@ -514,7 +542,7 @@ TEST_F(MageTest, SendHandleOverInitialPipe_02) {
   second_remote->NotifyDoneAndQuit();
   main_thread->Run();
 }
-TEST_F(MageTest, SendHandleOverInitialPipe_05) {
+TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_05) {
   launcher->Launch(MageTestProcessType::kChildReceiveHandle);
 
   // 1.) Create message pipes for SecondInterface and callback
@@ -564,8 +592,16 @@ TEST_F(MageTest, SendHandleOverInitialPipe_05) {
   main_thread->Run();
 }
 
-// This test is very similar to the above although it builds off of it.... TODO(domfarolino): Explain.
-TEST_F(MageTest, QueuedMessagesAfterAcceptInvitation) {
+// This test is very similar to the above although it builds off of it. The
+// above test queues messages two levels deep, one of which is endpoint-baring,
+// over the initial pipe derived from an invitation. This test does the same
+// thing, but the queueing is not done on the initial invitation pipe, but on
+// one created after the entire invitation ceremony is completed. This is
+// because during development, there was a time where we treated message
+// queueing differently depending on whether messages were queued on the
+// invitation pipe or a generic pipe made arbitrarily later. This test shows
+// that the two paths have been unified.
+TEST_F(MageTest, SendHandleAndQueuedMessageOverArbitraryPipe) {
   launcher->Launch(MageTestProcessType::kChildReceiveHandle);
 
   // 1.) Send invitation (pipe used for FirstInterface)
@@ -620,13 +656,237 @@ TEST_F(MageTest, QueuedMessagesAfterAcceptInvitation) {
   // This gives us two-levels deep of local queueing, which should be completely
   // flushed once we finally send the ThirdInterface receiver over to the child
   // process below.
-
   second_remote->SendReceiverForThirdInterface(third_interface_handles[1]);
   main_thread->Run();
 
   fourth_remote->NotifyDoneAndQuit();
   main_thread->Run();
 }
+
+// This implementation is only used for the `ReceiveHandleFromRemoteNode` test
+// below.
+class FirstInterfaceImplDummy final : public magen::FirstInterface {
+ public:
+  FirstInterfaceImplDummy(MageHandle handle) {
+    receiver_.Bind(handle, this);
+  }
+
+  void SendString(std::string msg) override { NOTREACHED(); }
+  void SendSecondInterfaceReceiver(MageHandle receiver) override {
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+  void SendHandles(MageHandle, MageHandle) override { NOTREACHED(); }
+
+ private:
+  mage::Receiver<magen::FirstInterface> receiver_;
+};
+// This test shows that when a node receives a message with a single handle, we
+// register two backing endpoints with `Core`. This is because every endpoint
+// must have a corresponding local peer. For more information on why this is the
+// case, see the documentation in https://github.com/domfarolino/browser/pull/32
+// under "Design for sending endpoints to other nodes".
+TEST_F(MageTest, ReceiveHandleFromRemoteNode) {
+  launcher->Launch(MageTestProcessType::kParentReceiveHandle);
+
+  MageHandle invitation_pipe =
+    mage::Core::SendInvitationAndGetMessagePipe(
+      launcher->GetLocalFd()
+    );
+
+  FirstInterfaceImplDummy dummy(invitation_pipe);
+
+  EXPECT_EQ(CoreHandleTable().size(), 2);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 2);
+
+  main_thread->Run();
+
+  // Once the message with a handle is received, we'll quit the loop and assert
+  // that only one endpoint is registered with `Core`.
+  EXPECT_EQ(CoreHandleTable().size(), 3);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 3);
+}
+
+////////////////// THESE TESTS ARE CURRENTLY FAILING ///////////////////////////
+class ChildPassInvitationPipeBackToParentMageHandler :
+    public magen::FirstInterface, public magen::SecondInterface {
+ public:
+  ChildPassInvitationPipeBackToParentMageHandler(MageHandle receiver) {
+    first_receiver_.Bind(receiver, this);
+  }
+
+  // FirstInterface overrides.
+  void SendString(std::string) override {
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+  void SendSecondInterfaceReceiver(MageHandle receiver) override {
+    second_receiver_.Bind(receiver, this);
+  }
+  void SendHandles(MageHandle, MageHandle) override { NOTREACHED(); }
+
+  // SecondInterface overrides.
+  // This is where the child's remote for `FirstInterface` will come in. We'll save it
+  void SendReceiverForThirdInterface(MageHandle remote) override {
+    remote_to_first_interface_ = remote;
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+  void SendStringAndNotifyDone(std::string) override { NOTREACHED(); }
+  void NotifyDoneAndQuit() override { NOTREACHED(); }
+
+  MageHandle GetFirstInterfaceHandle() {
+    // TODO(domfarolino): Can we check this against something more standard than
+    // just 0 literal?
+    CHECK_NE(remote_to_first_interface_, 0);
+    return remote_to_first_interface_;
+  }
+
+ private:
+  mage::Receiver<magen::FirstInterface> first_receiver_;
+  mage::Receiver<magen::SecondInterface> second_receiver_;
+  MageHandle remote_to_first_interface_;
+};
+// This test exercises weird but valid behavior: a child process takes the
+// message pipe it gets from accepting an invitation from its parent, and sends
+// it back to the parent (over a separate message pipe). Parent now has a
+// remote/receiver and should be fully functional.
+//
+// This test fails because whe the parent process send an invitation, it creates
+// two endpoints in `Node::local_endpoints_` (one for the invitation message
+// pipe, and one representing its peer in the invited process, the later will be
+// put into a "proxying" state once the invitation is accepted). When the child
+// sends its invitation handle to the parent, the parent
+// (`Core::RegisterLocalHandleAndEndpoint()`) finds and endpoint with the same
+// name already exists in the parent process (the invitation handle's proxying
+// peer) and blows up.
+TEST_F(MageTest, DISABLED_ChildPassAcceptInvitationPipeBackToParent) {
+  launcher->Launch(MageTestProcessType::kChildSendsAcceptInvitationPipeToParent);
+
+  MageHandle invitation_pipe =
+    mage::Core::SendInvitationAndGetMessagePipe(
+      launcher->GetLocalFd()
+    );
+
+  ChildPassInvitationPipeBackToParentMageHandler handler(invitation_pipe);
+
+  EXPECT_EQ(CoreHandleTable().size(), 2);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 2);
+
+  main_thread->Run();
+
+  EXPECT_EQ(CoreHandleTable().size(), 3);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 3);
+
+  MageHandle first_interface_remote_handle = handler.GetFirstInterfaceHandle();
+  mage::Remote<magen::FirstInterface> remote;
+  remote.Bind(first_interface_remote_handle);
+  remote->SendString("This is my test");
+
+  main_thread->Run();
+}
+// This test exercises weird but valid behavior: a child process takes the
+// message pipe it gets from sending an invitation to its parent, and sends
+// it back to the parent (over a separate message pipe). Parent now has a
+// remote/receiver and should be fully functional.
+//
+// This test fails because when the parent process gets the remote handle from
+// the child process (which was once the cild process's send-invitatin handle),
+// it creates a remote from it and tries to send messages bound for the parent
+// process's accept-invitation receiver. This blows up because the remote's peer is both local and remote:
+//   1.) Remote because the remote's peer is literally in the child process (now
+//       in a proxying state pointing back to the parent process's
+//       accept-invitation receiver)
+//   2.) Local because is in the parnet process, there is an endpoint with the
+//       same name as the remote's peer (aka the parent's accept-invitation
+//       pipe)
+TEST_F(MageTest, DISABLED_ChildPassSendInvitationPipeBackToParent) {
+  launcher->Launch(MageTestProcessType::kChildSendsSendInvitationPipeToParent);
+
+  mage::Core::AcceptInvitation(launcher->GetLocalFd(),
+                               std::bind([&](MageHandle message_pipe){
+    ChildPassInvitationPipeBackToParentMageHandler handler(message_pipe);
+
+    EXPECT_EQ(CoreHandleTable().size(), 1);
+    EXPECT_EQ(NodeLocalEndpoints().size(), 1);
+
+    main_thread->Run();
+
+    EXPECT_EQ(NodeLocalEndpoints().size(), 3);
+    EXPECT_EQ(CoreHandleTable().size(), 3);
+
+    MageHandle first_interface_remote_handle = handler.GetFirstInterfaceHandle();
+    mage::Remote<magen::FirstInterface> remote;
+    remote.Bind(first_interface_remote_handle);
+    remote->SendString("This is my test");
+
+    main_thread->Run();
+    main_thread->Quit();
+  }, std::placeholders::_1));
+
+  main_thread->Run();
+}
+
+// This class is only used for the `ChildPassRemoteAndReceiverToParent` test below.
+class ChildPassTwoPipesToParent : public magen::FirstInterface {
+ public:
+  ChildPassTwoPipesToParent(MageHandle receiver) {
+    first_receiver_.Bind(receiver, this);
+  }
+
+  // FirstInterface overrides.
+  void SendString(std::string) override { NOTREACHED(); }
+  void SendSecondInterfaceReceiver(MageHandle receiver) override { NOTREACHED(); }
+  void SendHandles(
+      MageHandle remote_to_second_interface,
+      MageHandle receiver_for_second_interface) override {
+    remote_to_second_interface_ = remote_to_second_interface;
+    receiver_for_second_interface_ = receiver_for_second_interface;
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+
+  std::pair<MageHandle, MageHandle> GetSecondInterfaceHandles() {
+    // TODO(domfarolino): Can we check this against something more standard than
+    // just 0 literal?
+    CHECK_NE(remote_to_second_interface_, 0);
+    CHECK_NE(receiver_for_second_interface_, 0);
+    return std::make_pair(remote_to_second_interface_, receiver_for_second_interface_);;
+  }
+
+ private:
+  mage::Receiver<magen::FirstInterface> first_receiver_;
+  MageHandle remote_to_second_interface_;
+  MageHandle receiver_for_second_interface_;
+};
+// This test exercises behavior where a child process creates two entangled
+// message pipes and sends both of them to the parent process. The parent
+// process binds both to a remote/receiver pair and tries to use them.
+//
+// This test fails for the same reason that
+// `ChildPassSendInvitationPipeBackToParent` does above.
+TEST_F(MageTest, DISABLED_ChildPassRemoteAndReceiverToParent) {
+  launcher->Launch(MageTestProcessType::kChildSendsTwoPipesToParent);
+
+  MageHandle invitation_pipe =
+    mage::Core::SendInvitationAndGetMessagePipe(
+      launcher->GetLocalFd()
+    );
+
+  ChildPassTwoPipesToParent handler(invitation_pipe);
+
+  EXPECT_EQ(CoreHandleTable().size(), 2);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 2);
+
+  main_thread->Run();
+
+  EXPECT_EQ(CoreHandleTable().size(), 4);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 4);
+
+  std::pair<MageHandle, MageHandle> second_interface_handles =
+      handler.GetSecondInterfaceHandles();
+  mage::Remote<magen::SecondInterface> remote;
+  remote.Bind(second_interface_handles.first);
+  // This fails!
+  remote->SendStringAndNotifyDone("message");
+}
+///////////////////// END CURRENTLY FAILING TESTS //////////////////////////////
 
 TEST_F(MageTest, InProcessQueuedMessagesAfterReceiverBound) {
   std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
@@ -780,6 +1040,9 @@ TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendBeforeReceiverBound) {
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_remote_handle);
 
+  EXPECT_EQ(CoreHandleTable().size(), 4);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 4);
+
   // The actual message sending:
   first_remote->SendSecondInterfaceReceiver(second_receiver_handle);
   second_remote->SendStringAndNotifyDone("message");
@@ -789,6 +1052,11 @@ TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendBeforeReceiverBound) {
   // bound immediately, and `second_impl` gets bound asynchronously by `first_impl`.
   SecondInterfaceImpl second_impl;
   FirstInterfaceImpl first_impl(first_receiver_handle, second_impl);
+
+  // None of the in-process sending actually changed how many handles or
+  // endpoints were registered.
+  EXPECT_EQ(CoreHandleTable().size(), 4);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 4);
 
   // Observe the messages being received "out-of-order" compared to the order
   // they were sent in.
@@ -820,6 +1088,9 @@ TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendAfterReceiverBound) {
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_remote_handle);
 
+  EXPECT_EQ(CoreHandleTable().size(), 4);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 4);
+
   // The two backing implementations of our mage interfaces. `first_impl` gets
   // bound immediately, and `second_impl` gets bound asynchronously by `first_impl`.
   SecondInterfaceImpl second_impl;
@@ -833,6 +1104,11 @@ TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendAfterReceiverBound) {
   first_remote->SendSecondInterfaceReceiver(second_receiver_handle);
   second_remote->SendStringAndNotifyDone("message");
   first_remote->SendString("Second message for FirstInterface");
+
+  // None of the in-process sending actually changed how many handles or
+  // endpoints were registered.
+  EXPECT_EQ(CoreHandleTable().size(), 4);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 4);
 
   // Observe the messages being received "out-of-order" compared to the order
   // they were sent in.

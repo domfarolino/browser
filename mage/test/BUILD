@@ -48,3 +48,51 @@ cc_binary(
   ],
   visibility = ["//visibility:public"],
 )
+cc_binary(
+  name = "child_as_handle_sender",
+  srcs = [
+    "child_as_handle_sender.cc",
+  ],
+  deps = [
+    "//base:base",
+    "//mage:mage",
+    "//mage/test/magen:include",
+  ],
+  visibility = ["//visibility:public"],
+)
+cc_binary(
+  name = "child_sends_accept_invitation_pipe_to_parent",
+  srcs = [
+    "child_sends_accept_invitation_pipe_to_parent.cc",
+  ],
+  deps = [
+    "//base:base",
+    "//mage:mage",
+    "//mage/test/magen:include",
+  ],
+  visibility = ["//visibility:public"],
+)
+cc_binary(
+  name = "child_sends_send_invitation_pipe_to_parent",
+  srcs = [
+    "child_sends_send_invitation_pipe_to_parent.cc",
+  ],
+  deps = [
+    "//base:base",
+    "//mage:mage",
+    "//mage/test/magen:include",
+  ],
+  visibility = ["//visibility:public"],
+)
+cc_binary(
+  name = "child_sends_two_pipes_to_parent",
+  srcs = [
+    "child_sends_two_pipes_to_parent.cc",
+  ],
+  deps = [
+    "//base:base",
+    "//mage:mage",
+    "//mage/test/magen:include",
+  ],
+  visibility = ["//visibility:public"],
+)

@@ -78,17 +78,20 @@ class Core {
 
     // Populating an `EndpointDescriptor` that is bound for another process is
     // really easy.
+    // TODO(domfarolino): (1) below describes an invariant that we'll probably
+    // have to change to support the valid behavior exercised by a few failing
+    // tests (`MageTest.ChildPassAcceptInvitationPipeBackToParent`,
+    // `MageTest.ChildPassSendInvitationPipeBackToParent`,
+    //  k`MageTest.ChildPassRemoteAndReceiverToParent`).
+    //
     //   1.) An endpoint's name never changes regardless of what process it
-    //       lives in, so we can get that information from the endpoint in this
-    //       process before we "send it".
-    //   2.) Its peer node name when it lives in another process is just the
-    //       current process that `endpoint_being_sent` lives in before being
-    //       "sent", so we already have that information.
-    //   3.) Its peer endpoint's name that this endpoint will have once it lives
-    //       in another process is also just its current peer endpoint's name,
-    //       since again that will never change.
+    //       lives in (ahem, see note above), so we can get that information
+    //       from the endpoint in this process before we "send it".
+    //   2.) Its peer node name when it lives in the other process is just its
+    //       current peer node name.
+    //   3.) Its peer endpoint's name when it lives in the other process is also
+    //       just its current peer endpoint's name, since again that will never change.
     std::shared_ptr<Endpoint> endpoint_being_sent = Get()->handle_table_.find(handle_to_send)->second;
-    CHECK_EQ(Get()->node_->name_, endpoint_being_sent->peer_address.node_name);
     memcpy(endpoint_descriptor_to_populate.endpoint_name, endpoint_being_sent->name.c_str(), kIdentifierSize);
     memcpy(endpoint_descriptor_to_populate.peer_node_name, endpoint_being_sent->peer_address.node_name.c_str(), kIdentifierSize);
     memcpy(endpoint_descriptor_to_populate.peer_endpoint_name, endpoint_being_sent->peer_address.endpoint_name.c_str(), kIdentifierSize);
@@ -153,14 +156,14 @@ class Core {
     local_endpoint->peer_address.node_name.assign(endpoint_descriptor.peer_node_name, kIdentifierSize);
     local_endpoint->peer_address.endpoint_name.assign(endpoint_descriptor.peer_endpoint_name, kIdentifierSize);
     MageHandle local_handle = Core::Get()->GetNextMageHandle();
-    Core::Get()->RegisterLocalHandle(local_handle, std::move(local_endpoint));
+    Core::Get()->RegisterLocalHandleAndEndpoint(local_handle, std::move(local_endpoint));
     return local_handle;
   }
 
   MageHandle GetNextMageHandle();
   void OnReceivedAcceptInvitation();
   void OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint);
-  void RegisterLocalHandle(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint);
+  void RegisterLocalHandleAndEndpoint(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint);
 
  private:
   friend class MageTest;
