@@ -144,7 +144,7 @@ class Core {
     NOTREACHED();
   }
 
-  static MageHandle RecoverMageHandleFromEndpointDescriptor(const EndpointDescriptor& endpoint_descriptor) {
+  static MageHandle RecoverNewMageHandleFromEndpointDescriptor(const EndpointDescriptor& endpoint_descriptor) {
     printf("Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
     endpoint_descriptor.Print();
 

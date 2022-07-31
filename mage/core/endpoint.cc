@@ -18,7 +18,7 @@ void Endpoint::AcceptMessageOnIOThread(Message message) {
   printf("  endpoints_in_message.sie()= %lu\n", endpoints_in_message.size());
   for (const EndpointDescriptor& endpoint_descriptor : endpoints_in_message) {
     MageHandle local_handle =
-        mage::Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor);
+        mage::Core::RecoverNewMageHandleFromEndpointDescriptor(endpoint_descriptor);
     endpoint_descriptor.Print();
     printf("     Queueing handle to message after recovering endpoint\n");
     message.QueueHandle(local_handle);
