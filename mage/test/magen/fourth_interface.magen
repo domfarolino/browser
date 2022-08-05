@@ -1,4 +1,4 @@
 interface FourthInterface {
-  SendStringAndNotifyDone(string msg);
-  NotifyDoneAndQuit();
+  SendStringAndNotifyDoneViaCallback(string msg);
+  NotifyDoneViaCallback();
 }

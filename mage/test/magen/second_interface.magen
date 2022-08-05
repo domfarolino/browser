@@ -1,6 +1,6 @@
 interface SecondInterface {
-  SendStringAndNotifyDone(string msg);
-  NotifyDoneAndQuit();
+  SendStringAndNotifyDoneViaCallback(string msg);
+  NotifyDoneViaCallback();
 
   SendReceiverForThirdInterface(MageHandle receiver);
 }

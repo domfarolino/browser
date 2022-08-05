@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -143,13 +144,15 @@ class ProcessLauncher {
   ~ProcessLauncher() {
     EXPECT_EQ(close(fds_[0]), 0);
     EXPECT_EQ(close(fds_[1]), 0);
-    // Can we kill the child process too?
+    if (child_pid_ != 0)
+      EXPECT_EQ(kill(child_pid_, SIGKILL), 0);
   }
 
   void Launch(const char child_binary[]) {
     std::string fd_as_string = std::to_string(GetRemoteFd());
     pid_t rv = fork();
     if (rv != 0) { // Parent process.
+      child_pid_ = rv;
       return;
     }
 
@@ -173,6 +176,8 @@ class ProcessLauncher {
 
  private:
   int fds_[2];
+  // Set when we launch the child process.
+  pid_t child_pid_ = 0;
 };
 
 }; // namespace
@@ -451,7 +456,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_01) {
   // 4.) Send messages to SecondInterface and assert everything was received
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_handles[0]);
-  second_remote->SendStringAndNotifyDone("Message for SecondInterface");
+  second_remote->SendStringAndNotifyDoneViaCallback("Message for SecondInterface");
 
   std::unique_ptr<CallbackInterfaceImpl> impl(
     new CallbackInterfaceImpl(callback_handles[0],
@@ -468,7 +473,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_01) {
   EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 
   // 5.) Send more messages and assert they are received
-  second_remote->NotifyDoneAndQuit();
+  second_remote->NotifyDoneViaCallback();
   main_thread->Run();
 }
 TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_02) {
@@ -493,7 +498,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_02) {
   // 3.) Send messages to SecondInterface
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_handles[0]);
-  second_remote->SendStringAndNotifyDone("Message for SecondInterface");
+  second_remote->SendStringAndNotifyDoneViaCallback("Message for SecondInterface");
 
   // 4.) Send one of SecondInterface's handles to other process via
   //     FirstInterface and assert everything was received
@@ -517,7 +522,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_02) {
   EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 
   // 5.) Send more messages and assert they are received
-  second_remote->NotifyDoneAndQuit();
+  second_remote->NotifyDoneViaCallback();
   main_thread->Run();
 }
 TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_05) {
@@ -533,7 +538,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_05) {
   // 2.) Send messages to SecondInterface
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_handles[0]);
-  second_remote->SendStringAndNotifyDone("Message for SecondInterface");
+  second_remote->SendStringAndNotifyDoneViaCallback("Message for SecondInterface");
 
   // 3.) Send invitation (pipe used for FirstInterface)
   MageHandle invitation_pipe =
@@ -566,7 +571,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_05) {
   EXPECT_EQ(NodeLocalEndpoints().size(), 6);
 
   // 5.) Send more messages and assert they are received
-  second_remote->NotifyDoneAndQuit();
+  second_remote->NotifyDoneViaCallback();
   main_thread->Run();
 }
 
@@ -602,7 +607,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverArbitraryPipe) {
   // 4.) Send messages to SecondInterface and assert everything was received
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_handles[0]);
-  second_remote->SendStringAndNotifyDone("Message for SecondInterface");
+  second_remote->SendStringAndNotifyDoneViaCallback("Message for SecondInterface");
 
   std::unique_ptr<CallbackInterfaceImpl> impl(
     new CallbackInterfaceImpl(callback_handles[0],
@@ -627,7 +632,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverArbitraryPipe) {
 
   // Start queueing local messages on ThirdInterface and FourthInterface.
   third_remote->SendReceiverForFourthInterface(fourth_interface_handles[1]);
-  fourth_remote->SendStringAndNotifyDone("Message for FourthInterface");
+  fourth_remote->SendStringAndNotifyDoneViaCallback("Message for FourthInterface");
 
   // At this point we've queued a message on `third_remote` that sends a handle
   // over for `FourthInterface` and we've queued a message on `fourth_remote`.
@@ -637,7 +642,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverArbitraryPipe) {
   second_remote->SendReceiverForThirdInterface(third_interface_handles[1]);
   main_thread->Run();
 
-  fourth_remote->NotifyDoneAndQuit();
+  fourth_remote->NotifyDoneViaCallback();
   main_thread->Run();
 }
 
@@ -659,11 +664,7 @@ class FirstInterfaceImplDummy final : public magen::FirstInterface {
   mage::Receiver<magen::FirstInterface> receiver_;
 };
 // This test shows that when a node receives a message with a single handle, we
-// register two backing endpoints with `Core`. This is because every endpoint
-// must have a corresponding local peer. For more information on why this is the
-// case, see the documentation in https://github.com/domfarolino/browser/pull/32
-// under "Design for sending endpoints to other nodes".
-// TODO(domfarolino): Fix the child process leak in this test.
+// register two backing endpoints with `Core`.
 TEST_F(MageTest, ReceiveHandleFromRemoteNode) {
   launcher->Launch(kParentReceiveHandle);
 
@@ -709,8 +710,8 @@ class ChildPassInvitationPipeBackToParentMageHandler :
     remote_to_first_interface_ = remote;
     base::GetCurrentThreadTaskLoop()->Quit();
   }
-  void SendStringAndNotifyDone(std::string) override { NOTREACHED(); }
-  void NotifyDoneAndQuit() override { NOTREACHED(); }
+  void SendStringAndNotifyDoneViaCallback(std::string) override { NOTREACHED(); }
+  void NotifyDoneViaCallback() override { NOTREACHED(); }
 
   MageHandle GetFirstInterfaceHandle() {
     // TODO(domfarolino): Can we check this against something more standard than
@@ -728,7 +729,6 @@ class ChildPassInvitationPipeBackToParentMageHandler :
 // message pipe it gets from accepting an invitation from its parent, and sends
 // it back to the parent (over a separate message pipe). Parent now has a
 // remote/receiver and should be fully functional.
-// TODO(domfarolino): Fix the child process leak in this test.
 TEST_F(MageTest, ChildPassAcceptInvitationPipeBackToParent) {
   launcher->Launch(kChildSendsAcceptInvitationPipeToParent);
 
@@ -758,7 +758,6 @@ TEST_F(MageTest, ChildPassAcceptInvitationPipeBackToParent) {
 // message pipe it gets from sending an invitation to its parent, and sends
 // it back to the parent (over a separate message pipe). Parent now has a
 // remote/receiver and should be fully functional.
-// TODO(domfarolino): Fix the child process leak in this test.
 TEST_F(MageTest, ChildPassSendInvitationPipeBackToParent) {
   launcher->Launch(kChildSendsSendInvitationPipeToParent);
 
@@ -805,10 +804,14 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface, public magen::Se
   }
 
   // SecondInterface overrides.
-  void SendStringAndNotifyDone(std::string msg) override {
+  // Note that while the name here indicates that we're using the
+  // `magen::Callback` interface to notify the parent that we've received the
+  // message, we're actually going to abuse this API since it is bound to the
+  // same process as the parent, and just quit the current loop.
+  void SendStringAndNotifyDoneViaCallback(std::string msg) override {
     base::GetCurrentThreadTaskLoop()->Quit();
   }
-  void NotifyDoneAndQuit() override { NOTREACHED(); }
+  void NotifyDoneViaCallback() override { NOTREACHED(); }
   void SendReceiverForThirdInterface(MageHandle receiver) override { NOTREACHED(); }
 
   void BindSecondInterface(MageHandle receiver) {
@@ -832,7 +835,6 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface, public magen::Se
 // This test exercises behavior where a child process creates two entangled
 // message pipes and sends both of them to the parent process. The parent
 // process binds both to a remote/receiver pair and tries to use them.
-// TODO(domfarolino): Fix the child process leak in this test.
 TEST_F(MageTest, ChildPassRemoteAndReceiverToParent) {
   launcher->Launch(kChildSendsTwoPipesToParent);
 
@@ -855,7 +857,7 @@ TEST_F(MageTest, ChildPassRemoteAndReceiverToParent) {
       handler.GetSecondInterfaceHandles();
   mage::Remote<magen::SecondInterface> remote;
   remote.Bind(second_interface_handles.first);
-  remote->SendStringAndNotifyDone("message");
+  remote->SendStringAndNotifyDoneViaCallback("message");
 
   handler.BindSecondInterface(second_interface_handles.second);
   main_thread->Run();
@@ -950,11 +952,17 @@ class SecondInterfaceImpl final : public magen::SecondInterface {
     receiver_.Bind(receiver, this);
   }
 
-  void SendStringAndNotifyDone(std::string msg) override {
+  // Note that even though this API indicates we're going to use the
+  // `magen::Callback` interface to notify the parent process that we've
+  // received the message, since this implementation is bound to the same
+  // process as the parent, we're going to abuse the API a bit and just quit the
+  // current task loop. That will allow the test to continue after we've
+  // received this message, having the same intended effect.
+  void SendStringAndNotifyDoneViaCallback(std::string msg) override {
     send_string_and_notify_done_called = true;
     base::GetCurrentThreadTaskLoop()->Quit();
   }
-  void NotifyDoneAndQuit() override { NOTREACHED(); }
+  void NotifyDoneViaCallback() override { NOTREACHED(); }
   // Not used for this test.
   void SendReceiverForThirdInterface(MageHandle) override { NOTREACHED(); }
 
@@ -1023,7 +1031,7 @@ TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendBeforeReceiverBound) {
 
   // The actual message sending:
   first_remote->SendSecondInterfaceReceiver(second_receiver_handle);
-  second_remote->SendStringAndNotifyDone("message");
+  second_remote->SendStringAndNotifyDoneViaCallback("message");
   first_remote->SendString("Second message for FirstInterface");
 
   // The two backing implementations of our mage interfaces. `first_impl` gets
@@ -1080,7 +1088,7 @@ TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendAfterReceiverBound) {
   // lines above.
   // The actual message sending:
   first_remote->SendSecondInterfaceReceiver(second_receiver_handle);
-  second_remote->SendStringAndNotifyDone("message");
+  second_remote->SendStringAndNotifyDoneViaCallback("message");
   first_remote->SendString("Second message for FirstInterface");
 
   // None of the in-process sending actually changed how many handles or

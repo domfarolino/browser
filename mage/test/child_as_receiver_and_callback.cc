@@ -24,12 +24,12 @@
 // process (test runner) is:
 //   1.) FirstInterface::SendString()
 //   2.) FirstInterface::SendHandles()
-//   3.) SecondInterface::SendStringAndNotifyDone()
-//   4.) SecondInterface::NotifyDoneAndQuit() (only if the test stops here)
+//   3.) SecondInterface::SendStringAndNotifyDoneViaCallback()
+//   4.) SecondInterface::NotifyDoneViaCallback() (only if the test stops here)
 //   5.) [Maybe] SecondInterface::SendReceiverForThirdInterface()
 //   6.) [If above] ThirdInterface::SendReceiverForFourthInterface()
-//   7.) [If above] FourthInterface::SendStringAndNotifyDone()
-//   8/) [If above] FourthInterface::NotifyDoneAndQuit()
+//   7.) [If above] FourthInterface::SendStringAndNotifyDoneViaCallback()
+//   8/) [If above] FourthInterface::NotifyDoneViaCallback()
 
 bool first_interface_received_send_string = false;
 bool first_interface_received_send_handles = false;
@@ -42,18 +42,15 @@ class FourthInterfaceImpl final : public magen::FourthInterface {
     receiver_.Bind(receiver, this);
   }
 
-  void SendStringAndNotifyDone(std::string message) {
+  void SendStringAndNotifyDoneViaCallback(std::string message) {
     printf("\033[34;1mFourthInterfaceImpl received message: %s\033[0m\n",
            message.c_str());
 
     global_callback_remote->NotifyDone();
   }
 
-  void NotifyDoneAndQuit() {
+  void NotifyDoneViaCallback() {
     global_callback_remote->NotifyDone();
-
-    // This allows the loop, and therefore this process, to terminate.
-    base::GetCurrentThreadTaskLoop()->Quit();
   }
 
  private:
@@ -84,7 +81,7 @@ class SecondInterfaceImpl final : public magen::SecondInterface {
     receiver_.Bind(receiver, this);
   }
 
-  void SendStringAndNotifyDone(std::string message) override {
+  void SendStringAndNotifyDoneViaCallback(std::string message) override {
     CHECK(first_interface_received_send_string);
     CHECK(first_interface_received_send_handles);
 
@@ -96,11 +93,8 @@ class SecondInterfaceImpl final : public magen::SecondInterface {
     global_callback_remote->NotifyDone();
   }
 
-  void NotifyDoneAndQuit() override {
+  void NotifyDoneViaCallback() override {
     global_callback_remote->NotifyDone();
-
-    // This allows the loop, and therefore this process, to terminate.
-    base::GetCurrentThreadTaskLoop()->Quit();
   }
 
   void SendReceiverForThirdInterface(mage::MageHandle receiver) override {
