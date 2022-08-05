@@ -73,8 +73,9 @@ void Endpoint::AcceptMessage(Message message) {
                          std::move(message)));
       break;
     case State::kUnboundAndProxying:
-      printf("Uh-oh, not reached!!!\n");
-      NOTREACHED();
+      printf("Endpoint::AcceptMessage() received a message when in the proxying state. Forwarding message to proxy_target=(%s : %s)\n", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
+      memcpy(message.GetMutableMessageHeader().target_endpoint, proxy_target.endpoint_name.c_str(), kIdentifierSize);
+      Core::ForwardMessage(shared_from_this(), std::move(message));
       break;
   }
 }
@@ -117,11 +118,12 @@ void Endpoint::UnregisterDelegate() {
   // TODO(domfarolino): Support unregistering a delegate.
 }
 
-void Endpoint::SetProxying(std::string in_node_to_proxy_to) {
+void Endpoint::SetProxying(std::string in_node_name, std::string in_endpoint_name) {
   CHECK_EQ(state, State::kUnboundAndQueueing);
   state = State::kUnboundAndProxying;
-  node_to_proxy_to = in_node_to_proxy_to;
-  printf("Endpoint::SetProxying() node_to_proxy_to: %s\n", node_to_proxy_to.c_str());
+  proxy_target.node_name = in_node_name;
+  proxy_target.endpoint_name = in_endpoint_name;
+  printf("Endpoint::SetProxying() proxy_target: (%s, %s):\n", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
 }
 
 }; // namspace mage

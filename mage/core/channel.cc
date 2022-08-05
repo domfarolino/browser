@@ -80,7 +80,6 @@ void Channel::SetRemoteNodeName(const std::string& name) {
 }
 
 void Channel::SendInvitation(std::string inviter_name,
-                             std::string intended_endpoint_name,
                              std::string intended_endpoint_peer_name) {
   CHECK_ON_THREAD(base::ThreadType::UI);
   Message message(MessageType::SEND_INVITATION);
@@ -95,10 +94,6 @@ void Channel::SendInvitation(std::string inviter_name,
   memcpy(params.data()->temporary_remote_node_name, remote_node_name_.c_str(),
          remote_node_name_.size());
 
-  // Serialize intended endpoint name.
-  memcpy(params.data()->intended_endpoint_name, intended_endpoint_name.c_str(),
-         intended_endpoint_name.size());
-
   // Serialize intended endpoint peer name.
   memcpy(params.data()->intended_endpoint_peer_name,
          intended_endpoint_peer_name.c_str(),
@@ -109,7 +104,8 @@ void Channel::SendInvitation(std::string inviter_name,
 }
 
 void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
-                                   std::string actual_node_name) {
+                                   std::string actual_node_name,
+                                   std::string accept_invitation_endpoint_name) {
   // CHECK(IsOnIOThread());
   Message message(MessageType::ACCEPT_INVITATION);
   MessageFragment<SendAcceptInvitationParams> params(message);
@@ -122,6 +118,10 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
   // Serialize actual node name.
   memcpy(params.data()->actual_node_name, actual_node_name.c_str(),
          actual_node_name.size());
+
+  // Serialize actual node name.
+  memcpy(params.data()->accept_invitation_endpoint_name, accept_invitation_endpoint_name.c_str(),
+         accept_invitation_endpoint_name.size());
 
   message.FinalizeSize();
   SendMessage(std::move(message));

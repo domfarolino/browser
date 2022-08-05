@@ -28,12 +28,7 @@ int main(int argc, char** argv) {
   CHECK_EQ(argc, 2);
   int fd = std::stoi(argv[1]);
   mage::MageHandle message_pipe =
-    mage::Core::SendInvitationAndGetMessagePipe(fd, [&](){
-      CHECK_ON_THREAD(base::ThreadType::UI);
-      // Asynchronously quit the test now that we know that below message, that
-      // was queued synchronously, has been sent to the remote process.
-      base::GetCurrentThreadTaskLoop()->Quit();
-    });
+    mage::Core::SendInvitationAndGetMessagePipe(fd);
 
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(message_pipe);
@@ -47,7 +42,6 @@ int main(int argc, char** argv) {
   // allowed.
   second_remote->SendReceiverForThirdInterface(message_pipe);
 
-  // TODO(domfarolino): Confirm that we need this.
   main_thread->Run();
   return 0;
 }

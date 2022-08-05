@@ -231,20 +231,38 @@ struct ArrayHeader {
 
 // TODO(domfarolino): Document this.
 struct EndpointDescriptor {
+  // The endpoint that `this` describes in the node that `this` was created in.
+  // It allows consumers of `this` to look up the endpoint that backs `this` in
+  // said node/process. See the next member for the cross-process case.
   char endpoint_name[kIdentifierSize];
+  // If `this` is passed cross-process as a directive to create an endpoint over
+  // there, the remote endpoint we create cannot have the same name as
+  // `endpoint_name`. Therefore, we up-front generate a new name that this
+  // endpoint *would* have if it were passed to another node. That way, if
+  // `this` actually does get passed to another process, the originating
+  // process:
+  //   1.) Looks up the endpoint backing `this`, via `endpoint_name`
+  //   2.) Sets that endpoint's `proxy_target` to the address described by
+  //       (destinationnode/`cross_node_endpoint_name`)
+  //   3.) Sends `this` to the destination node, so that it creates an endpoint
+  //       whose name is `cross_node_endpoint_name`, so that the originating
+  //       process can automatically start targeting it.
+  char cross_node_endpoint_name[kIdentifierSize];
   char peer_node_name[kIdentifierSize];
   char peer_endpoint_name[kIdentifierSize];
 
   void Print() const {
     printf("  endpoint_name: %s\n", endpoint_name);
+    printf("  cross_node_endpoint_name: %s\n", cross_node_endpoint_name);
     printf("  peer_node_name: %s\n", peer_node_name);
     printf("  peer_endpoint_name: %s\n", peer_endpoint_name);
   }
 
-  EndpointDescriptor() {}
+  EndpointDescriptor() = default;
 
   EndpointDescriptor(const EndpointDescriptor& other) {
     memcpy(endpoint_name, other.endpoint_name, kIdentifierSize);
+    memcpy(cross_node_endpoint_name, other.cross_node_endpoint_name, kIdentifierSize);
     memcpy(peer_node_name, other.peer_node_name, kIdentifierSize);
     memcpy(peer_endpoint_name, other.peer_endpoint_name, kIdentifierSize);
   }
@@ -449,7 +467,10 @@ struct SendInvitationParams {
   // its temporary name at all, see the comments below in
   // `SendAcceptInvitationParams`.
   char temporary_remote_node_name[kIdentifierSize];
-  char intended_endpoint_name[kIdentifierSize];
+  // When a node receives an invitation, it generates its own name for the
+  // endpoint that backs the accept-invitation handle. But that that endpoint
+  // must record its peer as the endpoint in the sender, which is what this
+  // parameter captures.
   char intended_endpoint_peer_name[kIdentifierSize];
 };
 
@@ -458,10 +479,16 @@ struct SendAcceptInvitationParams {
   // may have sent invitations to multiple nodes, so it might not know which one
   // is responding it we just send our *actual* name which it has never seen
   // before. Therefore we identify ourself with the temporary node name that we
-  // know the inviter is aware of. It will take our actual node name and update
-  // its map of nodes.
+  // know the inviter is aware of. It serves as an authentication token for the
+  // inviter process, which will take our actual node name and update its map of
+  // nodes.
   char temporary_remote_node_name[kIdentifierSize];
   char actual_node_name[kIdentifierSize];
+  // The name of the endpoint that the invitation acceptor created when it
+  // accepted the invitation. Its peer is
+  // `SendInvitationParams::intended_endpoint_peer_name`. The inviter needs this
+  // name for the send-invitation handle's local peer's proxy target.
+  char accept_invitation_endpoint_name[kIdentifierSize];
 };
 
 }; // namspace mage

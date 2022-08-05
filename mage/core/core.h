@@ -43,6 +43,19 @@ class Core {
     CHECK_NE(endpoint_it, Get()->handle_table_.end());
     Get()->node_->SendMessage(endpoint_it->second, std::move(message));
   }
+  // TODO(domfarolino): This is temporary to let `Endpoint` forward messages
+  // that it gets when it is in the proxying state. Really we should have a
+  // cleaner way to access node from endpoint.
+  static void ForwardMessage(std::shared_ptr<Endpoint> endpoint, Message message) {
+    CHECK(endpoint->state == Endpoint::State::kUnboundAndProxying);
+
+    if (endpoint->proxy_target.node_name == Get()->node_->name_) {
+      // TODO(domfarolino): We need a test for this case.
+      NOTREACHED();
+    } else {
+      Get()->node_->node_channel_map_[endpoint->proxy_target.node_name]->SendMessage(std::move(message));
+    }
+  }
   static void BindReceiverDelegateToEndpoint(
       MageHandle local_handle,
       Endpoint::ReceiverDelegate* delegate,
@@ -71,28 +84,35 @@ class Core {
     std::string peer_node_name = local_endpoint_of_preexisting_connection->peer_address.node_name;
     std::string peer_endpoint_name = local_endpoint_of_preexisting_connection->peer_address.endpoint_name;
 
-    printf("**************PutHandleToSendInProxyingStateIfTargetIsRemote() populating EndpointDescriptor:\n");
+    printf("**************PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState() populating EndpointDescriptor:\n");
     printf("    sending endpoint name: %s\n", local_endpoint_of_preexisting_connection->name.c_str());
     printf("    sending endpoint [peer node: %s]\n", peer_node_name.c_str());
     printf("    sending endpoint [peer endpoint: %s]\n", peer_endpoint_name.c_str());
 
-    // Populating an `EndpointDescriptor` that is bound for another process is
-    // really easy.
-    // TODO(domfarolino): (1) below describes an invariant that we'll probably
-    // have to change to support the valid behavior exercised by a few failing
-    // tests (`MageTest.ChildPassAcceptInvitationPipeBackToParent`,
-    // `MageTest.ChildPassSendInvitationPipeBackToParent`,
-    //  k`MageTest.ChildPassRemoteAndReceiverToParent`).
-    //
-    //   1.) An endpoint's name never changes regardless of what process it
-    //       lives in (ahem, see note above), so we can get that information
-    //       from the endpoint in this process before we "send it".
-    //   2.) Its peer node name when it lives in the other process is just its
-    //       current peer node name.
-    //   3.) Its peer endpoint's name when it lives in the other process is also
-    //       just its current peer endpoint's name, since again that will never change.
+    // Populating an `EndpointDescriptor` is easy regardless of whether it is
+    // being sent same-process or cross-process.
+    //   1.) Fill out the name of the endpoint that we are sending. This is used
+    //       in case the descriptor is sent to a same-process endpoint, in which
+    //       case we don't actually create a "new" endpoint from this
+    //       descriptor, but we know to just target the already-existing one
+    //       with this name.
+    //   2.) Generate and fill out a new `cross_node_endpoint_name`: this is
+    //       used as the target endpoint's name upon endpoint creation if the
+    //       descriptor is sent cross-process. We generate this up-front so that
+    //       if the descriptor does go cross-process, the sending endpoint
+    //       automatically knows the name by which to target the remote
+    //       endpoint. This name is used in the `proxy_target` of the endpoint
+    //       (in *this* process) that we're "sending".
+    // TODO(domfarolino): I think there is a bug with the following two steps.
+    // See the test case in https://github.com/domfarolino/browser/pull/32 that
+    // starts with "Process A creates two endpoints.
+    //   3.) The target endpoint's peer node name when it lives in another other
+    //       process is just the current endpoint's peer node name.
+    //   4.) Same as (3), for the peer's endpoint name.
     std::shared_ptr<Endpoint> endpoint_being_sent = Get()->handle_table_.find(handle_to_send)->second;
     memcpy(endpoint_descriptor_to_populate.endpoint_name, endpoint_being_sent->name.c_str(), kIdentifierSize);
+    std::string cross_node_endpoint_name = util::RandomIdentifier();
+    memcpy(endpoint_descriptor_to_populate.cross_node_endpoint_name, cross_node_endpoint_name.c_str(), kIdentifierSize);
     memcpy(endpoint_descriptor_to_populate.peer_node_name, endpoint_being_sent->peer_address.node_name.c_str(), kIdentifierSize);
     memcpy(endpoint_descriptor_to_populate.peer_endpoint_name, endpoint_being_sent->peer_address.endpoint_name.c_str(), kIdentifierSize);
     printf("endpoint_descriptor_to_populate.endpoint_name: %s\n", endpoint_descriptor_to_populate.endpoint_name);
@@ -104,23 +124,12 @@ class Core {
     // proxying state. We only put endpoints into the proxying state when they
     // are traveling to another node, and therefore have to proxy messages to
     // another node to find the final non-proxying endpoint.
-    //
-    // Note that it is possible `handle_to_send` is being sent over a purely
-    // local connection whose other end has not been bound yet. If the other end
-    // gets sent to a remote node before being bound, we'll obviously have to
-    // forward all of the messages that were queued over the preexisting local
-    // connection to the remote peer. But some of those messages could contain
-    // handles that also have been queueing their own messages. We have to
-    // recursively flush all queued messages across all sent handles/endpoints
-    // to the remote node in this case, and set each of the corresponding local
-    // peer endpoints into a proxying state. This happens in:
-    // TODO(domfarolino): Figure out where this should finally happen.
     if (peer_node_name == Get()->node_->name_) {
-      printf("*****************PutHandleToSendInProxyingStateIfTargetIsRemote() returning early without putting endpoint into proxy mode, since it is not going remote\n");
+      printf("*****************PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState() returning early without putting endpoint into proxy mode, since it is not going remote\n");
       return;
     }
 
-    endpoint_being_sent->SetProxying(/*node_to_proxy_to=*/peer_node_name);
+    endpoint_being_sent->SetProxying(/*in_node_name=*/peer_node_name, /*in_endpoint_name=*/cross_node_endpoint_name);
   }
 
   static MageHandle RecoverExistingMageHandleFromEndpointDescriptor(
@@ -148,11 +157,16 @@ class Core {
     printf("Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
     endpoint_descriptor.Print();
 
-    std::string endpoint_name(endpoint_descriptor.endpoint_name,
-                              endpoint_descriptor.endpoint_name + kIdentifierSize);
+    std::string cross_node_endpoint_name(
+        endpoint_descriptor.cross_node_endpoint_name,
+        endpoint_descriptor.cross_node_endpoint_name + kIdentifierSize);
 
     std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
-    local_endpoint->name = endpoint_name;
+    // When we recover a new endpoint from a remote endpoint, the name we should
+    // create it with is `cross_node_endpoint_name`, because this is the name
+    // that the originator process generated for us so that it knows how to
+    // target the remote endpoint.
+    local_endpoint->name = cross_node_endpoint_name;
     local_endpoint->peer_address.node_name.assign(endpoint_descriptor.peer_node_name, kIdentifierSize);
     local_endpoint->peer_address.endpoint_name.assign(endpoint_descriptor.peer_endpoint_name, kIdentifierSize);
     MageHandle local_handle = Core::Get()->GetNextMageHandle();

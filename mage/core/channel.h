@@ -26,10 +26,10 @@ class Channel : public base::TaskLoopForIO::SocketReader {
   void Start();
   void SetRemoteNodeName(const std::string& name);
   void SendInvitation(std::string inviter_name,
-                      std::string intended_endpoint_name,
                       std::string intended_endpoint_peer_name);
   void SendAcceptInvitation(std::string temporary_remote_node_name,
-                            std::string actual_node_name);
+                            std::string actual_node_name,
+                            std::string accept_invitation_endpoint_name);
   void SendMessage(Message message);
 
   // base::TaskLoopForIO::SocketReader implementation:
