@@ -5,6 +5,7 @@
 #include <string>
 #include <queue>
 
+#include "base/synchronization/mutex.h"
 #include "mage/core/message.h"
 
 namespace base {
@@ -90,7 +91,10 @@ class Endpoint : public std::enable_shared_from_this<Endpoint> {
   std::string name;
   Address peer_address;
 
+  // Must be accessed/updated atomically with `delegate_`,
+  // `delegate_task_runner_`, and `incoming_message_queue_`.
   State state;
+
   Address proxy_target;
 
  private:
@@ -112,17 +116,67 @@ class Endpoint : public std::enable_shared_from_this<Endpoint> {
   // received for nodes in the proxying state should be handled by `Node`.
   void AcceptMessage(Message message);
 
-  // TODO(domfarolino): Synchronize access to this and `state`.
-  // This is used when |delegate_| is null, that is, when this endpoint is not
-  // bound to a local interface. We queue the messages here, and then later once
+  // Thread-safe: This method is called whenever `this` needs to post a message
+  // to delegate, which happens from either `AcceptMessage()` or
+  // `RegisterDelegate()`, both of which grab a lock.
+  void PostMessageToDelegate(Message message);
+
+  // This is used when |delegate_| is null and
+  // `state == State::kUnboundAndQueueing`. That is, when `this` is not bound to
+  // a local interface receiver. We queue the messages here, and then later once
   // bound, these messages will be forwarded, in order, to |delegate_|.
+  //
+  // Must be accessed/updated atomically with `state`, `delegate_` and
+  // `delegate_task_runner_`.
   std::queue<Message> incoming_message_queue_;
 
-  // TODO(domfarolino): Document this.
+  // TODO(domfarolino): Document this and make sure that it is accessed/updated
+  // atomically with `state`, `delegate_`, and `incoming_message_queue_`.
   std::shared_ptr<base::TaskRunner> delegate_task_runner_;
 
-  // TODO(domfarolino): Document this.
+  // The receiver we post messages to when `state == State::kBound`.
+  //
+  // Must be accessed/updated atomically with `state`, `delegate_task_runner_`,
+  // and `incoming_message_queue_`.
   ReceiverDelegate* delegate_ = nullptr;
+
+  // `this` can be accessed simultaneously on two different threads, so `lock_`
+  // ensures that whatever state needs to be accessed atomically is done so. For
+  // example the following must be accessed/updated atomically:
+  //   - `state`
+  //   - `delegate_`
+  //   - `delegate_task_runner_`
+  //   - `incoming_message_queue_`
+  //
+  // To see see why, imagine the following two happen at the same time:
+  //   1.) [IO Thread]: `AcceptMessage()` is called while
+  //       `this.state == State::kUnboundAndQueueing`. We queue the message to
+  //       `incoming_message_queue_` since we don't have a delegate to post the
+  //       message to
+  //   2.) [UI Thread]: `RegisterDelegate()` is called. We set
+  //       `this.state = State::kBound` and check to see if we have any queued
+  //       messages in `incoming_message_queue_`. If so, forward them. If not,
+  //       since we just set our state to `State::kBound`, the next time we
+  //       receive a
+  //       message it will be forwarded to the delegate
+  //
+  // When both of the above happen at the same time we can hit the following
+  // races:
+  //   1.) `AcceptMessage()` observes `state == State::kUnboundAndQueueing`, so
+  //       it decides to queue a message. After it has decided this, but before
+  //       it actually queues the message, `RegisterDelegate()` gets called and
+  //       sets `state = State::kBound` and assigns `delegate_`. It checks the
+  //       queue for messages to post to the newly-bound `delegate_`. Queue is
+  //       empty, so it returns. By the time `AcceptMessage()` queues the
+  //       message to `incoming_message_queue_`, `state == State::kBound`, which
+  //       means we should be posting the message to the newly-bound `delegate_`
+  //       instead of queueing. The message sits there and never gets posted.
+  //   2.) `RegisterDelegate()` gets called and sets (a) `state = kBound`, and
+  //       (b) assigns `delegate_` and `delegate_task_runner_`. But in between
+  //       (a) and (b), `AcceptMessage()` is called and observes
+  //       `state == kBound`, so it attempts to use `delegate_task_runner_`
+  //       which has not yet been set.
+  base::Mutex lock_;
 };
 
 }; // namspace mage
