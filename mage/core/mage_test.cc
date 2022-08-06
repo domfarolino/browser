@@ -786,7 +786,9 @@ TEST_F(MageTest, ChildPassSendInvitationPipeBackToParent) {
 }
 
 // This class is only used for the `ChildPassRemoteAndReceiverToParent` test below.
-class ChildPassTwoPipesToParent : public magen::FirstInterface, public magen::SecondInterface {
+class ChildPassTwoPipesToParent : public magen::FirstInterface,
+                                  public magen::SecondInterface,
+                                  public magen::ThirdInterface {
  public:
   ChildPassTwoPipesToParent(MageHandle receiver) {
     first_receiver_.Bind(receiver, this);
@@ -799,7 +801,7 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface, public magen::Se
       MageHandle remote_to_second_interface,
       MageHandle receiver_for_second_interface) override {
     remote_to_second_interface_ = remote_to_second_interface;
-    receiver_for_second_interface_ = receiver_for_second_interface;
+    second_receiver_.Bind(receiver_for_second_interface, this);
     base::GetCurrentThreadTaskLoop()->Quit();
   }
 
@@ -811,30 +813,41 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface, public magen::Se
   void SendStringAndNotifyDoneViaCallback(std::string msg) override {
     base::GetCurrentThreadTaskLoop()->Quit();
   }
-  void NotifyDoneViaCallback() override { NOTREACHED(); }
-  void SendReceiverForThirdInterface(MageHandle receiver) override { NOTREACHED(); }
-
-  void BindSecondInterface(MageHandle receiver) {
-    second_receiver_.Bind(receiver, this);
+  // Duplicate of the `ThirdInterface` method.
+  // void NotifyDoneViaCallback() override { NOTREACHED(); }
+  void SendReceiverForThirdInterface(MageHandle receiver) override {
+    third_receiver_.Bind(receiver, this);
+    base::GetCurrentThreadTaskLoop()->Quit();
   }
 
-  std::pair<MageHandle, MageHandle> GetSecondInterfaceHandles() {
+  // ThirdInterface overrides.
+  // Since we're same-process, we're not going to use the `magen::Callback`
+  // interface. Instead we'll just quit the current task loop so that the test
+  // resumes.
+  void NotifyDoneViaCallback() override {
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+  void SendReceiverForFourthInterface(MageHandle) override { NOTREACHED(); }
+
+  MageHandle GetSecondInterfaceRemoteHandle() {
     // TODO(domfarolino): Can we check this against something more standard than
     // just 0 literal?
     CHECK_NE(remote_to_second_interface_, 0);
-    CHECK_NE(receiver_for_second_interface_, 0);
-    return std::make_pair(remote_to_second_interface_, receiver_for_second_interface_);;
+    return remote_to_second_interface_;
   }
 
  private:
   mage::Receiver<magen::FirstInterface> first_receiver_;
   mage::Receiver<magen::SecondInterface> second_receiver_;
+  mage::Receiver<magen::ThirdInterface> third_receiver_;
+  // The child process gives us remote and receiver handles for `magen::SecondInterface`.
   MageHandle remote_to_second_interface_;
-  MageHandle receiver_for_second_interface_;
 };
 // This test exercises behavior where a child process creates two entangled
-// message pipes and sends both of them to the parent process. The parent
-// process binds both to a remote/receiver pair and tries to use them.
+// message pipes and sends both of them to the parent process. The two endpoints
+// in the child process should be marked as proxying to each other. When the
+// parent receives both pipes, it binds them to a remote/receiver pair and uses
+// the remote to send a message that should end up on the same-process receiver.
 TEST_F(MageTest, ChildPassRemoteAndReceiverToParent) {
   launcher->Launch(kChildSendsTwoPipesToParent);
 
@@ -848,25 +861,80 @@ TEST_F(MageTest, ChildPassRemoteAndReceiverToParent) {
   EXPECT_EQ(CoreHandleTable().size(), 2);
   EXPECT_EQ(NodeLocalEndpoints().size(), 2);
 
+  // Run until `handler` receives the `magen::SecondInterface` remote/receiver
+  // pair. It will bind itself to the receiver, and we can get the remote via
+  // `GetSecondInterfaceRemoteHandle()`.
   main_thread->Run();
 
   EXPECT_EQ(CoreHandleTable().size(), 4);
   EXPECT_EQ(NodeLocalEndpoints().size(), 4);
 
-  std::pair<MageHandle, MageHandle> second_interface_handles =
-      handler.GetSecondInterfaceHandles();
   mage::Remote<magen::SecondInterface> remote;
-  remote.Bind(second_interface_handles.first);
+  remote.Bind(handler.GetSecondInterfaceRemoteHandle());
   remote->SendStringAndNotifyDoneViaCallback("message");
 
-  handler.BindSecondInterface(second_interface_handles.second);
   main_thread->Run();
 }
 
-// TODO(domfarolino): Write a test that delivers an endpoint-baring message to a
-// remote endpoint that is in the proxying state. Ensure that the endpoints get
-// registered in the remote process, but all set to their proxying state as
+// This test is very similar to the above, but slightly more complex. The two
+// entangled endpoints get sent from child => parent, where they are bound to a
+// remote/receiver pair. But the parent uses the remote to send an
+// endpoint-baring message to the receiver, instead of a normal message. This
+// exercises the case where a proxying endpoint not only has to edit the
+// `target_endpoint` of the message it receives and forwards, but also has to
+// set each endpoint that it received and processed into the proxying state as
 // well.
+TEST_F(MageTest, ChildPassRemoteAndReceiverToParentToSendEndpointBaringMessageOver) {
+  launcher->Launch(kChildSendsTwoPipesToParent);
+
+  MageHandle invitation_pipe =
+    mage::Core::SendInvitationAndGetMessagePipe(
+      launcher->GetLocalFd()
+    );
+
+  ChildPassTwoPipesToParent handler(invitation_pipe);
+
+  EXPECT_EQ(CoreHandleTable().size(), 2);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 2);
+
+  // Run until `handler` receives the `magen::SecondInterface` remote/receiver
+  // pair. It will bind itself to the receiver, and we can get the remote via
+  // `GetSecondInterfaceRemoteHandle()`.
+  main_thread->Run();
+
+  EXPECT_EQ(CoreHandleTable().size(), 4);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 4);
+
+  mage::Remote<magen::SecondInterface> remote;
+  remote.Bind(handler.GetSecondInterfaceRemoteHandle());
+
+  // Generate pipes for `magen::ThirdInterface` and send the receiver over
+  // `SecondInterface`. It should make it back to `handler` which is the
+  // `SecondInterface` implementation, and bind itself to the `ThirdInterface`
+  // receiver too.
+  std::vector<MageHandle> third_interface_handles = mage::Core::CreateMessagePipes();
+  remote->SendReceiverForThirdInterface(third_interface_handles[1]);
+
+  EXPECT_EQ(CoreHandleTable().size(), 6);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 6);
+
+  // Run until `handle` receives the
+  main_thread->Run();
+
+  EXPECT_EQ(CoreHandleTable().size(), 7);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 7);
+
+  mage::Remote<magen::ThirdInterface> third_interface_remote;
+  third_interface_remote.Bind(third_interface_handles[0]);
+  third_interface_remote->NotifyDoneViaCallback();
+
+  // Run until the notify-done message makes it to `handler`, in which case the
+  // loop will quit and the test will end successfully.
+  main_thread->Run();
+
+  EXPECT_EQ(CoreHandleTable().size(), 7);
+  EXPECT_EQ(NodeLocalEndpoints().size(), 7);
+}
 
 TEST_F(MageTest, InProcessQueuedMessagesAfterReceiverBound) {
   std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();

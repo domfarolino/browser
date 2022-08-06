@@ -47,14 +47,40 @@ class Core {
   // that it gets when it is in the proxying state. Really we should have a
   // cleaner way to access node from endpoint.
   static void ForwardMessage(std::shared_ptr<Endpoint> endpoint, Message message) {
-    CHECK(endpoint->state == Endpoint::State::kUnboundAndProxying);
+    CHECK_EQ(endpoint->state, Endpoint::State::kUnboundAndProxying);
 
-    if (endpoint->proxy_target.node_name == Get()->node_->name_) {
-      // TODO(domfarolino): We need a test for this case.
-      NOTREACHED();
-    } else {
-      Get()->node_->node_channel_map_[endpoint->proxy_target.node_name]->SendMessage(std::move(message));
+    // TODO(domfarolino): Is it ever possible to fail this check? What if an
+    // endpoint receives a message while in the proxying state, but it proxies
+    // to an endpoint that is in the same node?
+    CHECK_NE(endpoint->proxy_target.node_name, Get()->node_->name_);
+
+    std::vector<EndpointDescriptor> descriptors_to_forward =
+        message.GetEndpointDescriptors();
+    for (EndpointDescriptor& descriptor : descriptors_to_forward) {
+      std::string endpoint_name(descriptor.cross_node_endpoint_name, kIdentifierSize);
+      auto it = Get()->node_->local_endpoints_.find(endpoint_name);
+      CHECK_NE(it, Get()->node_->local_endpoints_.end());
+      std::shared_ptr<Endpoint> backing_endpoint = it->second;
+
+      // TODO(domfarolino): At this point, per the above `CHECK_NE`, we know
+      // this message is being proxied to another node. But what happens here is
+      // that we send the descriptor *as-is* untouched, to the proxy target.
+      // This means the endpoint will have the same
+      // name/cross_node_endpoint_name here as it does the proxy target, which
+      // is bad; sending the same endopoint back and forth between the same two
+      // processes will blow up because after the first cycle, the endpoint name
+      // is never changing. What we should do is:
+      //   1.) Regenerate a new `cross_node_endpoint_name`
+      //   2.) Change the descriptor *as it lives on the message* (not a copy)
+      //       to make:
+      //       `endpoint_name = cross_node_endpoint_name`
+      //       `cross_node_endpoint_name = new_cross_node_endpoint_name`
+      //   3.) Set `backing_endpoint` to proxy to the *new*
+      //       `cross_node_endpoint_name` since that will be the name of this
+      //       endpoint in the proxy target process.
+      backing_endpoint->SetProxying(/*in_node_name=*/endpoint->proxy_target.node_name, /*in_endpoint_name=*/endpoint_name);
     }
+    Get()->node_->node_channel_map_[endpoint->proxy_target.node_name]->SendMessage(std::move(message));
   }
   static void BindReceiverDelegateToEndpoint(
       MageHandle local_handle,

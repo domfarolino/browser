@@ -1,3 +1,4 @@
 interface ThirdInterface {
+  NotifyDoneViaCallback();
   SendReceiverForFourthInterface(MageHandle receiver);
 }

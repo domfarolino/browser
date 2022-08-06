@@ -343,6 +343,11 @@ class Message final {
     payload_buffer_ = std::move(incoming_buffer);
   }
 
+  // TODO(domfarolino): We need to make this return mutable endpoints
+  // descriptors, or at least support a variant of this method that does. That
+  // way when we forward a message that has endpoint descriptors, we can update
+  // their `cross_node_endpoint_name` accordingly. See the TODO in
+  // `Core::ForwardMessage`.
   std::vector<EndpointDescriptor> GetEndpointDescriptors() {
     Pointer<ArrayHeader<EndpointDescriptor>>& endpoints_pointer =
         GetMutableMessageHeader().endpoints_in_message;

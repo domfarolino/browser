@@ -64,7 +64,8 @@ class ThirdInterfaceImpl final : public magen::ThirdInterface {
     receiver_.Bind(receiver, this);
   }
 
-  void SendReceiverForFourthInterface(mage::MageHandle receiver) {
+  void NotifyDoneViaCallback() override { NOTREACHED(); }
+  void SendReceiverForFourthInterface(mage::MageHandle receiver) override {
     printf("\033[34;1mThirdInterfaceImpl got receiver to bootstrap magen::FourthInterface\033[0m\n");
     global_fourth_interface = std::make_unique<FourthInterfaceImpl>(receiver);
   }
