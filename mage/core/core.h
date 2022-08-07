@@ -58,6 +58,7 @@ class Core {
         message.GetEndpointDescriptors();
     for (EndpointDescriptor& descriptor : descriptors_to_forward) {
       std::string endpoint_name(descriptor.cross_node_endpoint_name, kIdentifierSize);
+      printf("Looking for a local endpoint by the name of: %s to put into a proxying state\n", endpoint_name.c_str());
       auto it = Get()->node_->local_endpoints_.find(endpoint_name);
       CHECK_NE(it, Get()->node_->local_endpoints_.end());
       std::shared_ptr<Endpoint> backing_endpoint = it->second;
@@ -111,9 +112,9 @@ class Core {
     std::string peer_endpoint_name = local_endpoint_of_preexisting_connection->peer_address.endpoint_name;
 
     printf("**************PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState() populating EndpointDescriptor:\n");
-    printf("    sending endpoint name: %s\n", local_endpoint_of_preexisting_connection->name.c_str());
-    printf("    sending endpoint [peer node: %s]\n", peer_node_name.c_str());
-    printf("    sending endpoint [peer endpoint: %s]\n", peer_endpoint_name.c_str());
+    printf("    'sending' endpoint name: %s\n", local_endpoint_of_preexisting_connection->name.c_str());
+    printf("    'sending' endpoint [peer node: %s]\n", peer_node_name.c_str());
+    printf("    'sending' endpoint [peer endpoint: %s]\n", peer_endpoint_name.c_str());
 
     // Populating an `EndpointDescriptor` is easy regardless of whether it is
     // being sent same-process or cross-process.
@@ -142,6 +143,7 @@ class Core {
     memcpy(endpoint_descriptor_to_populate.peer_node_name, endpoint_being_sent->peer_address.node_name.c_str(), kIdentifierSize);
     memcpy(endpoint_descriptor_to_populate.peer_endpoint_name, endpoint_being_sent->peer_address.endpoint_name.c_str(), kIdentifierSize);
     printf("endpoint_descriptor_to_populate.endpoint_name: %s\n", endpoint_descriptor_to_populate.endpoint_name);
+    printf("endpoint_descriptor_to_populate.cross_node_endpoint_name: %s\n", endpoint_descriptor_to_populate.cross_node_endpoint_name);
     printf("endpoint_descriptor_to_populate.peer_node_name: %s\n", endpoint_descriptor_to_populate.peer_node_name);
     printf("endpoint_descriptor_to_populate.peer_endpoint_name: %s\n", endpoint_descriptor_to_populate.peer_endpoint_name);
 

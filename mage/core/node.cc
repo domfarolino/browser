@@ -124,6 +124,7 @@ void Node::AcceptInvitation(int fd) {
 
 void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,        
                        Message message) {
+  printf("Node::SendMessage() [pid=%d]\n", getpid());
   CHECK_EQ(message.GetMutableMessageHeader().type, MessageType::USER_MESSAGE);
   // If we're sending a message, one of the following, but not both, must be
   // true:
@@ -146,6 +147,7 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
   memcpy(message.GetMutableMessageHeader().target_endpoint, peer_endpoint_name.c_str(), kIdentifierSize);
 
   bool peer_is_local = (endpoint_it != local_endpoints_.end());
+  printf(" peer_is_local: %d\n", getpid());
   if (peer_is_local) {
     std::shared_ptr<Endpoint> local_peer_endpoint = endpoint_it->second;
     CHECK(local_peer_endpoint);
@@ -153,9 +155,8 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
     if (local_peer_endpoint->state == Endpoint::State::kUnboundAndProxying) {
       std::string actual_node_name = local_peer_endpoint->proxy_target.node_name;
       std::string actual_endpoint_name = local_peer_endpoint->proxy_target.endpoint_name;
-      printf("Node::SendMessage() local peer endpoint is in proxying state; "
-             "forwarding message to remote endpoint (%s:%s) (length: %lu)\n",
-             actual_node_name.c_str(), actual_endpoint_name.c_str(), actual_node_name.length());
+      printf("  local_peer is in proxying state. forwarding message to remote endpoint (%s : %s)\n",
+             actual_node_name.c_str(), actual_endpoint_name.c_str());
 
       // If we know that this message is supposed to be proxied to another node,
       // we have to rewrite its target endpoint to be the proxy target. We do
@@ -169,6 +170,7 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
       return;
     }
 
+    printf("  local_peer is not proxying state, going to deliver the message right there\n");
     // If `local_peer_endpoint` is in the `kUnboundAndQueueing` or `kBound`
     // state, than we can just pass this single message to the peer without
     // recursively looking at dependant messages. That's because if we *did*
@@ -177,7 +179,6 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
     // same node, which is where those messages already are.
     local_peer_endpoint->AcceptMessageOnDelegateThread(std::move(message));
   } else {
-    printf("Node::SendMessage() peer_is_remote\n");
     channel_it->second->SendMessage(std::move(message));
   }
 }

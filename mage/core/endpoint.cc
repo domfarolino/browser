@@ -7,7 +7,7 @@ namespace mage {
 
 void Endpoint::AcceptMessageOnIOThread(Message message) {
   CHECK_ON_THREAD(base::ThreadType::IO);
-  printf("Endpoint::AcceptMessageOnIOThread [this=%p]\n", this);
+  printf("Endpoint::AcceptMessageOnIOThread [this=%p] [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
@@ -27,7 +27,7 @@ void Endpoint::AcceptMessageOnIOThread(Message message) {
   AcceptMessage(std::move(message));
 }
 void Endpoint::AcceptMessageOnDelegateThread(Message message) {
-  printf("Endpoint::AcceptMessageOnDelegateThread [this=%p]\n", this);
+  printf("Endpoint::AcceptMessageOnDelegateThread [this=%p] [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
@@ -48,7 +48,7 @@ void Endpoint::AcceptMessageOnDelegateThread(Message message) {
 }
 
 void Endpoint::AcceptMessage(Message message) {
-  printf("Endpoint::AcceptMessage() [this=%p]\n", this);
+  printf("Endpoint::AcceptMessage() [this=%p], [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
@@ -107,7 +107,7 @@ void Endpoint::RegisterDelegate(
   // lock in case another thread is modifying this state.
   lock_.lock();
 
-  printf("Endpoint::RegisterDelegate() [this=%p]\n", this);
+  printf("Endpoint::RegisterDelegate() [this=%p] [getpid=%d]\n", this, getpid());
   printf("state: %d\n", state);
   CHECK_EQ(state, State::kUnboundAndQueueing);
   state = State::kBound;

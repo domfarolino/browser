@@ -763,6 +763,8 @@ TEST_F(MageTest, ChildPassSendInvitationPipeBackToParent) {
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MageHandle message_pipe){
+    // TODO(domfarolino): This seems to fuck with everything, figure this out.
+    // sleep(1);
     ChildPassInvitationPipeBackToParentMageHandler handler(message_pipe);
 
     EXPECT_EQ(CoreHandleTable().size(), 1);
