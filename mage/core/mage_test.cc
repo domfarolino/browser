@@ -37,8 +37,7 @@ void PRINT_THREAD() {
 // the test fixture by invoking callbacks.
 class TestInterfaceImpl : public magen::TestInterface {
  public:
-  TestInterfaceImpl(MageHandle message_pipe, std::function<void()> quit_closure)
-      : quit_closure_(std::move(quit_closure)) {
+  TestInterfaceImpl(MageHandle message_pipe) {
     receiver_.Bind(message_pipe, this);
   }
 
@@ -51,7 +50,7 @@ class TestInterfaceImpl : public magen::TestInterface {
     received_double = in_double;
     received_string = in_string;
     printf("[TestInterfaceImpl]: Quit() on closure we were given\n");
-    quit_closure_();
+    base::GetCurrentThreadTaskLoop()->Quit();
   }
 
   void SendMoney(int in_amount, std::string in_currency) {
@@ -62,7 +61,7 @@ class TestInterfaceImpl : public magen::TestInterface {
     received_amount = in_amount;
     received_currency = in_currency;
     printf("[TestInterfaceImpl]: Quit() on closure we were given\n");
-    quit_closure_();
+    base::GetCurrentThreadTaskLoop()->Quit();
   }
 
   bool has_called_method1 = false;
@@ -79,9 +78,6 @@ class TestInterfaceImpl : public magen::TestInterface {
 
  private:
   mage::Receiver<magen::TestInterface> receiver_;
-
-  // Can be called any number of times.
-  std::function<void()> quit_closure_;
 };
 
 // A concrete implementation of a mage test-only interface. This interface
@@ -288,18 +284,17 @@ TEST_F(MageTest, ParentIsInviterAndReceiver) {
   // the bound functor, because the test interface expects to be able to call
   // the quit closure multiple times. Migrate this to `base::RepeatingClosure`
   // when something like it exists.
-  std::unique_ptr<TestInterfaceImpl> impl(
-    new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, main_thread.get())));
+  TestInterfaceImpl impl(message_pipe);
   printf("[FROMUI] [Process: %d]: Run()\n", getpid());
   main_thread->Run();
-  EXPECT_EQ(impl->received_int, 1);
-  EXPECT_EQ(impl->received_double, .5);
-  EXPECT_EQ(impl->received_string, "message");
+  EXPECT_EQ(impl.received_int, 1);
+  EXPECT_EQ(impl.received_double, .5);
+  EXPECT_EQ(impl.received_string, "message");
 
   printf("[FROMUI] [Process: %d]: Run()\n", getpid());
   main_thread->Run();
-  EXPECT_EQ(impl->received_amount, 1000);
-  EXPECT_EQ(impl->received_currency, "JPY");
+  EXPECT_EQ(impl.received_amount, 1000);
+  EXPECT_EQ(impl.received_currency, "JPY");
 }
 
 // In this test, the parent process is the invitee and a mage::Receiver.
@@ -313,8 +308,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
     EXPECT_EQ(NodeLocalEndpoints().size(), 1);
 
     CHECK_ON_THREAD(base::ThreadType::UI);
-    std::unique_ptr<TestInterfaceImpl> impl(
-      new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, base::GetCurrentThreadTaskLoop().get())));
+    TestInterfaceImpl impl(message_pipe);
 
     // Let the message come in from the remote inviter.
     PRINT_THREAD();
@@ -322,15 +316,15 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
 
     // Once the mage method is invoked, the task loop will quit the above Run()
     // and we can check the results.
-    EXPECT_EQ(impl->received_int, 1);
-    EXPECT_EQ(impl->received_double, .5);
-    EXPECT_EQ(impl->received_string, "message");
+    EXPECT_EQ(impl.received_int, 1);
+    EXPECT_EQ(impl.received_double, .5);
+    EXPECT_EQ(impl.received_string, "message");
 
     // Let another message come in from the remote inviter.
     PRINT_THREAD();
     base::GetCurrentThreadTaskLoop()->Run();
-    EXPECT_EQ(impl->received_amount, 1000);
-    EXPECT_EQ(impl->received_currency, "JPY");
+    EXPECT_EQ(impl.received_amount, 1000);
+    EXPECT_EQ(impl.received_currency, "JPY");
 
     base::GetCurrentThreadTaskLoop()->Quit();
   }, std::placeholders::_1));
@@ -358,22 +352,21 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiverButChildBlocksOnAcceptance) {
     EXPECT_EQ(NodeLocalEndpoints().size(), 1);
 
     CHECK_ON_THREAD(base::ThreadType::UI);
-    std::unique_ptr<TestInterfaceImpl> impl(
-      new TestInterfaceImpl(message_pipe, std::bind(&base::TaskLoop::Quit, main_thread.get())));
+    TestInterfaceImpl impl(message_pipe);
 
     // Let the message come in from the remote inviter.
     base::GetCurrentThreadTaskLoop()->Run();
 
     // Once the mage method is invoked, the task loop will quit the above Run()
     // and we can check the results.
-    EXPECT_EQ(impl->received_int, 1);
-    EXPECT_EQ(impl->received_double, .5);
-    EXPECT_EQ(impl->received_string, "message");
+    EXPECT_EQ(impl.received_int, 1);
+    EXPECT_EQ(impl.received_double, .5);
+    EXPECT_EQ(impl.received_string, "message");
 
     // Let another message come in from the remote inviter.
     base::GetCurrentThreadTaskLoop()->Run();
-    EXPECT_EQ(impl->received_amount, 1000);
-    EXPECT_EQ(impl->received_currency, "JPY");
+    EXPECT_EQ(impl.received_amount, 1000);
+    EXPECT_EQ(impl.received_currency, "JPY");
 
     base::GetCurrentThreadTaskLoop()->Quit();
   }, std::placeholders::_1));
@@ -938,6 +931,7 @@ TEST_F(MageTest, ChildPassRemoteAndReceiverToParentToSendEndpointBaringMessageOv
   EXPECT_EQ(NodeLocalEndpoints().size(), 7);
 }
 
+/////////////////////////////// IN-PROCESS TESTS ///////////////////////////////
 TEST_F(MageTest, InProcessQueuedMessagesAfterReceiverBound) {
   std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
   EXPECT_EQ(mage_handles.size(), 2);
@@ -946,15 +940,15 @@ TEST_F(MageTest, InProcessQueuedMessagesAfterReceiverBound) {
              remote_handle = mage_handles[1];
   mage::Remote<magen::TestInterface> remote;
   remote.Bind(local_handle);
-  std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(remote_handle, std::bind(&base::TaskLoop::Quit, base::GetCurrentThreadTaskLoop().get())));
+  TestInterfaceImpl impl(remote_handle);
 
   // At this point both the local and remote endpoints are bound. Invoke methods
   // on the remote, and verify that the receiver's implementation is not invoked
   // synchronously.
   remote->Method1(6000, .78, "some text");
   remote->SendMoney(5000, "USD");
-  EXPECT_FALSE(impl->has_called_method1);
-  EXPECT_FALSE(impl->has_called_send_money);
+  EXPECT_FALSE(impl.has_called_method1);
+  EXPECT_FALSE(impl.has_called_send_money);
 
   // Verify that if a receiver is bound and multiple messages are queued on the
   // bound endpoint, each is delivered in their own task and they are not
@@ -967,17 +961,17 @@ TEST_F(MageTest, InProcessQueuedMessagesAfterReceiverBound) {
   // posting the next message, we quit and continue running the assertions after
   // `Run()` below.
   main_thread->Run();
-  EXPECT_TRUE(impl->has_called_method1);
-  EXPECT_FALSE(impl->has_called_send_money);
-  EXPECT_EQ(impl->received_int, 6000);
-  EXPECT_EQ(impl->received_double, .78);
-  EXPECT_EQ(impl->received_string, "some text");
+  EXPECT_TRUE(impl.has_called_method1);
+  EXPECT_FALSE(impl.has_called_send_money);
+  EXPECT_EQ(impl.received_int, 6000);
+  EXPECT_EQ(impl.received_double, .78);
+  EXPECT_EQ(impl.received_string, "some text");
 
   main_thread->Run();
-  EXPECT_TRUE(impl->has_called_method1);
-  EXPECT_TRUE(impl->has_called_send_money);
-  EXPECT_EQ(impl->received_amount, 5000);
-  EXPECT_EQ(impl->received_currency, "USD");
+  EXPECT_TRUE(impl.has_called_method1);
+  EXPECT_TRUE(impl.has_called_send_money);
+  EXPECT_EQ(impl.received_amount, 5000);
+  EXPECT_EQ(impl.received_currency, "USD");
 }
 TEST_F(MageTest, InProcessQueuedMessagesBeforeReceiverBound) {
   std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
@@ -993,24 +987,24 @@ TEST_F(MageTest, InProcessQueuedMessagesBeforeReceiverBound) {
   // At this point the local endpoint is bound and the two messages have been
   // sent. Bind the receiver and ensure that the messages are not delivered
   // synchronously.
-  std::unique_ptr<TestInterfaceImpl> impl(new TestInterfaceImpl(remote_handle, std::bind(&base::TaskLoop::Quit, base::GetCurrentThreadTaskLoop().get())));
-  EXPECT_FALSE(impl->has_called_method1);
-  EXPECT_FALSE(impl->has_called_send_money);
+  TestInterfaceImpl impl(remote_handle);
+  EXPECT_FALSE(impl.has_called_method1);
+  EXPECT_FALSE(impl.has_called_send_money);
 
   // Just like the `InProcessQueuedMessagesAfterReceiverBound` test above,
   // verify that multiple messages are not delivered to a receiver
   // synchronously.
   main_thread->Run();
-  EXPECT_TRUE(impl->has_called_method1);
-  EXPECT_FALSE(impl->has_called_send_money);
-  EXPECT_EQ(impl->received_int, 6000);
-  EXPECT_EQ(impl->received_double, .78);
-  EXPECT_EQ(impl->received_string, "some text");
+  EXPECT_TRUE(impl.has_called_method1);
+  EXPECT_FALSE(impl.has_called_send_money);
+  EXPECT_EQ(impl.received_int, 6000);
+  EXPECT_EQ(impl.received_double, .78);
+  EXPECT_EQ(impl.received_string, "some text");
 
   main_thread->Run();
-  EXPECT_TRUE(impl->has_called_send_money);
-  EXPECT_EQ(impl->received_amount, 5000);
-  EXPECT_EQ(impl->received_currency, "USD");
+  EXPECT_TRUE(impl.has_called_send_money);
+  EXPECT_EQ(impl.received_amount, 5000);
+  EXPECT_EQ(impl.received_currency, "USD");
 }
 
 // These two interface implementations are specifically for the
@@ -1247,15 +1241,5 @@ TEST_F(MageTest, InProcessCrossThread) {
   EXPECT_TRUE(impl->has_called_method1);
   EXPECT_TRUE(impl->has_called_send_money);
 }
-
-/*
-  Scenarios to test:
-    - Proxying:
-      - General proxying: A multi-process chain of messages works, and avoids
-        the `NOTREACHED()` in `Endpoint::AcceptMessage()`.
-      - The same as the "Asynchronously after an invitation..." case above, but
-        some of the messages get delivered to endpoints (in the other process)
-        that are proxying to another process.
-*/
 
 }; // namespace mage
