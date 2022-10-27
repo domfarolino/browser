@@ -148,11 +148,21 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
 
   bool peer_is_local = (endpoint_it != local_endpoints_.end());
   printf(" peer_is_local: %d\n", getpid());
-  if (peer_is_local) {
-    std::shared_ptr<Endpoint> local_peer_endpoint = endpoint_it->second;
-    CHECK(local_peer_endpoint);
+  if (!peer_is_local) {
+    channel_it->second->SendMessage(std::move(message));
+    return;
+  }
 
-    if (local_peer_endpoint->state == Endpoint::State::kUnboundAndProxying) {
+  std::shared_ptr<Endpoint> local_peer_endpoint = endpoint_it->second;
+  CHECK(local_peer_endpoint);
+
+  // Lock `local_peer_endpoint` so that all of the actions we perform based on
+  // `state` are consistent with the `state` that other threads are trying to
+  // read at the same time.
+  local_peer_endpoint->Lock();
+
+  switch (local_peer_endpoint->state) {
+    case Endpoint::State::kUnboundAndProxying: {
       std::string actual_node_name = local_peer_endpoint->proxy_target.node_name;
       std::string actual_endpoint_name = local_peer_endpoint->proxy_target.endpoint_name;
       printf("  local_peer is in proxying state. forwarding message to remote endpoint (%s : %s)\n",
@@ -167,20 +177,21 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
       std::queue<Message> messages_to_send;
       messages_to_send.push(std::move(message));
       SendMessagesAndRecursiveDependants(std::move(messages_to_send), local_peer_endpoint);
-      return;
+      break;
     }
-
-    printf("  local_peer is not proxying state, going to deliver the message right there\n");
-    // If `local_peer_endpoint` is in the `kUnboundAndQueueing` or `kBound`
-    // state, than we can just pass this single message to the peer without
-    // recursively looking at dependant messages. That's because if we *did*
-    // recursively look through all of the dependant messages and try and
-    // forward them, we'd just be forwarding them to *their* local peers in the
-    // same node, which is where those messages already are.
-    local_peer_endpoint->AcceptMessageOnDelegateThread(std::move(message));
-  } else {
-    channel_it->second->SendMessage(std::move(message));
+    case Endpoint::State::kBound:
+    case Endpoint::State::kUnboundAndQueueing:
+      printf("  local_peer is not proxying state, going to deliver the message right there\n");
+      // We can just pass this single message to the peer without recursively
+      // looking at dependant messages. That's because if we *did* recursively
+      // look through all of the dependant messages and try and forward them,
+      // we'd just be forwarding them to *their* local peers in the same node,
+      // which is where those messages already are.
+      local_peer_endpoint->AcceptMessageOnDelegateThread(std::move(message));
+      break;
   }
+
+  local_peer_endpoint->Unlock();
 }
 
 void Node::OnReceivedMessage(Message message) {
@@ -282,6 +293,7 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   //       them to the appropriate remote node.
   CHECK_NE(local_endpoints_.find(remote_endpoint->name),
            local_endpoints_.end());
+  // TODO(domfarolino): Lock `remote_endpoint` here.
   remote_endpoint->SetProxying(/*in_node_name=*/actual_node_name, /*in_endpoint_name=*/accept_invitation_endpoint_name);
 
   printf("  Our `remote_endpoint` now recognizes its proxy target as: (%s:%s)\n",

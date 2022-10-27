@@ -88,6 +88,9 @@ class Endpoint : public std::enable_shared_from_this<Endpoint> {
 
   void SetProxying(std::string in_node_name, std::string in_endpoint_name);
 
+  void Lock() { lock_.lock(); }
+  void Unlock() { lock_.unlock(); }
+
   std::string name;
   Address peer_address;
 

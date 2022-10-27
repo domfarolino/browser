@@ -6,6 +6,7 @@
 namespace mage {
 
 void Endpoint::AcceptMessageOnIOThread(Message message) {
+  Lock();
   CHECK_ON_THREAD(base::ThreadType::IO);
   printf("Endpoint::AcceptMessageOnIOThread [this=%p] [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
@@ -25,8 +26,10 @@ void Endpoint::AcceptMessageOnIOThread(Message message) {
   }
 
   AcceptMessage(std::move(message));
+  Unlock();
 }
 void Endpoint::AcceptMessageOnDelegateThread(Message message) {
+  CHECK(state == State::kBound || state == State::kUnboundAndQueueing);
   printf("Endpoint::AcceptMessageOnDelegateThread [this=%p] [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
@@ -47,6 +50,7 @@ void Endpoint::AcceptMessageOnDelegateThread(Message message) {
   AcceptMessage(std::move(message));
 }
 
+// Guarded by `lock_`.
 void Endpoint::AcceptMessage(Message message) {
   printf("Endpoint::AcceptMessage() [this=%p], [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
@@ -54,7 +58,6 @@ void Endpoint::AcceptMessage(Message message) {
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
   printf("  number_of_handles: %d\n", message.NumberOfHandles());
 
-  lock_.lock();
   switch (state) {
     case State::kUnboundAndQueueing:
       CHECK(!delegate_);
@@ -67,13 +70,13 @@ void Endpoint::AcceptMessage(Message message) {
       PostMessageToDelegate(std::move(message));
       break;
     case State::kUnboundAndProxying:
+      // TODO(domfarolino): We should `CHECK(!delegate_);` here.
       printf("  Endpoint::AcceptMessage() received a message when in the proxying state. Forwarding message to proxy_target=(%s : %s)\n", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
       memcpy(message.GetMutableMessageHeader().target_endpoint, proxy_target.endpoint_name.c_str(), kIdentifierSize);
       Core::ForwardMessage(shared_from_this(), std::move(message));
       break;
   }
-  printf("Endpoint::AcceptMessage() DONE, unlocking\n");
-  lock_.unlock();
+  printf("Endpoint::AcceptMessage() DONE\n");
 }
 
 void Endpoint::PostMessageToDelegate(Message message) {
@@ -90,13 +93,13 @@ void Endpoint::PostMessageToDelegate(Message message) {
 }
 
 std::queue<Message> Endpoint::TakeQueuedMessages() {
-  lock_.lock();
+  Lock();
   CHECK(!delegate_);
   // TODO(domfarolino): We should also probably set some state so that any
   // more usage of |this| will crash, since after this call, we should be
   // deleted.
   std::queue<Message> messages_to_return = std::move(incoming_message_queue_);
-  lock_.unlock();
+  Unlock();
   return messages_to_return;
 }
 
@@ -105,7 +108,7 @@ void Endpoint::RegisterDelegate(
     std::shared_ptr<base::TaskRunner> delegate_task_runner) {
   // Before we observe our state and incoming message queue, we need to grab a
   // lock in case another thread is modifying this state.
-  lock_.lock();
+  Lock();
 
   printf("Endpoint::RegisterDelegate() [this=%p] [getpid=%d]\n", this, getpid());
   printf("state: %d\n", state);
@@ -125,7 +128,7 @@ void Endpoint::RegisterDelegate(
     incoming_message_queue_.pop();
   }
   printf("  Endpoint::RegisterDelegate() done delivering messages \n");
-  lock_.unlock();
+  Unlock();
 }
 
 void Endpoint::UnregisterDelegate() {
