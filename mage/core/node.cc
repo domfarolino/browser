@@ -317,8 +317,10 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   //             to be remote?)
   //         2.) Set the endpoint described by the info to the proxying mode (or
   //             maybe just delete it? Figure this out....)
+  remote_endpoint->Lock();
   std::queue<Message> messages_to_forward =
       remote_endpoint->TakeQueuedMessages();
+  remote_endpoint->Unlock();
   printf("    Node has %lu messages queued up in the remote invitation endpoint\n", messages_to_forward.size());
 
   // TODO(domfarolino): I think this is just a stupid artifact of the fact that
@@ -368,7 +370,9 @@ void Node::SendMessagesAndRecursiveDependants(std::queue<Message> messages_to_se
       CHECK_NE(it, local_endpoints_.end());
 
       std::shared_ptr<Endpoint> endpoint_from_info = it->second;
+      endpoint_from_info->Lock();
       std::queue<Message> sub_messages = endpoint_from_info->TakeQueuedMessages();
+      endpoint_from_info->Unlock();
       while (!sub_messages.empty()) {
         Message sub_message = std::move(sub_messages.front());
         // See

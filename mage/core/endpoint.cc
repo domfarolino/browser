@@ -86,13 +86,11 @@ void Endpoint::PostMessageToDelegate(Message message) {
 }
 
 std::queue<Message> Endpoint::TakeQueuedMessages() {
-  Lock();
   CHECK(!delegate_);
   // TODO(domfarolino): We should also probably set some state so that any
   // more usage of |this| will crash, since after this call, we should be
   // deleted.
   std::queue<Message> messages_to_return = std::move(incoming_message_queue_);
-  Unlock();
   return messages_to_return;
 }
 
