@@ -225,8 +225,7 @@ TEST_F(MageTest, CoreInitStateUnitTest) {
 }
 
 TEST_F(MageTest, InitializeAndEntangleEndpointsUnitTest) {
-  std::shared_ptr<Endpoint> local(new Endpoint()), remote(new Endpoint());
-  Node().InitializeAndEntangleEndpoints(local, remote);
+  const auto& [local, remote] = Node().InitializeAndEntangleEndpoints();
 
   EXPECT_EQ(CoreHandleTable().size(), 0);
   EXPECT_EQ(NodeLocalEndpoints().size(), 0);

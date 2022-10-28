@@ -10,12 +10,10 @@
 
 namespace mage {
 
-void Node::InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1,
-                                          std::shared_ptr<Endpoint> ep2) const {
+std::pair<std::shared_ptr<Endpoint>, std::shared_ptr<Endpoint>> Node::InitializeAndEntangleEndpoints() const {
   CHECK_ON_THREAD(base::ThreadType::UI);
-  // Initialize the endpoints.
-  ep1->name = util::RandomIdentifier();
-  ep2->name = util::RandomIdentifier();
+  std::shared_ptr<Endpoint> ep1(new Endpoint(/*name=*/util::RandomIdentifier())),
+                            ep2(new Endpoint(/*name=*/util::RandomIdentifier()));
 
   // Both endpoints are local initially.
   ep1->peer_address.node_name = name_;
@@ -29,6 +27,8 @@ void Node::InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1,
          "  endpoint1: (%s, %s)\n"
          "  endpoint2: (%s, %s)\n", name_.c_str(), ep1->name.c_str(),
          name_.c_str(), ep2->name.c_str());
+
+  return std::make_pair(ep1, ep2);
 }
 
 std::vector<MageHandle> Node::CreateMessagePipes() {
@@ -41,9 +41,7 @@ std::vector<MageHandle> Node::CreateMessagePipes() {
 std::vector<std::pair<MageHandle, std::shared_ptr<Endpoint>>>
 Node::CreateMessagePipesAndGetEndpoints() {
   CHECK_ON_THREAD(base::ThreadType::UI);
-  std::shared_ptr<Endpoint> endpoint_1(new Endpoint()),
-                            endpoint_2(new Endpoint());
-  InitializeAndEntangleEndpoints(endpoint_1, endpoint_2);
+  const auto& [endpoint_1, endpoint_2] = InitializeAndEntangleEndpoints();
   MageHandle handle_1 = Core::Get()->GetNextMageHandle(),
              handle_2 = Core::Get()->GetNextMageHandle();
   Core::Get()->RegisterLocalHandleAndEndpoint(handle_1, endpoint_1);
@@ -243,10 +241,9 @@ void Node::OnReceivedInvitation(Message message) {
 
   // We can also create a new local |Endpoint|, and wire it up to point to its
   // peer that we just learned about from the inviter's message.
-  std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
   // Choose a random name for this endpoint. We send this name back to the
   // inviter when we accept the invitation.
-  local_endpoint->name = util::RandomIdentifier();
+  std::shared_ptr<Endpoint> local_endpoint(new Endpoint(/*name=*/util::RandomIdentifier()));
   local_endpoint->peer_address.node_name = inviter_name;
   local_endpoint->peer_address.endpoint_name = intended_endpoint_peer_name;
   local_endpoints_.insert({local_endpoint->name, local_endpoint});

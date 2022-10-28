@@ -36,7 +36,8 @@ class Endpoint : public std::enable_shared_from_this<Endpoint> {
     kUnboundAndProxying,
   };
 
-  Endpoint() : state(State::kUnboundAndQueueing) {}
+  explicit Endpoint(std::string name) : name(name), state(State::kUnboundAndQueueing) {}
+  Endpoint() = delete;
   Endpoint(const Endpoint&) = delete;
   Endpoint& operator=(const Endpoint&) = delete;
 
@@ -92,7 +93,7 @@ class Endpoint : public std::enable_shared_from_this<Endpoint> {
   void Lock() { lock_.lock(); }
   void Unlock() { lock_.unlock(); }
 
-  std::string name;
+  const std::string name;
   Address peer_address;
 
   // Must be accessed/updated atomically with `delegate_`,

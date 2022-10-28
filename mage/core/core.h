@@ -149,12 +149,11 @@ class Core {
         endpoint_descriptor.cross_node_endpoint_name,
         endpoint_descriptor.cross_node_endpoint_name + kIdentifierSize);
 
-    std::shared_ptr<Endpoint> local_endpoint(new Endpoint());
     // When we recover a new endpoint from a remote endpoint, the name we should
     // create it with is `cross_node_endpoint_name`, because this is the name
     // that the originator process generated for us so that it knows how to
     // target the remote endpoint.
-    local_endpoint->name = cross_node_endpoint_name;
+    std::shared_ptr<Endpoint> local_endpoint(new Endpoint(/*name=*/cross_node_endpoint_name));
     local_endpoint->peer_address.node_name.assign(endpoint_descriptor.peer_node_name, kIdentifierSize);
     local_endpoint->peer_address.endpoint_name.assign(endpoint_descriptor.peer_endpoint_name, kIdentifierSize);
     MageHandle local_handle = Core::Get()->GetNextMageHandle();
