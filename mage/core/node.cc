@@ -364,6 +364,21 @@ void Node::SendMessagesAndRecursiveDependants(std::queue<Message> messages_to_se
     // Push possibly many more messages to `message_to_send`.
     printf("      Forwarding a message NumberOfHandles(): %d\n", message_to_send.NumberOfHandles());
     std::vector<EndpointDescriptor> descriptors = message_to_send.GetEndpointDescriptors();
+
+    // As we process each dependant endpoint of `message_to_send`, we have to
+    // lock them. The meat of what we do below is:
+    //   1.) Set each dependant endpoint into the proxying state
+    //   2.) After all are into the proxying state, send `message_to_send`,
+    //       which is the message that each endpoint is attached to / inside of
+    // We must only unlock each endpoint *after* `message_to_send` is sent. If
+    // we unlock each endpoint after they go into the proxying state, but before
+    // the message-they-are-attached-to is sent, then a new message could be
+    // sent via the dependant endpoints (to the proxy target node) before
+    // `message_to_send` gets a chance to introduce the new target node to each
+    // endpoint it's transporting. In that case, the target node would blow up
+    // because it received a message for an endpoint that it's not aware of yet.
+    std::vector<std::shared_ptr<Endpoint>> locked_dependant_endpoints;
+
     for (const EndpointDescriptor& descriptor : descriptors) {
       std::string endpoint_name(descriptor.endpoint_name, 15);
       std::string cross_node_endpoint_name(descriptor.cross_node_endpoint_name, 15);
@@ -375,8 +390,11 @@ void Node::SendMessagesAndRecursiveDependants(std::queue<Message> messages_to_se
 
       std::shared_ptr<Endpoint> endpoint_from_info = it->second;
       endpoint_from_info->Lock();
+      // So we can remember to unlock these after we send the message bearing
+      // this endpoint.
+      locked_dependant_endpoints.push_back(endpoint_from_info);
+
       std::queue<Message> sub_messages = endpoint_from_info->TakeQueuedMessages();
-      endpoint_from_info->Unlock();
       while (!sub_messages.empty()) {
         Message sub_message = std::move(sub_messages.front());
         // See
@@ -404,6 +422,10 @@ void Node::SendMessagesAndRecursiveDependants(std::queue<Message> messages_to_se
 
     // Forward the message and remove it from the queue.
     node_channel_map_[target_node_name]->SendMessage(std::move(message_to_send));
+
+    // See the documentation above `locked_dependant_endpoints`.
+    for (const std::shared_ptr<Endpoint>& endpoint: locked_dependant_endpoints)
+      endpoint->Unlock();
     messages_to_send.pop();
   }
 }
