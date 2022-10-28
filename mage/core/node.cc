@@ -290,7 +290,12 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   //       them to the appropriate remote node.
   CHECK_NE(local_endpoints_.find(remote_endpoint->name),
            local_endpoints_.end());
-  // TODO(domfarolino): Lock `remote_endpoint` here.
+
+  // Lock `remote_endpoint` here. This is important because we're going to put
+  // it into a proxying mode and immediately flush all of its messages to its
+  // new proxy target, and we can't do this while another thread is possibly
+  // trying to queue messages onto the endpoint.
+  remote_endpoint->Lock();
   remote_endpoint->SetProxying(/*in_node_name=*/actual_node_name, /*in_endpoint_name=*/accept_invitation_endpoint_name);
 
   printf("  Our `remote_endpoint` now recognizes its proxy target as: (%s:%s)\n",
@@ -317,10 +322,8 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   //             to be remote?)
   //         2.) Set the endpoint described by the info to the proxying mode (or
   //             maybe just delete it? Figure this out....)
-  remote_endpoint->Lock();
   std::queue<Message> messages_to_forward =
       remote_endpoint->TakeQueuedMessages();
-  remote_endpoint->Unlock();
   printf("    Node has %lu messages queued up in the remote invitation endpoint\n", messages_to_forward.size());
 
   // TODO(domfarolino): I think this is just a stupid artifact of the fact that
@@ -342,6 +345,7 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   }
 
   SendMessagesAndRecursiveDependants(std::move(final_messages_to_forward), remote_endpoint);
+  remote_endpoint->Unlock();
   Core::Get()->OnReceivedAcceptInvitation();
 }
 
