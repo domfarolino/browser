@@ -446,7 +446,7 @@ void Node::OnReceivedUserMessage(Message message) {
       // to an endpoint that is in the same node?
       CHECK_NE(proxy_target.node_name, name_);
 
-      printf("  Endpoint::AcceptMessage() received a message when in the proxying state. Forwarding message to proxy_target=(%s : %s)\n", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
+      printf("  Node::OnReceivedUserMessage() received a message when in the proxying state. Forwarding message to proxy_target=(%s : %s)\n", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
       memcpy(message.GetMutableMessageHeader().target_endpoint, proxy_target.endpoint_name.c_str(), kIdentifierSize);
       PrepareToForwardUserMessage(endpoint, message);
       node_channel_map_[endpoint->proxy_target.node_name]->SendMessage(std::move(message));
@@ -491,7 +491,10 @@ void Node::PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint, Messa
     //   3.) Set `backing_endpoint` to proxy to the *new*
     //       `cross_node_endpoint_name` since that will be the name of this
     //       endpoint in the proxy target process.
-    // TODO(domfarolino): Do we need to lock these subnodes??
+
+    // We don't need to acquire a lock here, since no other thread should know
+    // about these dependent endpoints inside `message`, since they were just
+    // created during this flow and not exported anywhere.
     backing_endpoint->SetProxying(/*in_node_name=*/endpoint->proxy_target.node_name, /*in_endpoint_name=*/endpoint_name);
   }
 }
