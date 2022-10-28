@@ -418,9 +418,35 @@ void Node::OnReceivedUserMessage(Message message) {
   std::shared_ptr<Endpoint> endpoint = endpoint_it->second;
   CHECK(endpoint);
   CHECK_EQ(local_target_endpoint_name, endpoint->name);
+  endpoint->Lock();
+
+  // Process and register all of the endpoints that `message` is carrying before
+  // we either queue or dispatch it.
+  std::vector<EndpointDescriptor> endpoints_in_message = message.GetEndpointDescriptors();
+  printf("  endpoints_in_message.size()= %lu\n", endpoints_in_message.size());
+  for (const EndpointDescriptor& endpoint_descriptor : endpoints_in_message) {
+    MageHandle local_handle =
+        Core::RecoverNewMageHandleFromEndpointDescriptor(endpoint_descriptor);
+    endpoint_descriptor.Print();
+    printf("     Queueing handle to message after recovering endpoint\n");
+    message.QueueHandle(local_handle);
+  }
 
   // 2. Tell the endpoint to handle the message.
-  endpoint->AcceptMessageOnIOThread(std::move(message));
+  switch (endpoint->state) {
+    case Endpoint::State::kUnboundAndProxying: {
+      Address& proxy_target = endpoint->proxy_target;
+      printf("  Endpoint::AcceptMessage() received a message when in the proxying state. Forwarding message to proxy_target=(%s : %s)\n", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
+      memcpy(message.GetMutableMessageHeader().target_endpoint, proxy_target.endpoint_name.c_str(), kIdentifierSize);
+      Core::ForwardMessage(endpoint, std::move(message));
+      break;
+    }
+    case Endpoint::State::kBound:
+    case Endpoint::State::kUnboundAndQueueing:
+      endpoint->AcceptMessageOnIOThread(std::move(message));
+      break;
+  }
+  endpoint->Unlock();
 }
 
 }; // namespace mage

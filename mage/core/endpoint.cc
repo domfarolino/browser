@@ -5,33 +5,24 @@
 
 namespace mage {
 
+// Guarded by `lock_`.
 void Endpoint::AcceptMessageOnIOThread(Message message) {
-  Lock();
   CHECK_ON_THREAD(base::ThreadType::IO);
+  CHECK(state != State::kUnboundAndProxying);
   printf("Endpoint::AcceptMessageOnIOThread [this=%p] [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
+  printf("  state: %d\n", state);
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
 
-  // Process and register all of the endpoints that `message` is carrying before
-  // we either queue or dispatch it.
-  std::vector<EndpointDescriptor> endpoints_in_message = message.GetEndpointDescriptors();
-  printf("  endpoints_in_message.sie()= %lu\n", endpoints_in_message.size());
-  for (const EndpointDescriptor& endpoint_descriptor : endpoints_in_message) {
-    MageHandle local_handle =
-        mage::Core::RecoverNewMageHandleFromEndpointDescriptor(endpoint_descriptor);
-    endpoint_descriptor.Print();
-    printf("     Queueing handle to message after recovering endpoint\n");
-    message.QueueHandle(local_handle);
-  }
-
   AcceptMessage(std::move(message));
-  Unlock();
 }
+// Guarded by `lock_`.
 void Endpoint::AcceptMessageOnDelegateThread(Message message) {
-  CHECK(state == State::kBound || state == State::kUnboundAndQueueing);
+  CHECK(state != State::kUnboundAndProxying);
   printf("Endpoint::AcceptMessageOnDelegateThread [this=%p] [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
+  printf("  state: %d\n", state);
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
 
@@ -52,8 +43,10 @@ void Endpoint::AcceptMessageOnDelegateThread(Message message) {
 
 // Guarded by `lock_`.
 void Endpoint::AcceptMessage(Message message) {
+  CHECK(state != State::kUnboundAndProxying);
   printf("Endpoint::AcceptMessage() [this=%p], [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
+  printf("  state: %d\n", state);
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
   printf("  number_of_handles: %d\n", message.NumberOfHandles());
@@ -70,10 +63,9 @@ void Endpoint::AcceptMessage(Message message) {
       PostMessageToDelegate(std::move(message));
       break;
     case State::kUnboundAndProxying:
-      // TODO(domfarolino): We should `CHECK(!delegate_);` here.
-      printf("  Endpoint::AcceptMessage() received a message when in the proxying state. Forwarding message to proxy_target=(%s : %s)\n", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
-      memcpy(message.GetMutableMessageHeader().target_endpoint, proxy_target.endpoint_name.c_str(), kIdentifierSize);
-      Core::ForwardMessage(shared_from_this(), std::move(message));
+      // `Endpoint` is never responsible for handling messages when it is in the
+      // proxying state. That should be handled at the layer above us.
+      NOTREACHED();
       break;
   }
   printf("Endpoint::AcceptMessage() DONE\n");
