@@ -50,6 +50,7 @@ class Node : public Channel::Delegate {
   void InitializeAndEntangleEndpoints(std::shared_ptr<Endpoint> ep1,
                                       std::shared_ptr<Endpoint> ep2) const;
   void SendMessagesAndRecursiveDependants(std::queue<Message> messages, std::shared_ptr<Endpoint>);
+  void PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint, Message& message);
 
   std::string name_;
 

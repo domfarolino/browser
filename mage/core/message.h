@@ -347,8 +347,7 @@ class Message final {
   // descriptors, or at least support a variant of this method that does. That
   // way when we forward a message that has endpoint descriptors, we can update
   // their `cross_node_endpoint_name` accordingly. See the TODO in
-  // `Core::ForwardMessage`.
-  // TODO(domfarolino): Remove the mentino of C::FM above.
+  // `Node::PrepareToForwardUserMessage()`.
   std::vector<EndpointDescriptor> GetEndpointDescriptors() {
     Pointer<ArrayHeader<EndpointDescriptor>>& endpoints_pointer =
         GetMutableMessageHeader().endpoints_in_message;

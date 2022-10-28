@@ -436,9 +436,15 @@ void Node::OnReceivedUserMessage(Message message) {
   switch (endpoint->state) {
     case Endpoint::State::kUnboundAndProxying: {
       Address& proxy_target = endpoint->proxy_target;
+      // TODO(domfarolino): Is it ever possible to fail this check? What if an
+      // endpoint receives a message while in the proxying state, but it proxies
+      // to an endpoint that is in the same node?
+      CHECK_NE(proxy_target.node_name, name_);
+
       printf("  Endpoint::AcceptMessage() received a message when in the proxying state. Forwarding message to proxy_target=(%s : %s)\n", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
       memcpy(message.GetMutableMessageHeader().target_endpoint, proxy_target.endpoint_name.c_str(), kIdentifierSize);
-      Core::ForwardMessage(endpoint, std::move(message));
+      PrepareToForwardUserMessage(endpoint, message);
+      node_channel_map_[endpoint->proxy_target.node_name]->SendMessage(std::move(message));
       break;
     }
     case Endpoint::State::kBound:
@@ -447,6 +453,42 @@ void Node::OnReceivedUserMessage(Message message) {
       break;
   }
   endpoint->Unlock();
+}
+
+void Node::PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint, Message& message) {
+  CHECK_ON_THREAD(base::ThreadType::IO);
+  CHECK_EQ(endpoint->state, Endpoint::State::kUnboundAndProxying);
+
+  std::vector<EndpointDescriptor> descriptors_to_forward =
+      message.GetEndpointDescriptors();
+  for (EndpointDescriptor& descriptor : descriptors_to_forward) {
+    std::string endpoint_name(descriptor.cross_node_endpoint_name, kIdentifierSize);
+    printf("Looking for a local endpoint by the name of: %s to put into a proxying state\n", endpoint_name.c_str());
+    // Endpoints being sent in this message should be "recovered" by
+    // `Node::OnReceivedUserMessage()`.
+    auto it = local_endpoints_.find(endpoint_name);
+    CHECK_NE(it, local_endpoints_.end());
+    std::shared_ptr<Endpoint> backing_endpoint = it->second;
+
+    // TODO(domfarolino): At this point, per the above `CHECK_NE`, we know
+    // this message is being proxied to another node. But what happens here is
+    // that we send the descriptor *as-is* untouched, to the proxy target.
+    // This means the endpoint will have the same
+    // name/cross_node_endpoint_name here as it does the proxy target, which
+    // is bad; sending the same endopoint back and forth between the same two
+    // processes will blow up because after the first cycle, the endpoint name
+    // is never changing. What we should do is:
+    //   1.) Regenerate a new `cross_node_endpoint_name`
+    //   2.) Change the descriptor *as it lives on the message* (not a copy)
+    //       to make:
+    //       `endpoint_name = cross_node_endpoint_name`
+    //       `cross_node_endpoint_name = new_cross_node_endpoint_name`
+    //   3.) Set `backing_endpoint` to proxy to the *new*
+    //       `cross_node_endpoint_name` since that will be the name of this
+    //       endpoint in the proxy target process.
+    // TODO(domfarolino): Do we need to lock these subnodes??
+    backing_endpoint->SetProxying(/*in_node_name=*/endpoint->proxy_target.node_name, /*in_endpoint_name=*/endpoint_name);
+  }
 }
 
 }; // namespace mage
