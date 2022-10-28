@@ -55,7 +55,7 @@ class Endpoint : public std::enable_shared_from_this<Endpoint> {
   // this message do not exist until we create them. They might already exist if
   // the endpoints are traveling back to a process they've already been at
   // before, but we do not support that use-case currently.
-  void AcceptMessageOnIOThread(Message message);
+  void AcceptMessageOnIOThread(Message message);  // Guarded by `lock_`.
 
   // This method is called by `Node` on any thread but the IO thread. It is only
   // called when a message is received from a local peer endpoint. When this is
@@ -70,7 +70,7 @@ class Endpoint : public std::enable_shared_from_this<Endpoint> {
   // path is hit when `this` receives messages in the same-process case, in
   // which case the sender is local and is sending endpoints that must be
   // registered with the current process.
-  void AcceptMessageOnDelegateThread(Message message);
+  void AcceptMessageOnDelegateThread(Message message);  // Guarded by `lock_`.
 
   // The messages in |incoming_message_queue_| are queued in this endpoint and
   // are waiting to be dispatched to |delegate_| once it is bound. However if
@@ -84,6 +84,7 @@ class Endpoint : public std::enable_shared_from_this<Endpoint> {
   void RegisterDelegate(ReceiverDelegate* delegate,
                         std::shared_ptr<base::TaskRunner> delegate_task_runner);
 
+  // Not implemented yet.
   void UnregisterDelegate();
 
   void SetProxying(std::string in_node_name, std::string in_endpoint_name);
@@ -117,12 +118,12 @@ class Endpoint : public std::enable_shared_from_this<Endpoint> {
   // TODO(domfarolino): It seems possible for this to be called for a node in
   // the proxying state. We should verify this and fix this. Probably messages
   // received for nodes in the proxying state should be handled by `Node`.
-  void AcceptMessage(Message message);
+  void AcceptMessage(Message message);  // Guarded by `lock_`.
 
   // Thread-safe: This method is called whenever `this` needs to post a message
   // to delegate, which happens from either `AcceptMessage()` or
   // `RegisterDelegate()`, both of which grab a lock.
-  void PostMessageToDelegate(Message message);
+  void PostMessageToDelegate(Message message);  // Guarded by `lock_`.
 
   // This is used when |delegate_| is null and
   // `state == State::kUnboundAndQueueing`. That is, when `this` is not bound to

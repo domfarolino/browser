@@ -71,6 +71,7 @@ void Endpoint::AcceptMessage(Message message) {
   printf("Endpoint::AcceptMessage() DONE\n");
 }
 
+// Guarded by `lock_`.
 void Endpoint::PostMessageToDelegate(Message message) {
   CHECK_EQ(state, State::kBound);
   CHECK(delegate_);
@@ -124,11 +125,12 @@ void Endpoint::RegisterDelegate(
 }
 
 void Endpoint::UnregisterDelegate() {
+  // TODO(domfarolino): Support unregistering a delegate.
+  NOTREACHED();
   CHECK_EQ(state, State::kBound);
   state = State::kUnboundAndQueueing;
   CHECK(delegate_);
   CHECK(delegate_task_runner_);
-  // TODO(domfarolino): Support unregistering a delegate.
 }
 
 void Endpoint::SetProxying(std::string in_node_name, std::string in_endpoint_name) {
