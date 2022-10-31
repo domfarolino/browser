@@ -19,10 +19,7 @@ struct Address {
   std::string endpoint_name;
 };
 
-// TODO(domfarolino): See if we still need this inheritance after we stop going
-// to `Core` to forward messages when we receive them and we're in a proxying
-// state.
-class Endpoint : public std::enable_shared_from_this<Endpoint> {
+class Endpoint final {
  public:
   class ReceiverDelegate {
    public:

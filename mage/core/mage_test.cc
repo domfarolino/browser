@@ -279,10 +279,6 @@ TEST_F(MageTest, ParentIsInviterAndReceiver) {
       launcher->GetLocalFd()
     );
 
-  // TODO(domfarolino): We have to use `std::bind()` here and `std::function`
-  // the bound functor, because the test interface expects to be able to call
-  // the quit closure multiple times. Migrate this to `base::RepeatingClosure`
-  // when something like it exists.
   TestInterfaceImpl impl(message_pipe);
   printf("[FROMUI] [Process: %d]: Run()\n", getpid());
   main_thread->Run();
