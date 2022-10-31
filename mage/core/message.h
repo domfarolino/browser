@@ -84,13 +84,10 @@ enum MessageType : int {
   // endpoint identifier, it adds it as a local endpoint, whose peer is the
   // inviter node's "Local Endpoint" above. When the inviter receives this
   // ACCEPT_INVITATION message, it knows to do two things:
-  //   1.) Set "Local Endpoint"'s  peer to the remote endpoint in the new peer
+  //   1.) Set "Local Endpoint"'s peer to the remote endpoint in the new peer
   //       node
   //   2.) Set "Ephemeral Endpoint" in a proxying state, flushing all messages
   //       it may have queued to the remote endpoint in the peer node
-  //       TODO(domfarolino): We don't actually support endpoint proxying at
-  //       this point, so all queued messages before acceptance will be lost. We
-  //       should fix this.
   // At this point (once the inviter receives this message), chain of endpoints
   // looks like so:
   //     +-------------------------------+
@@ -106,10 +103,8 @@ enum MessageType : int {
   //     |                 |             |
   //     +------Node 1-----+-----Node2---+
   ACCEPT_INVITATION,
-  // TODO(domfarolino): Figure out if we need any more messages, like one
-  // indicating that all proxies have been closed and RemoteEndpoint will no
-  // longer be getting messages from endpoints other than its peer. This could
-  // be useful, but before implementing it, it's not clear if it is necessary.
+  // A message created by a library user of mage. These are generic and we use
+  // the message header to determine how to route them.
   USER_MESSAGE,
 };
 
