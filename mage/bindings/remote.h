@@ -11,24 +11,22 @@ class Remote {
  public:
   using InterfaceProxy = typename Interface::Proxy;
 
-  Remote() : proxy_(new InterfaceProxy()) {}
+  Remote() : proxy_(std::make_unique<InterfaceProxy>()) {}
 
   void Bind(MageHandle local_handle) {
     proxy_->BindToHandle(local_handle);
   }
 
-  // TODO(domfarolino): We probably want some way to unbind handles from
-  // mage::Remotes.
   MageHandle Unbind() {
     return proxy_->Unbind();
   }
 
   InterfaceProxy* operator-> () {
-    return proxy_;
+    return proxy_.get();
   }
 
  private:
-  InterfaceProxy* proxy_;
+  std::unique_ptr<InterfaceProxy> proxy_;
 };
 
 }; // namspace mage
