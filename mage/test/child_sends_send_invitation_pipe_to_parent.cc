@@ -38,9 +38,7 @@ int main(int argc, char** argv) {
 
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(pipes[0]);
-  // TODO(domfarolino): Sending an endpoint that is bound shouldn't be
-  // allowed.
-  second_remote->SendReceiverForThirdInterface(message_pipe);
+  second_remote->SendReceiverForThirdInterface(remote.Unbind());
 
   main_thread->Run();
   return 0;

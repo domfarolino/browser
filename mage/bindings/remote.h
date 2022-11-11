@@ -19,6 +19,9 @@ class Remote {
 
   // TODO(domfarolino): We probably want some way to unbind handles from
   // mage::Remotes.
+  MageHandle Unbind() {
+    return proxy_->Unbind();
+  }
 
   InterfaceProxy* operator-> () {
     return proxy_;

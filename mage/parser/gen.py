@@ -158,6 +158,14 @@ class {{Interface}}Proxy {
     bound_ = true;
     local_handle_ = local_handle;
   }
+  mage::MageHandle Unbind() {
+    CHECK(bound_);
+    bound_ = false;
+    // TODO(domfarolino): We should use some sort of invalid handle sentinel.
+    mage::MageHandle return_handle = local_handle_;
+    local_handle_ = 0;
+    return return_handle;
+  }
 
   {{Interface}}Proxy() = default;
 

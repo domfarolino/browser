@@ -26,9 +26,7 @@ void OnInvitationAccepted(mage::MageHandle remote_handle) {
 
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(pipes[0]);
-  // TODO(domfarolino): Sending an endpoint that is bound shouldn't be
-  // allowed.
-  second_remote->SendReceiverForThirdInterface(remote_handle);
+  second_remote->SendReceiverForThirdInterface(remote->Unbind());
 }
 
 int main(int argc, char** argv) {
