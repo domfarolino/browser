@@ -9,9 +9,11 @@
 #include "mage/core/endpoint.h"
 #include "mage/core/handles.h"
 #include "mage/core/message.h"
-#include "mage/core/node.h"
 
 namespace mage {
+
+class Channel;
+class Node;
 
 // A global singleton for processes that initializes mage.
 class Core {
@@ -65,9 +67,7 @@ class Core {
  private:
   friend class MageTest;
 
-  Core()
-      : origin_task_runner_(base::GetCurrentThreadTaskRunner()),
-        node_(new Node()) {}
+  Core();
 
   // This is a `base::TaskRunner` pointing at the `base::TaskLoop` bound to the
   // thread that `this` is initialized on. Some `Core` methods are called on the

@@ -14,6 +14,7 @@
 #include "mage/bindings/remote.h"
 #include "mage/core/core.h"
 #include "mage/core/handles.h"
+#include "mage/core/node.h"
 #include "mage/test/magen/callback_interface.magen.h" // Generated.
 #include "mage/test/magen/first_interface.magen.h" // Generated.
 #include "mage/test/magen/second_interface.magen.h" // Generated.

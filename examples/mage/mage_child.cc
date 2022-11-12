@@ -8,6 +8,7 @@
 
 #include "base/check.h"
 #include "base/scheduling/scheduling_handles.h"
+#include "base/scheduling/task_loop.h"
 #include "base/threading/thread.h"
 #include "mage/bindings/receiver.h"
 #include "mage/bindings/remote.h"

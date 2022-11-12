@@ -5,11 +5,16 @@
 
 #include "base/scheduling/task_loop_for_io.h"
 #include "mage/core/endpoint.h"
+#include "mage/core/node.h"
 #include "mage/core/util.h"
 
 namespace mage {
 
 Core* g_core = nullptr;
+
+Core::Core()
+    : origin_task_runner_(base::GetCurrentThreadTaskRunner()),
+      node_(new Node()) {}
 
 // static
 void Core::Init() {

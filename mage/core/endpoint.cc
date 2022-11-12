@@ -1,5 +1,6 @@
 #include "mage/core/endpoint.h"
 
+#include "base/scheduling/task_runner.h"
 #include "base/threading/thread_checker.h"
 #include "mage/core/core.h"
 
