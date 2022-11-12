@@ -19,39 +19,17 @@ class Core {
   static void Init();
   static void ShutdownCleanly();
 
-  // Always returns the global |Core| object for the current process.
+  // Main public APIs:
+  // TODO(domfarolino): This should not actually be used outside of mage/core.
   static Core* Get();
+  static std::vector<MageHandle> CreateMessagePipes();
+  static MageHandle SendInvitationAndGetMessagePipe(int fd, base::OnceClosure callback = base::OnceClosure());
+  static void AcceptInvitation(int fd, std::function<void(MageHandle)> finished_accepting_invitation_callback);
+  static void SendMessage(MageHandle local_handle, Message message);
+  static void BindReceiverDelegateToEndpoint(MageHandle local_handle, std::weak_ptr<Endpoint::ReceiverDelegate> delegate, std::shared_ptr<base::TaskRunner> delegate_task_runner);
 
-  static std::vector<MageHandle> CreateMessagePipes() {
-    std::vector<MageHandle> return_handles = Get()->node_->CreateMessagePipes();
-    CHECK_NE(Get()->handle_table_.find(return_handles[0]), Get()->handle_table_.end());
-    CHECK_NE(Get()->handle_table_.find(return_handles[1]), Get()->handle_table_.end());
-    return return_handles;
-  }
-  static MageHandle SendInvitationAndGetMessagePipe(
-      int fd, base::OnceClosure callback = base::OnceClosure()) {
-    Get()->remote_has_accepted_invitation_callback_ = std::move(callback);
-    return Get()->node_->SendInvitationAndGetMessagePipe(fd);
-  }
-  static void AcceptInvitation(int fd, std::function<void(MageHandle)> finished_accepting_invitation_callback) {
-    Get()->finished_accepting_invitation_callback_ = std::move(finished_accepting_invitation_callback);
-    Get()->node_->AcceptInvitation(fd);
-  }
-  static void SendMessage(MageHandle local_handle, Message message) {
-    auto endpoint_it = Get()->handle_table_.find(local_handle);
-    printf("Core::SendMessage\n");
-    CHECK_NE(endpoint_it, Get()->handle_table_.end());
-    Get()->node_->SendMessage(endpoint_it->second, std::move(message));
-  }
-  static void BindReceiverDelegateToEndpoint(
-      MageHandle local_handle,
-      std::weak_ptr<Endpoint::ReceiverDelegate> delegate,
-      std::shared_ptr<base::TaskRunner> delegate_task_runner) {
-    auto endpoint_it = Get()->handle_table_.find(local_handle);
-    CHECK_NE(endpoint_it, Get()->handle_table_.end());
-    std::shared_ptr<Endpoint> endpoint = endpoint_it->second;
-    endpoint->RegisterDelegate(delegate, std::move(delegate_task_runner));
-  }
+  // More obscure helpers.
+
   // This method takes a handle `handle_to_send` that is about to be sent over
   // an existing connection described by
   // `local_handle_of_preexisting_connection`. If the handle representing the
@@ -61,105 +39,9 @@ class Core {
   // `handle_to_send` is being sent cross-process. In this case, we must find
   // the endpoint associated with it, and put it in a proxying state so that it
   // knows how to forward things to the non-proxying endpoint in the remote node.
-  static void PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
-      MageHandle handle_to_send,
-      MageHandle local_handle_of_preexisting_connection,
-      EndpointDescriptor& endpoint_descriptor_to_populate) {
-    std::shared_ptr<Endpoint> local_endpoint_of_preexisting_connection = Get()->handle_table_.find(local_handle_of_preexisting_connection)->second;
-    CHECK(local_endpoint_of_preexisting_connection);
-
-    std::string peer_node_name = local_endpoint_of_preexisting_connection->peer_address.node_name;
-    std::string peer_endpoint_name = local_endpoint_of_preexisting_connection->peer_address.endpoint_name;
-
-    printf("**************PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState() populating EndpointDescriptor:\n");
-    printf("    'sending' endpoint name: %s\n", local_endpoint_of_preexisting_connection->name.c_str());
-    printf("    'sending' endpoint [peer node: %s]\n", peer_node_name.c_str());
-    printf("    'sending' endpoint [peer endpoint: %s]\n", peer_endpoint_name.c_str());
-
-    // Populating an `EndpointDescriptor` is easy regardless of whether it is
-    // being sent same-process or cross-process.
-    //   1.) Fill out the name of the endpoint that we are sending. This is used
-    //       in case the descriptor is sent to a same-process endpoint, in which
-    //       case we don't actually create a "new" endpoint from this
-    //       descriptor, but we know to just target the already-existing one
-    //       with this name.
-    //   2.) Generate and fill out a new `cross_node_endpoint_name`: this is
-    //       used as the target endpoint's name upon endpoint creation if the
-    //       descriptor is sent cross-process. We generate this up-front so that
-    //       if the descriptor does go cross-process, the sending endpoint
-    //       automatically knows the name by which to target the remote
-    //       endpoint. This name is used in the `proxy_target` of the endpoint
-    //       (in *this* process) that we're "sending".
-    // TODO(domfarolino): I think there is a bug with the following two steps.
-    // See the test case in https://github.com/domfarolino/browser/pull/32 that
-    // starts with "Process A creates two endpoints.
-    //   3.) The target endpoint's peer node name when it lives in another other
-    //       process is just the current endpoint's peer node name.
-    //   4.) Same as (3), for the peer's endpoint name.
-    std::shared_ptr<Endpoint> endpoint_being_sent = Get()->handle_table_.find(handle_to_send)->second;
-    memcpy(endpoint_descriptor_to_populate.endpoint_name, endpoint_being_sent->name.c_str(), kIdentifierSize);
-    std::string cross_node_endpoint_name = util::RandomIdentifier();
-    memcpy(endpoint_descriptor_to_populate.cross_node_endpoint_name, cross_node_endpoint_name.c_str(), kIdentifierSize);
-    memcpy(endpoint_descriptor_to_populate.peer_node_name, endpoint_being_sent->peer_address.node_name.c_str(), kIdentifierSize);
-    memcpy(endpoint_descriptor_to_populate.peer_endpoint_name, endpoint_being_sent->peer_address.endpoint_name.c_str(), kIdentifierSize);
-    printf("endpoint_descriptor_to_populate.endpoint_name: %s\n", endpoint_descriptor_to_populate.endpoint_name);
-    printf("endpoint_descriptor_to_populate.cross_node_endpoint_name: %s\n", endpoint_descriptor_to_populate.cross_node_endpoint_name);
-    printf("endpoint_descriptor_to_populate.peer_node_name: %s\n", endpoint_descriptor_to_populate.peer_node_name);
-    printf("endpoint_descriptor_to_populate.peer_endpoint_name: %s\n", endpoint_descriptor_to_populate.peer_endpoint_name);
-
-    // If `handle_to_send` is only being sent locally (staying in the same
-    // process), we do nothing else; we don't put `endpoint_being_sent` in the
-    // proxying state. We only put endpoints into the proxying state when they
-    // are traveling to another node, and therefore have to proxy messages to
-    // another node to find the final non-proxying endpoint.
-    if (peer_node_name == Get()->node_->name_) {
-      printf("*****************PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState() returning early without putting endpoint into proxy mode, since it is not going remote\n");
-      return;
-    }
-
-    endpoint_being_sent->SetProxying(/*in_node_name=*/peer_node_name, /*in_endpoint_name=*/cross_node_endpoint_name);
-  }
-
-  static MageHandle RecoverExistingMageHandleFromEndpointDescriptor(
-      const EndpointDescriptor& endpoint_descriptor) {
-    printf("Core::RecoverExistingMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
-    std::string endpoint_name(endpoint_descriptor.endpoint_name,
-                              endpoint_descriptor.endpoint_name + kIdentifierSize);
-
-    std::map<MageHandle, std::shared_ptr<Endpoint>>& handle_table =
-        Core::Get()->handle_table_;
-    // First see if the endpoint is already registered. If so, just early-return
-    // the handle associated with it.
-    for (std::map<MageHandle, std::shared_ptr<Endpoint>>::const_iterator it =
-             handle_table.begin();
-         it != handle_table.end(); it++) {
-      if (it->second->name == endpoint_name) {
-        return it->first;
-      }
-    }
-
-    NOTREACHED();
-  }
-
-  static MageHandle RecoverNewMageHandleFromEndpointDescriptor(const EndpointDescriptor& endpoint_descriptor) {
-    printf("Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
-    endpoint_descriptor.Print();
-
-    std::string cross_node_endpoint_name(
-        endpoint_descriptor.cross_node_endpoint_name,
-        endpoint_descriptor.cross_node_endpoint_name + kIdentifierSize);
-
-    // When we recover a new endpoint from a remote endpoint, the name we should
-    // create it with is `cross_node_endpoint_name`, because this is the name
-    // that the originator process generated for us so that it knows how to
-    // target the remote endpoint.
-    std::shared_ptr<Endpoint> local_endpoint(new Endpoint(/*name=*/cross_node_endpoint_name));
-    local_endpoint->peer_address.node_name.assign(endpoint_descriptor.peer_node_name, kIdentifierSize);
-    local_endpoint->peer_address.endpoint_name.assign(endpoint_descriptor.peer_endpoint_name, kIdentifierSize);
-    MageHandle local_handle = Core::Get()->GetNextMageHandle();
-    Core::Get()->RegisterLocalHandleAndEndpoint(local_handle, std::move(local_endpoint));
-    return local_handle;
-  }
+  static void PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(MageHandle handle_to_send, MageHandle local_handle_of_preexisting_connection, EndpointDescriptor& endpoint_descriptor_to_populate);
+  static MageHandle RecoverExistingMageHandleFromEndpointDescriptor(const EndpointDescriptor& endpoint_descriptor);
+  static MageHandle RecoverNewMageHandleFromEndpointDescriptor(const EndpointDescriptor& endpoint_descriptor);
 
   MageHandle GetNextMageHandle();
   void OnReceivedAcceptInvitation();
