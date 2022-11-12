@@ -225,6 +225,24 @@ TEST_F(MageTest, CoreInitStateUnitTest) {
   EXPECT_EQ(NodeLocalEndpoints().size(), 0);
 }
 
+TEST_F(MageTest, UseUnboundRemoteCrashes) {
+  mage::Remote<magen::TestInterface> remote;
+  ASSERT_DEATH({
+    remote->SendMoney(0, "");
+  }, "Assertion failed: (bound_)*");
+}
+TEST_F(MageTest, UseUnboundRemoteCrashes2) {
+  std::vector<mage::MageHandle> pipes = mage::Core::CreateMessagePipes();
+  mage::Remote<magen::TestInterface> remote;
+  remote.Bind(pipes[0]);
+  remote->SendMoney(0, "");
+
+  remote.Unbind();
+  ASSERT_DEATH({
+    remote->SendMoney(0, "");
+  }, "Assertion failed: (bound_)*");
+}
+
 TEST_F(MageTest, InitializeAndEntangleEndpointsUnitTest) {
   const auto& [local, remote] = Node().InitializeAndEntangleEndpoints();
 
