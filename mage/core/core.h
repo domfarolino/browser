@@ -23,10 +23,17 @@ class Core {
   // TODO(domfarolino): This should not actually be used outside of mage/core.
   static Core* Get();
   static std::vector<MageHandle> CreateMessagePipes();
-  static MageHandle SendInvitationAndGetMessagePipe(int fd, base::OnceClosure callback = base::OnceClosure());
-  static void AcceptInvitation(int fd, std::function<void(MageHandle)> finished_accepting_invitation_callback);
+  static MageHandle SendInvitationAndGetMessagePipe(
+      int fd,
+      base::OnceClosure callback = base::OnceClosure());
+  static void AcceptInvitation(
+      int fd,
+      std::function<void(MageHandle)> finished_accepting_invitation_callback);
   static void SendMessage(MageHandle local_handle, Message message);
-  static void BindReceiverDelegateToEndpoint(MageHandle local_handle, std::weak_ptr<Endpoint::ReceiverDelegate> delegate, std::shared_ptr<base::TaskRunner> delegate_task_runner);
+  static void BindReceiverDelegateToEndpoint(
+      MageHandle local_handle,
+      std::weak_ptr<Endpoint::ReceiverDelegate> delegate,
+      std::shared_ptr<base::TaskRunner> delegate_task_runner);
 
   // More obscure helpers.
 
@@ -38,21 +45,29 @@ class Core {
   // in the proxying state? I think it should be the latter] then
   // `handle_to_send` is being sent cross-process. In this case, we must find
   // the endpoint associated with it, and put it in a proxying state so that it
-  // knows how to forward things to the non-proxying endpoint in the remote node.
-  static void PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(MageHandle handle_to_send, MageHandle local_handle_of_preexisting_connection, EndpointDescriptor& endpoint_descriptor_to_populate);
-  static MageHandle RecoverExistingMageHandleFromEndpointDescriptor(const EndpointDescriptor& endpoint_descriptor);
-  static MageHandle RecoverNewMageHandleFromEndpointDescriptor(const EndpointDescriptor& endpoint_descriptor);
+  // knows how to forward things to the non-proxying endpoint in the remote
+  // node.
+  static void PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
+      MageHandle handle_to_send,
+      MageHandle local_handle_of_preexisting_connection,
+      EndpointDescriptor& endpoint_descriptor_to_populate);
+  static MageHandle RecoverExistingMageHandleFromEndpointDescriptor(
+      const EndpointDescriptor& endpoint_descriptor);
+  static MageHandle RecoverNewMageHandleFromEndpointDescriptor(
+      const EndpointDescriptor& endpoint_descriptor);
 
   MageHandle GetNextMageHandle();
   void OnReceivedAcceptInvitation();
   void OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint);
-  void RegisterLocalHandleAndEndpoint(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint);
+  void RegisterLocalHandleAndEndpoint(MageHandle local_handle,
+                                      std::shared_ptr<Endpoint> local_endpoint);
 
  private:
   friend class MageTest;
 
-  Core(): origin_task_runner_(base::GetCurrentThreadTaskRunner()),
-          node_(new Node()) {}
+  Core()
+      : origin_task_runner_(base::GetCurrentThreadTaskRunner()),
+        node_(new Node()) {}
 
   // This is a `base::TaskRunner` pointing at the `base::TaskLoop` bound to the
   // thread that `this` is initialized on. Some `Core` methods are called on the
@@ -83,6 +98,6 @@ class Core {
   std::unique_ptr<Node> node_;
 };
 
-}; // namespace mage
+};  // namespace mage
 
-#endif // MAGE_CORE_CORE_H_
+#endif  // MAGE_CORE_CORE_H_
