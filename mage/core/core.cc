@@ -1,7 +1,7 @@
 #include "mage/core/core.h"
 
-#include <cstdlib>
 #include <unistd.h>
+#include <cstdlib>
 
 #include "base/scheduling/task_loop_for_io.h"
 #include "mage/core/endpoint.h"
@@ -33,20 +33,26 @@ Core* Core::Get() {
 // static
 std::vector<MageHandle> Core::CreateMessagePipes() {
   std::vector<MageHandle> return_handles = Get()->node_->CreateMessagePipes();
-  CHECK_NE(Get()->handle_table_.find(return_handles[0]), Get()->handle_table_.end());
-  CHECK_NE(Get()->handle_table_.find(return_handles[1]), Get()->handle_table_.end());
+  CHECK_NE(Get()->handle_table_.find(return_handles[0]),
+           Get()->handle_table_.end());
+  CHECK_NE(Get()->handle_table_.find(return_handles[1]),
+           Get()->handle_table_.end());
   return return_handles;
 }
 
 // static
-MageHandle Core::SendInvitationAndGetMessagePipe(int fd, base::OnceClosure callback) {
+MageHandle Core::SendInvitationAndGetMessagePipe(int fd,
+                                                 base::OnceClosure callback) {
   Get()->remote_has_accepted_invitation_callback_ = std::move(callback);
   return Get()->node_->SendInvitationAndGetMessagePipe(fd);
 }
 
 // static
-void Core::AcceptInvitation(int fd, std::function<void(MageHandle)> finished_accepting_invitation_callback) {
-  Get()->finished_accepting_invitation_callback_ = std::move(finished_accepting_invitation_callback);
+void Core::AcceptInvitation(
+    int fd,
+    std::function<void(MageHandle)> finished_accepting_invitation_callback) {
+  Get()->finished_accepting_invitation_callback_ =
+      std::move(finished_accepting_invitation_callback);
   Get()->node_->AcceptInvitation(fd);
 }
 
@@ -59,7 +65,10 @@ void Core::SendMessage(MageHandle local_handle, Message message) {
 }
 
 // static
-void Core::BindReceiverDelegateToEndpoint(MageHandle local_handle, std::weak_ptr<Endpoint::ReceiverDelegate> delegate, std::shared_ptr<base::TaskRunner> delegate_task_runner) {
+void Core::BindReceiverDelegateToEndpoint(
+    MageHandle local_handle,
+    std::weak_ptr<Endpoint::ReceiverDelegate> delegate,
+    std::shared_ptr<base::TaskRunner> delegate_task_runner) {
   auto endpoint_it = Get()->handle_table_.find(local_handle);
   CHECK_NE(endpoint_it, Get()->handle_table_.end());
   std::shared_ptr<Endpoint> endpoint = endpoint_it->second;
@@ -67,17 +76,28 @@ void Core::BindReceiverDelegateToEndpoint(MageHandle local_handle, std::weak_ptr
 }
 
 // static
-void Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(MageHandle handle_to_send, MageHandle local_handle_of_preexisting_connection, EndpointDescriptor& endpoint_descriptor_to_populate) {
-  std::shared_ptr<Endpoint> local_endpoint_of_preexisting_connection = Get()->handle_table_.find(local_handle_of_preexisting_connection)->second;
+void Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
+    MageHandle handle_to_send,
+    MageHandle local_handle_of_preexisting_connection,
+    EndpointDescriptor& endpoint_descriptor_to_populate) {
+  std::shared_ptr<Endpoint> local_endpoint_of_preexisting_connection =
+      Get()->handle_table_.find(local_handle_of_preexisting_connection)->second;
   CHECK(local_endpoint_of_preexisting_connection);
 
-  std::string peer_node_name = local_endpoint_of_preexisting_connection->peer_address.node_name;
-  std::string peer_endpoint_name = local_endpoint_of_preexisting_connection->peer_address.endpoint_name;
+  std::string peer_node_name =
+      local_endpoint_of_preexisting_connection->peer_address.node_name;
+  std::string peer_endpoint_name =
+      local_endpoint_of_preexisting_connection->peer_address.endpoint_name;
 
-  printf("**************PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState() populating EndpointDescriptor:\n");
-  printf("    'sending' endpoint name: %s\n", local_endpoint_of_preexisting_connection->name.c_str());
+  printf(
+      "**************"
+      "PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState() "
+      "populating EndpointDescriptor:\n");
+  printf("    'sending' endpoint name: %s\n",
+         local_endpoint_of_preexisting_connection->name.c_str());
   printf("    'sending' endpoint [peer node: %s]\n", peer_node_name.c_str());
-  printf("    'sending' endpoint [peer endpoint: %s]\n", peer_endpoint_name.c_str());
+  printf("    'sending' endpoint [peer endpoint: %s]\n",
+         peer_endpoint_name.c_str());
 
   // Populating an `EndpointDescriptor` is easy regardless of whether it is
   // being sent same-process or cross-process.
@@ -99,16 +119,26 @@ void Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(MageHand
   //   3.) The target endpoint's peer node name when it lives in another other
   //       process is just the current endpoint's peer node name.
   //   4.) Same as (3), for the peer's endpoint name.
-  std::shared_ptr<Endpoint> endpoint_being_sent = Get()->handle_table_.find(handle_to_send)->second;
-  memcpy(endpoint_descriptor_to_populate.endpoint_name, endpoint_being_sent->name.c_str(), kIdentifierSize);
+  std::shared_ptr<Endpoint> endpoint_being_sent =
+      Get()->handle_table_.find(handle_to_send)->second;
+  memcpy(endpoint_descriptor_to_populate.endpoint_name,
+         endpoint_being_sent->name.c_str(), kIdentifierSize);
   std::string cross_node_endpoint_name = util::RandomIdentifier();
-  memcpy(endpoint_descriptor_to_populate.cross_node_endpoint_name, cross_node_endpoint_name.c_str(), kIdentifierSize);
-  memcpy(endpoint_descriptor_to_populate.peer_node_name, endpoint_being_sent->peer_address.node_name.c_str(), kIdentifierSize);
-  memcpy(endpoint_descriptor_to_populate.peer_endpoint_name, endpoint_being_sent->peer_address.endpoint_name.c_str(), kIdentifierSize);
-  printf("endpoint_descriptor_to_populate.endpoint_name: %s\n", endpoint_descriptor_to_populate.endpoint_name);
-  printf("endpoint_descriptor_to_populate.cross_node_endpoint_name: %s\n", endpoint_descriptor_to_populate.cross_node_endpoint_name);
-  printf("endpoint_descriptor_to_populate.peer_node_name: %s\n", endpoint_descriptor_to_populate.peer_node_name);
-  printf("endpoint_descriptor_to_populate.peer_endpoint_name: %s\n", endpoint_descriptor_to_populate.peer_endpoint_name);
+  memcpy(endpoint_descriptor_to_populate.cross_node_endpoint_name,
+         cross_node_endpoint_name.c_str(), kIdentifierSize);
+  memcpy(endpoint_descriptor_to_populate.peer_node_name,
+         endpoint_being_sent->peer_address.node_name.c_str(), kIdentifierSize);
+  memcpy(endpoint_descriptor_to_populate.peer_endpoint_name,
+         endpoint_being_sent->peer_address.endpoint_name.c_str(),
+         kIdentifierSize);
+  printf("endpoint_descriptor_to_populate.endpoint_name: %s\n",
+         endpoint_descriptor_to_populate.endpoint_name);
+  printf("endpoint_descriptor_to_populate.cross_node_endpoint_name: %s\n",
+         endpoint_descriptor_to_populate.cross_node_endpoint_name);
+  printf("endpoint_descriptor_to_populate.peer_node_name: %s\n",
+         endpoint_descriptor_to_populate.peer_node_name);
+  printf("endpoint_descriptor_to_populate.peer_endpoint_name: %s\n",
+         endpoint_descriptor_to_populate.peer_endpoint_name);
 
   // If `handle_to_send` is only being sent locally (staying in the same
   // process), we do nothing else; we don't put `endpoint_being_sent` in the
@@ -116,18 +146,28 @@ void Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(MageHand
   // are traveling to another node, and therefore have to proxy messages to
   // another node to find the final non-proxying endpoint.
   if (peer_node_name == Get()->node_->name_) {
-    printf("*****************PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState() returning early without putting endpoint into proxy mode, since it is not going remote\n");
+    printf(
+        "*****************"
+        "PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState() "
+        "returning early without putting endpoint into proxy mode, since it is "
+        "not going remote\n");
     return;
   }
 
-  endpoint_being_sent->SetProxying(/*in_node_name=*/peer_node_name, /*in_endpoint_name=*/cross_node_endpoint_name);
+  endpoint_being_sent->SetProxying(
+      /*in_node_name=*/peer_node_name,
+      /*in_endpoint_name=*/cross_node_endpoint_name);
 }
 
 // static
-MageHandle Core::RecoverExistingMageHandleFromEndpointDescriptor(const EndpointDescriptor& endpoint_descriptor) {
-  printf("Core::RecoverExistingMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
-  std::string endpoint_name(endpoint_descriptor.endpoint_name,
-                            endpoint_descriptor.endpoint_name + kIdentifierSize);
+MageHandle Core::RecoverExistingMageHandleFromEndpointDescriptor(
+    const EndpointDescriptor& endpoint_descriptor) {
+  printf(
+      "Core::RecoverExistingMageHandleFromEndpointDescriptor(endpoint_"
+      "descriptor)\n");
+  std::string endpoint_name(
+      endpoint_descriptor.endpoint_name,
+      endpoint_descriptor.endpoint_name + kIdentifierSize);
 
   std::map<MageHandle, std::shared_ptr<Endpoint>>& handle_table =
       Core::Get()->handle_table_;
@@ -145,8 +185,10 @@ MageHandle Core::RecoverExistingMageHandleFromEndpointDescriptor(const EndpointD
 }
 
 // static
-MageHandle Core::RecoverNewMageHandleFromEndpointDescriptor(const EndpointDescriptor& endpoint_descriptor) {
-  printf("Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
+MageHandle Core::RecoverNewMageHandleFromEndpointDescriptor(
+    const EndpointDescriptor& endpoint_descriptor) {
+  printf(
+      "Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
   endpoint_descriptor.Print();
 
   std::string cross_node_endpoint_name(
@@ -157,11 +199,15 @@ MageHandle Core::RecoverNewMageHandleFromEndpointDescriptor(const EndpointDescri
   // create it with is `cross_node_endpoint_name`, because this is the name
   // that the originator process generated for us so that it knows how to
   // target the remote endpoint.
-  std::shared_ptr<Endpoint> local_endpoint(new Endpoint(/*name=*/cross_node_endpoint_name));
-  local_endpoint->peer_address.node_name.assign(endpoint_descriptor.peer_node_name, kIdentifierSize);
-  local_endpoint->peer_address.endpoint_name.assign(endpoint_descriptor.peer_endpoint_name, kIdentifierSize);
+  std::shared_ptr<Endpoint> local_endpoint(
+      new Endpoint(/*name=*/cross_node_endpoint_name));
+  local_endpoint->peer_address.node_name.assign(
+      endpoint_descriptor.peer_node_name, kIdentifierSize);
+  local_endpoint->peer_address.endpoint_name.assign(
+      endpoint_descriptor.peer_endpoint_name, kIdentifierSize);
   MageHandle local_handle = Core::Get()->GetNextMageHandle();
-  Core::Get()->RegisterLocalHandleAndEndpoint(local_handle, std::move(local_endpoint));
+  Core::Get()->RegisterLocalHandleAndEndpoint(local_handle,
+                                              std::move(local_endpoint));
   return local_handle;
 }
 
@@ -172,7 +218,7 @@ MageHandle Core::GetNextMageHandle() {
 void Core::OnReceivedAcceptInvitation() {
   if (remote_has_accepted_invitation_callback_) {
     origin_task_runner_->PostTask(
-      std::move(remote_has_accepted_invitation_callback_));
+        std::move(remote_has_accepted_invitation_callback_));
   }
 }
 
@@ -180,13 +226,15 @@ void Core::OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint) {
   MageHandle local_handle = GetNextMageHandle();
   handle_table_.insert({local_handle, std::move(local_endpoint)});
   CHECK(finished_accepting_invitation_callback_);
-  origin_task_runner_->PostTask([=](){
-    finished_accepting_invitation_callback_(local_handle);
-  });
+  origin_task_runner_->PostTask(
+      [=]() { finished_accepting_invitation_callback_(local_handle); });
 }
 
-void Core::RegisterLocalHandleAndEndpoint(MageHandle local_handle, std::shared_ptr<Endpoint> local_endpoint) {
-  // First, we check that `local_handle` doesn't already point to an existing endpoint.
+void Core::RegisterLocalHandleAndEndpoint(
+    MageHandle local_handle,
+    std::shared_ptr<Endpoint> local_endpoint) {
+  // First, we check that `local_handle` doesn't already point to an existing
+  // endpoint.
   {
     auto endpoint_it = handle_table_.find(local_handle);
     CHECK_EQ(endpoint_it, handle_table_.end());
@@ -202,10 +250,14 @@ void Core::RegisterLocalHandleAndEndpoint(MageHandle local_handle, std::shared_p
   }
 
   // Finally, we can register the endpoint with `this` and `node_`.
-  printf("Core::RegisterLocalHandle registering local handle and endpoint with name: %s\n", local_endpoint->name.c_str());
+  printf(
+      "Core::RegisterLocalHandle registering local handle and endpoint with "
+      "name: %s\n",
+      local_endpoint->name.c_str());
   handle_table_.insert({local_handle, local_endpoint});
   node_->local_endpoints_.insert({local_endpoint->name, local_endpoint});
-  printf("node_->local_endpoints_.size(): %lu\n", node_->local_endpoints_.size());
+  printf("node_->local_endpoints_.size(): %lu\n",
+         node_->local_endpoints_.size());
 }
 
-}; // namspace mage
+};  // namespace mage
