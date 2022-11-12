@@ -1237,4 +1237,36 @@ TEST_F(MageTest, InProcessCrossThread) {
   EXPECT_TRUE(impl->has_called_send_money);
 }
 
+TEST_F(MageTest, SendMessageToDeletedReceiver) {
+  std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
+  EXPECT_EQ(mage_handles.size(), 2);
+
+  MageHandle local_handle = mage_handles[0],
+             remote_handle = mage_handles[1];
+  mage::Remote<magen::TestInterface> remote;
+  remote.Bind(local_handle);
+  std::unique_ptr<TestInterfaceImpl> impl = std::make_unique<TestInterfaceImpl>(remote_handle);
+
+  // At this point both the local and remote endpoints are bound. Invoke methods
+  // on the remote, and confirm that they are called.
+  remote->Method1(6000, .78, "some text");
+  EXPECT_FALSE(impl->has_called_method1);
+
+  main_thread->Run();
+  EXPECT_TRUE(impl->has_called_method1);
+
+  // Destroy `impl`, and therefore the `Receiver` and generated stub that
+  // `Endpoint` weakly references, to dispatch messages to.
+  impl.reset();
+  remote->Method1(6000, .78, "some text");
+  // At this point, a task has been posted to the main thread's runner to
+  // dispatch the message. We'll now post a task _after_ that one to quit the
+  // loop. If we successfully quit the loop without crashing, that means the
+  // first task (to dispatch the message) successfully dropped the message
+  // without crashing.
+  base::GetCurrentThreadTaskRunner()->PostTask(main_thread->QuitClosure());
+
+  main_thread->Run();
+}
+
 }; // namespace mage
