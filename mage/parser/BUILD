@@ -8,7 +8,7 @@ package(default_visibility = ["//visibility:public"])
 # `gen.py-created` file).
 genrule(
     name = "gen",
-    tools = ["gen.py"],
+    tools = ["gen.py", "classes.tmpl"],
     outs = ["gen.py-created"],
-    cmd = "cp $(location gen.py) $@"
+    cmd = "cp $(location gen.py) $@; cp $(location classes.tmpl) classes.tmpl-created"
 )
