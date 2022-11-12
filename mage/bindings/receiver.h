@@ -1,6 +1,8 @@
 #ifndef MAGE_BINDINGS_RECEIVER_H_
 #define MAGE_BINDINGS_RECEIVER_H_
 
+#include <memory>
+
 #include "base/scheduling/scheduling_handles.h"
 #include "base/threading/thread_checker.h"
 #include "mage/core/handles.h"
@@ -17,8 +19,7 @@ class Receiver {
 
   void Bind(MageHandle local_handle, Interface* impl) {
     CHECK(thread_checker_.CalledOnConstructedThread());
-    impl_ = impl;
-    stub_ = new InterfaceStub();
+    stub_ = std::make_shared<InterfaceStub>();
     // We pass in the current thread's `base::TaskRunner` so that mage knows
     // which task runner to dispatch messages to `impl_` on.
     stub_->BindToHandle(local_handle, impl, base::GetCurrentThreadTaskRunner());
@@ -28,15 +29,18 @@ class Receiver {
   // mage::Receivers.
 
  private:
-  // This is the user-provided implementation of the mage interface that we'll
-  // ultimately dispatch messages to.
-  Interface* impl_;
-
   // This is the receiver stub that once bound to a |MageHandle|, associates
   // itself with the underlying |mage::Endpoint| that receives messages bound
   // for |impl_|. It is a generated object that automatically deserializes the
   // message data and dispatches the correct method on |impl_|.
-  InterfaceStub* stub_;
+  //
+  // The lifetime of `stub_` is directly tied to `this`, which could be
+  // destroyed by the time mage core tries to dispatch a message to `stub_` for
+  // deserialization. To account for this, `stub_` passes a weak pointer of
+  // itself to mage core for async message dispatching. Mage core can check if
+  // `stub_` (and implicitly `this`) is still alive, and if so, dispatch the
+  // message. If not, the message must be dropped.
+  std::shared_ptr<InterfaceStub> stub_;
 
   // If we ever have the use-case of creating a receiver on one thread and
   // binding it on another, then we can remove this. Until then however, this is

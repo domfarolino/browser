@@ -24,6 +24,23 @@ class Endpoint final {
   class ReceiverDelegate {
    public:
     virtual ~ReceiverDelegate() = default;
+    // This is the only public method in this class, because it is the
+    // gatekeeper for dispatching a message to a delegate. This method receives
+    // `message` bound for `weak_delegate`, and runs on the task loop that
+    // `weak_delegate` was bound on in `Endpoint`. First check if
+    // `weak_delegate` is still alive; if so, we can dispatch the message.
+    // Otherwise, the message must be dropped because the delegate is dead.
+    static void DispatchMessageIfStillAlive(std::weak_ptr<ReceiverDelegate> weak_delegate, mage::Message message) {
+      std::shared_ptr<ReceiverDelegate> receiver = weak_delegate.lock();
+      if (!receiver) {
+        printf("\033[31;1m[static] ReceiverDelegate::DispatchMessageIfStillAlive() received a message for a destroyed delegate. Dropping the message.\033[0m\n");
+        return;
+      }
+
+      receiver->OnReceivedMessage(std::move(message));
+    }
+
+   private:
     virtual void OnReceivedMessage(Message) = 0;
   };
 
@@ -79,7 +96,7 @@ class Endpoint final {
   // its bound |delegate_|.
   std::queue<Message> TakeQueuedMessages();
 
-  void RegisterDelegate(ReceiverDelegate* delegate,
+  void RegisterDelegate(std::weak_ptr<ReceiverDelegate> delegate,
                         std::shared_ptr<base::TaskRunner> delegate_task_runner);
 
   // Not implemented yet.
@@ -140,7 +157,7 @@ class Endpoint final {
   //
   // Must be accessed/updated atomically with `state`, `delegate_task_runner_`,
   // and `incoming_message_queue_`.
-  ReceiverDelegate* delegate_ = nullptr;
+  std::weak_ptr<ReceiverDelegate> delegate_;
 
   // `this` can be accessed simultaneously on two different threads, so `lock_`
   // ensures that whatever state needs to be accessed atomically is done so. For

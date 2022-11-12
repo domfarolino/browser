@@ -5,6 +5,18 @@
 
 namespace mage {
 
+namespace {
+  // `Endpoint` occassionally wants to verify whether a `std::weak_ptr` has been
+  // assigned to some object without asserting anything about the object's
+  // lifetime. This helper from https://stackoverflow.com/a/45507610/3947332
+  // enables this.
+  template <typename T>
+  bool is_weak_ptr_assigned(std::weak_ptr<T> const& weak) {
+      using wt = std::weak_ptr<T>;
+      return weak.owner_before(wt{}) || wt{}.owner_before(weak);
+  }
+}  // namespace
+
 // Guarded by `lock_`.
 void Endpoint::AcceptMessageOnIOThread(Message message) {
   CHECK_ON_THREAD(base::ThreadType::IO);
@@ -53,12 +65,12 @@ void Endpoint::AcceptMessage(Message message) {
 
   switch (state) {
     case State::kUnboundAndQueueing:
-      CHECK(!delegate_);
+      CHECK(!is_weak_ptr_assigned(delegate_));
       printf("  Endpoint is queueing a message to `incoming_message_queue_`\n");
       incoming_message_queue_.push(std::move(message));
       break;
     case State::kBound:
-      CHECK(delegate_);
+      CHECK(is_weak_ptr_assigned(delegate_));
       printf("  Endpoint has accepted a message. Now forwarding it to `delegate_` on the delegate's task runner\n");
       PostMessageToDelegate(std::move(message));
       break;
@@ -74,19 +86,19 @@ void Endpoint::AcceptMessage(Message message) {
 // Guarded by `lock_`.
 void Endpoint::PostMessageToDelegate(Message message) {
   CHECK_EQ(state, State::kBound);
-  CHECK(delegate_);
+  CHECK(is_weak_ptr_assigned(delegate_));
   CHECK(delegate_task_runner_);
   // We should consider whether or not we need to be unconditionally posting a
   // task here. If this method is already running on the TaskLoop/thread that
   // `delegate_` is bound to, do we need to post a task at all? It depends on
   // the async semantics that we're going for. We should also test this.
   delegate_task_runner_->PostTask(
-      base::BindOnce(&ReceiverDelegate::OnReceivedMessage, delegate_,
+      base::BindOnce(&ReceiverDelegate::DispatchMessageIfStillAlive, delegate_,
                      std::move(message)));
 }
 
 std::queue<Message> Endpoint::TakeQueuedMessages() {
-  CHECK(!delegate_);
+  CHECK(!is_weak_ptr_assigned(delegate_));
   // TODO(domfarolino): We should also probably set some state so that any
   // more usage of |this| will crash, since after this call, we should be
   // deleted.
@@ -95,7 +107,7 @@ std::queue<Message> Endpoint::TakeQueuedMessages() {
 }
 
 void Endpoint::RegisterDelegate(
-    ReceiverDelegate* delegate,
+    std::weak_ptr<ReceiverDelegate> delegate,
     std::shared_ptr<base::TaskRunner> delegate_task_runner) {
   // Before we observe our state and incoming message queue, we need to grab a
   // lock in case another thread is modifying this state.
@@ -106,7 +118,7 @@ void Endpoint::RegisterDelegate(
   CHECK_EQ(state, State::kUnboundAndQueueing);
   state = State::kBound;
   // printf("RegisterDelegate() just set state = kBound\n");
-  CHECK(!delegate_);
+  CHECK(!is_weak_ptr_assigned(delegate_));
   delegate_ = delegate;
   CHECK(!delegate_task_runner_);
   delegate_task_runner_ = delegate_task_runner;
@@ -127,7 +139,7 @@ void Endpoint::UnregisterDelegate() {
   NOTREACHED();
   CHECK_EQ(state, State::kBound);
   state = State::kUnboundAndQueueing;
-  CHECK(delegate_);
+  CHECK(is_weak_ptr_assigned(delegate_));
   CHECK(delegate_task_runner_);
 }
 

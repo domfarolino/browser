@@ -90,6 +90,7 @@ generated_magen_template = Template("""
 // This file is generated at build-time. Do not edit it.
 
 #include <string>
+#include <memory>
 #include <vector>
 
 #include "base/check.h"
@@ -255,8 +256,9 @@ class {{Interface}}Proxy {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
+class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate, public std::enable_shared_from_this<{{Interface}}ReceiverStub> {
  public:
+
   void BindToHandle(mage::MageHandle local_handle, {{Interface}}* impl, std::shared_ptr<base::TaskRunner> impl_task_runner) {
     CHECK(!bound_);
     bound_ = true;
@@ -266,12 +268,15 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
     // Set outselves up as the official delegate for the underlying endpoint
     // associated with |local_handle_|. That way any messages it receives, we'll
     // be able to deserialize and forward to the implementation.
-    mage::Core::BindReceiverDelegateToEndpoint(local_handle, this, std::move(impl_task_runner));
+    mage::Core::BindReceiverDelegateToEndpoint(local_handle, weak_from_this(), std::move(impl_task_runner));
   }
 
+ private:
   // mage::Endpoint::ReceiverDelegate implementation.
   // This is what deserializes the message and dispatches the correct method to
-  // the interface implementation.
+  // the interface implementation. If this message is called, then `impl_`
+  // should be alive. If it has already been destroyed, that is considered a bug
+  // in the application using mage.
   void OnReceivedMessage(mage::Message message) override {
     int user_message_id = message.GetMutableMessageHeader().user_message_id;
 
@@ -320,7 +325,6 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate {
     NOTREACHED();
   }
 
- private:
   bool bound_;
   mage::MageHandle local_handle_;
   {{Interface}}* impl_;

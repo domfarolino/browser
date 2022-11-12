@@ -45,7 +45,7 @@ class Core {
   }
   static void BindReceiverDelegateToEndpoint(
       MageHandle local_handle,
-      Endpoint::ReceiverDelegate* delegate,
+      std::weak_ptr<Endpoint::ReceiverDelegate> delegate,
       std::shared_ptr<base::TaskRunner> delegate_task_runner) {
     auto endpoint_it = Get()->handle_table_.find(local_handle);
     CHECK_NE(endpoint_it, Get()->handle_table_.end());
