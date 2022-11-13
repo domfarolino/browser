@@ -168,21 +168,21 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
 
       // If we know that this message is supposed to be proxied to another node,
       // we have to rewrite its target endpoint to be the proxy target. We do
-      // the same for dependant endpoint descriptors in
-      // `SendMessagesAndRecursiveDependants()`.
+      // the same for dependent endpoint descriptors in
+      // `SendMessagesAndRecursiveDependents()`.
       memcpy(message.GetMutableMessageHeader().target_endpoint, actual_endpoint_name.c_str(), kIdentifierSize);
 
       std::queue<Message> messages_to_send;
       messages_to_send.push(std::move(message));
-      SendMessagesAndRecursiveDependants(std::move(messages_to_send), local_peer_endpoint);
+      SendMessagesAndRecursiveDependents(std::move(messages_to_send), local_peer_endpoint);
       break;
     }
     case Endpoint::State::kBound:
     case Endpoint::State::kUnboundAndQueueing:
       printf("  local_peer is not proxying state, going to deliver the message right there\n");
       // We can just pass this single message to the peer without recursively
-      // looking at dependant messages. That's because if we *did* recursively
-      // look through all of the dependant messages and try and forward them,
+      // looking at dependent messages. That's because if we *did* recursively
+      // look through all of the dependent messages and try and forward them,
       // we'd just be forwarding them to *their* local peers in the same node,
       // which is where those messages already are.
       local_peer_endpoint->AcceptMessageOnDelegateThread(std::move(message));
@@ -334,8 +334,8 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   // All of these messages were written with the `target_endpoint` as
   // `remote_endpoint->name`. But since `remote_endpoint` is now proxying to a
   // different-named endpoint in the remote process, we must re-target the
-  // queued messages. Re-targeting of the dependant messages happens in
-  // `SendMessagesAndRecursiveDependants()`.
+  // queued messages. Re-targeting of the dependent messages happens in
+  // `SendMessagesAndRecursiveDependents()`.
   std::queue<Message> final_messages_to_forward;
   while (!messages_to_forward.empty()) {
     Message message_to_forward = std::move(messages_to_forward.front());
@@ -344,12 +344,12 @@ void Node::OnReceivedAcceptInvitation(Message message) {
     messages_to_forward.pop();
   }
 
-  SendMessagesAndRecursiveDependants(std::move(final_messages_to_forward), remote_endpoint);
+  SendMessagesAndRecursiveDependents(std::move(final_messages_to_forward), remote_endpoint);
   remote_endpoint->Unlock();
   Core::Get()->OnReceivedAcceptInvitation();
 }
 
-void Node::SendMessagesAndRecursiveDependants(std::queue<Message> messages_to_send, std::shared_ptr<Endpoint> local_peer_endpoint) {
+void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_send, std::shared_ptr<Endpoint> local_peer_endpoint) {
   // All messages sent from this method are bound for the same node. But each
   // message is going to an endpoint of a different name in the remote node.
   // The name of the cross-node endpoint is captured in
@@ -365,19 +365,19 @@ void Node::SendMessagesAndRecursiveDependants(std::queue<Message> messages_to_se
     printf("      Forwarding a message NumberOfHandles(): %d\n", message_to_send.NumberOfHandles());
     std::vector<EndpointDescriptor> descriptors = message_to_send.GetEndpointDescriptors();
 
-    // As we process each dependant endpoint of `message_to_send`, we have to
+    // As we process each dependent endpoint of `message_to_send`, we have to
     // lock them. The meat of what we do below is:
-    //   1.) Set each dependant endpoint into the proxying state
+    //   1.) Set each dependent endpoint into the proxying state
     //   2.) After all are into the proxying state, send `message_to_send`,
     //       which is the message that each endpoint is attached to / inside of
     // We must only unlock each endpoint *after* `message_to_send` is sent. If
     // we unlock each endpoint after they go into the proxying state, but before
     // the message-they-are-attached-to is sent, then a new message could be
-    // sent via the dependant endpoints (to the proxy target node) before
+    // sent via the dependent endpoints (to the proxy target node) before
     // `message_to_send` gets a chance to introduce the new target node to each
     // endpoint it's transporting. In that case, the target node would blow up
     // because it received a message for an endpoint that it's not aware of yet.
-    std::vector<std::shared_ptr<Endpoint>> locked_dependant_endpoints;
+    std::vector<std::shared_ptr<Endpoint>> locked_dependent_endpoints;
 
     for (const EndpointDescriptor& descriptor : descriptors) {
       std::string endpoint_name(descriptor.endpoint_name, kIdentifierSize);
@@ -392,7 +392,7 @@ void Node::SendMessagesAndRecursiveDependants(std::queue<Message> messages_to_se
       endpoint_from_info->Lock();
       // So we can remember to unlock these after we send the message bearing
       // this endpoint.
-      locked_dependant_endpoints.push_back(endpoint_from_info);
+      locked_dependent_endpoints.push_back(endpoint_from_info);
 
       std::queue<Message> sub_messages = endpoint_from_info->TakeQueuedMessages();
       while (!sub_messages.empty()) {
@@ -423,8 +423,8 @@ void Node::SendMessagesAndRecursiveDependants(std::queue<Message> messages_to_se
     // Forward the message and remove it from the queue.
     node_channel_map_[target_node_name]->SendMessage(std::move(message_to_send));
 
-    // See the documentation above `locked_dependant_endpoints`.
-    for (const std::shared_ptr<Endpoint>& endpoint: locked_dependant_endpoints)
+    // See the documentation above `locked_dependent_endpoints`.
+    for (const std::shared_ptr<Endpoint>& endpoint: locked_dependent_endpoints)
       endpoint->Unlock();
     messages_to_send.pop();
   }

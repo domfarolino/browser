@@ -88,6 +88,10 @@ void Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
   std::shared_ptr<Endpoint> local_endpoint_of_preexisting_connection =
       Get()->handle_table_.find(handle_of_preexisting_connection)->second;
   CHECK(local_endpoint_of_preexisting_connection);
+  // This path can only be hit when you have a direct handle to an endpoint,
+  // which is only possible if the endpoint backing the handle is not proxying.
+  CHECK_NE(local_endpoint_of_preexisting_connection->state,
+           Endpoint::State::kUnboundAndProxying);
 
   std::string peer_node_name =
       local_endpoint_of_preexisting_connection->peer_address.node_name;
@@ -159,19 +163,30 @@ void Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
     return;
   }
 
-  // TODO(domfarolino): We must lock an endpoint whenever we put it into the
-  // proxying state, because upon doing so we can't always immediately allow
-  // messages to be sent over it. For example, when we put an endpoint into the
-  // proxying state, we must only allow sending messages over the it *once its
-  // host message has been sent*. So just proxying as we do below is bad,
-  // because it immediately allows messages to be sent over this endpoint from
-  // another thread. Instead we need to do something like
-  // `Node::SendMessagesAndRecursiveDependants()`, which locks all dependent
-  // endpoints (`endpoint_being_sent`, for example) until the parent message is
-  // sent. Locking dependent endpoints until the host message is sent is not
-  // inherently good; it's only good so long as the flow that might try and send
-  // a message over a dependent endpoint *also* tries to lock before doing so
-  // which is what happens in `Node::SendMessage()`.
+  // TODO(domfarolino): We need to lock `endpoint_being_sent` until the message
+  // carrying it is sent over `local_endpoint_of_preexisting_connection`.
+  // Otherwise, we're immediately allowing messages to be sent over
+  // `endpoint_being_sent` (from another thread, before the host message has
+  // been sent) to the remote node. The message would target a remote endpoint
+  // that hasn't been created yet. Instead we need to do something like
+  // `Node::SendMessagesAndRecursiveDependents()` which locks all dependent
+  // endpoints (`endpoint_being_sent`, for example) until their host message is
+  // sent.
+  //
+  // Locking dependent endpoints until their host message is sent is not
+  // inherently good on its own; it's only useful if the competing flow that
+  // might try to send messages over a dependent endpoint *also* grabs a lock
+  // before doing so, thus ensuring that a message can only be sent once the
+  // proxy-locking flow unlocks the endpoint. The competing flows which may try
+  // and send messages over `endpoint_being_sent` from an arbitrary thread are:
+  //   1.) ✅ `Node::SendMessage()`: when sending a message over an endpoint
+  //       `ep` to a peer `endpoint_being_sent`, that method always locks the
+  //       peer, so that flow is safe
+  //   2.) ✅ `Node::OnReceivedUserMessage()`: when receiving a message, that
+  //       method always locks the target endpoint, so that flow is safe
+  //
+  // So if we properly lock `endpoint_being_sent` here until its host message is
+  // sent, we avoid race conditions.
   endpoint_being_sent->SetProxying(
       /*in_node_name=*/peer_node_name,
       /*in_endpoint_name=*/cross_node_endpoint_name);
