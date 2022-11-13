@@ -83,10 +83,10 @@ void Core::BindReceiverDelegateToEndpoint(
 // static
 void Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
     MageHandle handle_to_send,
-    MageHandle local_handle_of_preexisting_connection,
+    MageHandle handle_of_preexisting_connection,
     EndpointDescriptor& endpoint_descriptor_to_populate) {
   std::shared_ptr<Endpoint> local_endpoint_of_preexisting_connection =
-      Get()->handle_table_.find(local_handle_of_preexisting_connection)->second;
+      Get()->handle_table_.find(handle_of_preexisting_connection)->second;
   CHECK(local_endpoint_of_preexisting_connection);
 
   std::string peer_node_name =
@@ -159,6 +159,19 @@ void Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
     return;
   }
 
+  // TODO(domfarolino): We must lock an endpoint whenever we put it into the
+  // proxying state, because upon doing so we can't always immediately allow
+  // messages to be sent over it. For example, when we put an endpoint into the
+  // proxying state, we must only allow sending messages over the it *once its
+  // host message has been sent*. So just proxying as we do below is bad,
+  // because it immediately allows messages to be sent over this endpoint from
+  // another thread. Instead we need to do something like
+  // `Node::SendMessagesAndRecursiveDependants()`, which locks all dependent
+  // endpoints (`endpoint_being_sent`, for example) until the parent message is
+  // sent. Locking dependent endpoints until the host message is sent is not
+  // inherently good; it's only good so long as the flow that might try and send
+  // a message over a dependent endpoint *also* tries to lock before doing so
+  // which is what happens in `Node::SendMessage()`.
   endpoint_being_sent->SetProxying(
       /*in_node_name=*/peer_node_name,
       /*in_endpoint_name=*/cross_node_endpoint_name);

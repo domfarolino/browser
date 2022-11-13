@@ -40,18 +40,20 @@ class Core {
   // More obscure helpers.
 
   // This method takes a handle `handle_to_send` that is about to be sent over
-  // an existing connection described by
-  // `local_handle_of_preexisting_connection`. If the handle representing the
-  // existing connection indeed has a remote peer [TODO(domfarolino): What does
-  // this mean???? Will it actually have a remote peer or a local peer that is
-  // in the proxying state? I think it should be the latter] then
-  // `handle_to_send` is being sent cross-process. In this case, we must find
-  // the endpoint associated with it, and put it in a proxying state so that it
-  // knows how to forward things to the non-proxying endpoint in the remote
-  // node.
+  // an existing connection described by `handle_of_preexisting_connection`. If
+  // `handle_of_preexisting_connection` has a remote peer, then we definitely
+  // know that `handle_to_send` is being sent cross-process and we must find its
+  // local endpoint and put it into the proxying state so that it knows how to
+  // forward things to the process it is ultimately being sent to.
+  //
+  // If `handle_of_peexisting_connection` has a local peer, we don't put the
+  // endpoint backing `handle_to_send` in the proxying state. However when the
+  // preexisting handle's local peer that *is* in the proxying state is about to
+  // receive the message (that contains `handle_to_send`), `Node` will put the
+  // concrete endpoint that backs `handle_to_send` in the proxying state.
   static void PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
       MageHandle handle_to_send,
-      MageHandle local_handle_of_preexisting_connection,
+      MageHandle handle_of_preexisting_connection,
       EndpointDescriptor& endpoint_descriptor_to_populate);
   static MageHandle RecoverExistingMageHandleFromEndpointDescriptor(
       const EndpointDescriptor& endpoint_descriptor);
