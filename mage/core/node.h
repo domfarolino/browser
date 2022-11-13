@@ -48,7 +48,7 @@ class Node : public Channel::Delegate {
   std::vector<std::pair<MageHandle, std::shared_ptr<Endpoint>>>
       CreateMessagePipesAndGetEndpoints();
   std::pair<std::shared_ptr<Endpoint>, std::shared_ptr<Endpoint>> InitializeAndEntangleEndpoints() const;
-  void SendMessagesAndRecursiveDependents(std::queue<Message> messages, std::shared_ptr<Endpoint>);
+  void SendMessagesAndRecursiveDependents(std::queue<Message> messages, std::string);
   void PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint, Message& message);
 
   std::string name_;

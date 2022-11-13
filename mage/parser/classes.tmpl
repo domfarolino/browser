@@ -129,7 +129,7 @@ class {{Interface}}Proxy {
       // use it to fill out a `mage::EndpointDescriptor` which is written to the message
       // buffer.
       mage::EndpointDescriptor& endpoint_descriptor_to_populate = message_fragment.data()->{{ argument_pair[1] }};
-      mage::Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState({{argument_pair[1]}}, local_handle_, endpoint_descriptor_to_populate);
+      mage::Core::PopulateEndpointDescriptor({{argument_pair[1]}}, local_handle_, endpoint_descriptor_to_populate);
       endpoints_to_write.push_back(endpoint_descriptor_to_populate);
     }
   {% endif %}

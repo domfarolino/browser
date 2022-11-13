@@ -122,6 +122,8 @@ static const char kInviterAsRemoteBlockOnAcceptance[] =
     RESOLVE_BINARY_PATH(mage/test/inviter_as_remote_block_on_acceptance);
 static const char kChildReceiveHandle[] =
     RESOLVE_BINARY_PATH(mage/test/child_as_receiver_and_callback);
+static const char kChildSendMessageWithQueuedHandle[] =
+    RESOLVE_BINARY_PATH(mage/test/child_as_queued_handle_sender);
 static const char kParentReceiveHandle[] =
     RESOLVE_BINARY_PATH(mage/test/child_as_handle_sender);
 static const char kChildSendsAcceptInvitationPipeToParent[] =
@@ -653,6 +655,72 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverArbitraryPipe) {
   main_thread->Run();
 }
 
+// These implementations are only used for the
+// `SendInvitationAndReceiveQueuedEndpointsFromAcceptor` test below.
+class FirstInterfaceImplDummy1 final : public magen::FirstInterface {
+ public:
+  FirstInterfaceImplDummy1(MageHandle handle) {
+    receiver_.Bind(handle, this);
+  }
+
+  void SendString(std::string msg) override { NOTREACHED(); }
+  void SendSecondInterfaceReceiver(MageHandle receiver) override {
+    second_interface_receiver_handle_ = receiver;
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+  void SendHandles(MageHandle, MageHandle) override { NOTREACHED(); }
+
+  MageHandle GetSecondInterfaceReceiverHandle() {
+    CHECK_NE(second_interface_receiver_handle_, 0);
+    return second_interface_receiver_handle_;
+  }
+
+ private:
+  mage::Receiver<magen::FirstInterface> receiver_;
+  MageHandle second_interface_receiver_handle_ = 0;
+};
+class SecondInterfaceImplDummy1 final : public magen::SecondInterface {
+ public:
+  SecondInterfaceImplDummy1(MageHandle handle) {
+    receiver_.Bind(handle, this);
+  }
+
+  void SendStringAndNotifyDoneViaCallback(std::string msg) {
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+  void NotifyDoneViaCallback() { NOTREACHED(); }
+  void SendReceiverForThirdInterface(MageHandle receiver) { NOTREACHED(); }
+
+ private:
+  mage::Receiver<magen::SecondInterface> receiver_;
+};
+// The above tests exercise the logic that ensures we don't just send a single
+// message, but instead send a message *and all recursive dependent messages*.
+// But they specifically only test the case where messages are sent over
+// endpoints with local peers (that might be proxying). This test asserts that
+// we do the same thing but when sending an endpoint-bearing message to a local
+// endpoint whose peer is remote.
+TEST_F(MageTest, SendInvitationAndReceiveQueuedEndpointsFromAcceptor) {
+  launcher->Launch(kChildSendMessageWithQueuedHandle);
+
+  // 1.) Send invitation (pipe used for FirstInterface)
+  MageHandle invitation_pipe =
+    mage::Core::SendInvitationAndGetMessagePipe(
+      launcher->GetLocalFd()
+    );
+
+  FirstInterfaceImplDummy1 impl(invitation_pipe);
+
+  // This will run the loop until we get the callback from the child saying
+  // everything went through OK.
+  main_thread->Run();
+  SecondInterfaceImplDummy1 second_impl(impl.GetSecondInterfaceReceiverHandle());
+
+  // Run until the `magen::SecondInterface` messages come in and quit the loop.
+  main_thread->Run();
+}
+
+
 // This implementation is only used for the `ReceiveHandleFromRemoteNode` test
 // below.
 class FirstInterfaceImplDummy final : public magen::FirstInterface {
@@ -671,7 +739,7 @@ class FirstInterfaceImplDummy final : public magen::FirstInterface {
   mage::Receiver<magen::FirstInterface> receiver_;
 };
 // This test shows that when a node receives a message with a single handle, we
-// register two backing endpoints with `Core`.
+// register one backing endpoint with `Core`.
 TEST_F(MageTest, ReceiveHandleFromRemoteNode) {
   launcher->Launch(kParentReceiveHandle);
 

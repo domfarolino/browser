@@ -39,19 +39,16 @@ class Core {
 
   // More obscure helpers.
 
-  // This method takes a handle `handle_to_send` that is about to be sent over
-  // an existing connection described by `handle_of_preexisting_connection`. If
-  // `handle_of_preexisting_connection` has a remote peer, then we definitely
-  // know that `handle_to_send` is being sent cross-process and we must find its
-  // local endpoint and put it into the proxying state so that it knows how to
-  // forward things to the process it is ultimately being sent to.
-  //
-  // If `handle_of_peexisting_connection` has a local peer, we don't put the
-  // endpoint backing `handle_to_send` in the proxying state. However when the
-  // preexisting handle's local peer that *is* in the proxying state is about to
-  // receive the message (that contains `handle_to_send`), `Node` will put the
-  // concrete endpoint that backs `handle_to_send` in the proxying state.
-  static void PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
+  // `handle_to_send` is about to be sent over an existing connection described
+  // by `handle_of_preexisting_connection`. This method fills out
+  // `endpoint_descriptor_to_populate`, which includes generating a new
+  // `EndpointDescriptor::cross_node_endpoint_name` just in case
+  // `handle_to_send` goes cross-node/process. If it does, `Node::SendMessage()`
+  // will put the backing endpoint into the proxying state re-route this message
+  // accordingly, and flush any queued messages from the backing endoint.
+  // This happens if `handle_of_preexisting_endpoint` has a remote peer, or a
+  // local peer that is proxying.
+  static void PopulateEndpointDescriptor(
       MageHandle handle_to_send,
       MageHandle handle_of_preexisting_connection,
       EndpointDescriptor& endpoint_descriptor_to_populate);

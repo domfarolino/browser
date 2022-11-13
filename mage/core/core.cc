@@ -81,7 +81,7 @@ void Core::BindReceiverDelegateToEndpoint(
 }
 
 // static
-void Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
+void Core::PopulateEndpointDescriptor(
     MageHandle handle_to_send,
     MageHandle handle_of_preexisting_connection,
     EndpointDescriptor& endpoint_descriptor_to_populate) {
@@ -99,9 +99,8 @@ void Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
       local_endpoint_of_preexisting_connection->peer_address.endpoint_name;
 
   printf(
-      "**************"
-      "PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState() "
-      "populating EndpointDescriptor:\n");
+      "**************PopulateEndpointDescriptor() populating "
+      "EndpointDescriptor:\n");
   printf("    'sending' endpoint name: %s\n",
          local_endpoint_of_preexisting_connection->name.c_str());
   printf("    'sending' endpoint [peer node: %s]\n", peer_node_name.c_str());
@@ -148,48 +147,6 @@ void Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState(
          endpoint_descriptor_to_populate.peer_node_name);
   printf("endpoint_descriptor_to_populate.peer_endpoint_name: %s\n",
          endpoint_descriptor_to_populate.peer_endpoint_name);
-
-  // If `handle_to_send` is only being sent locally (staying in the same
-  // process), we do nothing else; we don't put `endpoint_being_sent` in the
-  // proxying state. We only put endpoints into the proxying state when they
-  // are traveling to another node, and therefore have to proxy messages to
-  // another node to find the final non-proxying endpoint.
-  if (peer_node_name == Get()->node_->name_) {
-    printf(
-        "*****************"
-        "PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState() "
-        "returning early without putting endpoint into proxy mode, since it is "
-        "not going remote\n");
-    return;
-  }
-
-  // TODO(domfarolino): We need to lock `endpoint_being_sent` until the message
-  // carrying it is sent over `local_endpoint_of_preexisting_connection`.
-  // Otherwise, we're immediately allowing messages to be sent over
-  // `endpoint_being_sent` (from another thread, before the host message has
-  // been sent) to the remote node. The message would target a remote endpoint
-  // that hasn't been created yet. Instead we need to do something like
-  // `Node::SendMessagesAndRecursiveDependents()` which locks all dependent
-  // endpoints (`endpoint_being_sent`, for example) until their host message is
-  // sent.
-  //
-  // Locking dependent endpoints until their host message is sent is not
-  // inherently good on its own; it's only useful if the competing flow that
-  // might try to send messages over a dependent endpoint *also* grabs a lock
-  // before doing so, thus ensuring that a message can only be sent once the
-  // proxy-locking flow unlocks the endpoint. The competing flows which may try
-  // and send messages over `endpoint_being_sent` from an arbitrary thread are:
-  //   1.) ✅ `Node::SendMessage()`: when sending a message over an endpoint
-  //       `ep` to a peer `endpoint_being_sent`, that method always locks the
-  //       peer, so that flow is safe
-  //   2.) ✅ `Node::OnReceivedUserMessage()`: when receiving a message, that
-  //       method always locks the target endpoint, so that flow is safe
-  //
-  // So if we properly lock `endpoint_being_sent` here until its host message is
-  // sent, we avoid race conditions.
-  endpoint_being_sent->SetProxying(
-      /*in_node_name=*/peer_node_name,
-      /*in_endpoint_name=*/cross_node_endpoint_name);
 }
 
 // static

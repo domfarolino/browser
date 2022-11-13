@@ -147,7 +147,9 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
   bool peer_is_local = (endpoint_it != local_endpoints_.end());
   printf(" peer_is_local: %d\n", getpid());
   if (!peer_is_local) {
-    channel_it->second->SendMessage(std::move(message));
+    std::queue<Message> messages_to_send;
+    messages_to_send.push(std::move(message));
+    SendMessagesAndRecursiveDependents(std::move(messages_to_send), peer_node_name);
     return;
   }
 
@@ -174,7 +176,7 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
 
       std::queue<Message> messages_to_send;
       messages_to_send.push(std::move(message));
-      SendMessagesAndRecursiveDependents(std::move(messages_to_send), local_peer_endpoint);
+      SendMessagesAndRecursiveDependents(std::move(messages_to_send), local_peer_endpoint->proxy_target.node_name);
       break;
     }
     case Endpoint::State::kBound:
@@ -344,19 +346,18 @@ void Node::OnReceivedAcceptInvitation(Message message) {
     messages_to_forward.pop();
   }
 
-  SendMessagesAndRecursiveDependents(std::move(final_messages_to_forward), remote_endpoint);
+  SendMessagesAndRecursiveDependents(std::move(final_messages_to_forward), remote_endpoint->proxy_target.node_name);
   remote_endpoint->Unlock();
   Core::Get()->OnReceivedAcceptInvitation();
 }
 
-void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_send, std::shared_ptr<Endpoint> local_peer_endpoint) {
-  // All messages sent from this method are bound for the same node. But each
-  // message is going to an endpoint of a different name in the remote node.
-  // The name of the cross-node endpoint is captured in
-  // `EndpointDescriptor::cross_node_endpoint_name`, which is what we'll:
+void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_send, std::string target_node_name) {
+  // All messages sent from this method are bound for the same node
+  // `target_node_name`, but each is going to a cross-node endpoint whose name
+  // is `EndpointDescriptor::cross_node_endpoint_name`. It's this name that
+  // we'll:
   //   1.) Set `MessageHeader::target_endpoint` to
   //   2.) Set the backing endpoint's proxy target's endpoint name to
-  std::string target_node_name = local_peer_endpoint->proxy_target.node_name;
 
   while (!messages_to_send.empty()) {
     Message message_to_send = std::move(messages_to_send.front());
@@ -397,15 +398,14 @@ void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_se
       std::queue<Message> sub_messages = endpoint_from_info->TakeQueuedMessages();
       while (!sub_messages.empty()) {
         Message sub_message = std::move(sub_messages.front());
-        // See
-        // `Core::PopulateEndpointDescriptorAndMaybeSetEndpointInProxyingState()`.
-        // When we create an `EndpointDescriptor`, we create it with a new name
-        // that the target endpoint will get *if* the descriptor goes to another
-        // process. Since we know `descriptor` is going to another process, we
-        // have to take all of these messages queued on the endpoint
-        // representing `descriptor` (i.e., `endpoint_from_info`) and change
-        // their target endpoint names to `endpoint_from_info`'s cross-process
-        // name (i.e., the name of that endpoint but in a different process).
+        // See `Core::PopulateEndpointDescriptor()`; when an
+        // `EndpointDescriptor` gets populated, it gets a new name
+        // (`cross_node_endpoint_name`) that's used to create a "remote"
+        // representation of the local endpoint in the event it gets sent to
+        // another node/process. At this point we know `endpoint_from_info` is
+        // going to another process, so we have to take all of the messages
+        // queued on it and change their target endpoint names to the name that
+        // `endpoint_from_info` will have in the remote node.
         memcpy(sub_message.GetMutableMessageHeader().target_endpoint, cross_node_endpoint_name.c_str(), kIdentifierSize);
         messages_to_send.push(std::move(sub_message));
         sub_messages.pop();
@@ -426,6 +426,7 @@ void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_se
     // See the documentation above `locked_dependent_endpoints`.
     for (const std::shared_ptr<Endpoint>& endpoint: locked_dependent_endpoints)
       endpoint->Unlock();
+
     messages_to_send.pop();
   }
 }

@@ -49,6 +49,18 @@ cc_binary(
   visibility = ["//visibility:public"],
 )
 cc_binary(
+  name = "child_as_queued_handle_sender",
+  srcs = [
+    "child_as_queued_handle_sender.cc",
+  ],
+  deps = [
+    "//base:base",
+    "//mage:mage",
+    "//mage/test/magen:include",
+  ],
+  visibility = ["//visibility:public"],
+)
+cc_binary(
   name = "child_as_handle_sender",
   srcs = [
     "child_as_handle_sender.cc",
