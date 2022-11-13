@@ -380,8 +380,8 @@ void Node::SendMessagesAndRecursiveDependants(std::queue<Message> messages_to_se
     std::vector<std::shared_ptr<Endpoint>> locked_dependant_endpoints;
 
     for (const EndpointDescriptor& descriptor : descriptors) {
-      std::string endpoint_name(descriptor.endpoint_name, 15);
-      std::string cross_node_endpoint_name(descriptor.cross_node_endpoint_name, 15);
+      std::string endpoint_name(descriptor.endpoint_name, kIdentifierSize);
+      std::string cross_node_endpoint_name(descriptor.cross_node_endpoint_name, kIdentifierSize);
       printf("        An EndpointDescriptor in this message:\n");
       descriptor.Print();
 
