@@ -114,8 +114,12 @@ void Node::AcceptInvitation(int fd) {
 
   printf("Node::AcceptInvitation() getpid: %d\n", getpid());
   std::unique_ptr<Channel> channel(new Channel(fd, this));
-  channel->Start();
-  node_channel_map_.insert({kInitialChannelName, std::move(channel)});
+  auto it = node_channel_map_.insert({kInitialChannelName, std::move(channel)});
+  // Start the channel *after* it is inserted into the map, because right when
+  // it starts, the IO thread could try and read from `node_channel_map_` at any
+  // time, since messages will start coming in (for example,
+  // `OnReceivedInvitation()`).
+  it.first->second->Start();
 
   has_accepted_invitation_ = true;
 }
