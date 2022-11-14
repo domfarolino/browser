@@ -838,13 +838,10 @@ TEST_F(MageTest, ChildPassSendInvitationPipeBackToParent) {
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MageHandle message_pipe){
-    // TODO(domfarolino): This seems to fuck with everything, figure this out.
-    // sleep(1);
     ChildPassInvitationPipeBackToParentMageHandler handler(message_pipe);
 
-    // TODO(domfarolino): Get rid of these checks and delete this and the above TODO.
-    EXPECT_EQ(CoreHandleTable().size(), 1);
-    EXPECT_EQ(NodeLocalEndpoints().size(), 1);
+    // We can't assert anything about the number of local endpoints or handles,
+    // because the child process is sending us several handles.
 
     main_thread->Run();
 
