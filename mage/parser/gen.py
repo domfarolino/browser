@@ -44,16 +44,28 @@ source_text = source_text.replace(")", " ")
 separate_interface_from_methods = source_text.split("{")
 assert len(separate_interface_from_methods) == 2
 
-interface_descriptor = [separate_interface_from_methods[0]] + separate_interface_from_methods[1].split(";")
-for i in range(len(interface_descriptor)):
-  interface_descriptor[i] = interface_descriptor[i].strip(' \n\t')
+interface_descriptor = [separate_interface_from_methods[0]] + separate_interface_from_methods[1].split("\n")
 
+# The interface might have comments in it. Remove those lines for parsing.
+lines_to_remove = []
+for line in interface_descriptor:
+  if line == "" or "//" in line:
+    lines_to_remove.append(line)
+for line in lines_to_remove:
+  interface_descriptor.remove(line)
+
+# Remove the trailing "}" from the descriptor
 assert interface_descriptor[-1] == '}'
 interface_descriptor.pop()
+
+for i in range(len(interface_descriptor)):
+  # I'm not sure if this is needed... Keep it just in case?
+  interface_descriptor[i] = interface_descriptor[i].replace(";", " ");
+  interface_descriptor[i] = interface_descriptor[i].strip(' \n\t')
+
 print(interface_descriptor)
 interface_name = GetInterfaceName(interface_descriptor[0])
 list_of_methods = GetListOfMethods(interface_descriptor[1:])
-print(list_of_methods)
 #################################################################### END PARSING
 
 source.close()
