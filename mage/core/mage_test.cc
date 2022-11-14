@@ -842,6 +842,7 @@ TEST_F(MageTest, ChildPassSendInvitationPipeBackToParent) {
     // sleep(1);
     ChildPassInvitationPipeBackToParentMageHandler handler(message_pipe);
 
+    // TODO(domfarolino): Get rid of these checks and delete this and the above TODO.
     EXPECT_EQ(CoreHandleTable().size(), 1);
     EXPECT_EQ(NodeLocalEndpoints().size(), 1);
 

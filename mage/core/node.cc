@@ -456,7 +456,7 @@ void Node::OnReceivedUserMessage(Message message) {
     MageHandle local_handle =
         Core::RecoverNewMageHandleFromEndpointDescriptor(endpoint_descriptor);
     endpoint_descriptor.Print();
-    printf("     Queueing handle to message after recovering endpoint\n");
+    printf("     Queueing handle to message after recovering new endpoint\n");
     message.QueueHandle(local_handle);
   }
 

@@ -190,7 +190,7 @@ void Channel::OnCanReadFromSocket() {
   Message message(header->type);
   message.ConsumeBuffer(std::move(full_message_buffer));
 
-  printf("Process [%d] reading a message\n", getpid());
+  printf("Channel::OnCanReadFromSocket() [getpid(): %d] message contents:\n", getpid());
   PrintFullMessageContents(message);
 
   CHECK(delegate_);

@@ -77,8 +77,15 @@ class Core {
   // thread. That's what we use this handle for.
   std::shared_ptr<base::TaskRunner> origin_task_runner_;
 
-  // A map of endpoints registered with this process, by MageHandle.
+  // A map of endpoints registered with this process, keyed by MageHandle. This
+  // can be accessed on multiple threads accessed on multiple threads, so access
+  // must be guarded by `handle_table_lock_`. For example, if we don't take the
+  // lock before accessing, one thread might try and `find()` an existing entry
+  // while another thread is writing a new entry, which can break the first
+  // thread's `find()`.
   std::map<MageHandle, std::shared_ptr<Endpoint>> handle_table_;
+  // Used only by `this` for exclusive access to `handle_table_`.
+  base::Mutex handle_table_lock_;
 
   // A map of all known endpoint channels, by node name.
   std::map<std::string, std::unique_ptr<Channel>> node_channel_map_;
