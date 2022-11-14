@@ -1,5 +1,6 @@
+// An interface representing a child process, for use by a parent process.
 interface ChildProcess {
-  // A print method.
+  // Tells the child to print `msg`.
   PrintMessage(string msg);
   PassHandle(MageHandle child_process_2_handle, MageHandle parent_process_handle);
 }

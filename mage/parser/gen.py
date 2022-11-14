@@ -1,6 +1,7 @@
 from jinja2 import Template
 
 import sys
+import os
 
 ######################################################################## HELPERS
 class Method:
@@ -41,10 +42,16 @@ source_text = source.read()
 source_text = source_text.replace("(", " ")
 source_text = source_text.replace(")", " ")
 
+# Separate out "..... interface <NameHere> {" from the rest of the interface
+# descriptor.
 separate_interface_from_methods = source_text.split("{")
+# Note that right now, we do not supoort multiple interfaces in a single file.
 assert len(separate_interface_from_methods) == 2
 
-interface_descriptor = [separate_interface_from_methods[0]] + separate_interface_from_methods[1].split("\n")
+# Take all of the "..... interface <NameHere>" stuff, and split by new line to
+# get rid of all preceding comments, and only take the non-comment portion.
+interface_plus_name = separate_interface_from_methods[0].split("\n")[-1]
+interface_descriptor = [interface_plus_name] + separate_interface_from_methods[1].split("\n")
 
 # The interface might have comments in it. Remove those lines for parsing.
 lines_to_remove = []
@@ -98,7 +105,7 @@ def IsHandleType(magen_type):
 
 # Generate a C++ header from the parsed source parameters.
 
-with open('classes.tmpl-created') as f:
+with open(os.path.join(sys.path[0], "classes.tmpl-created")) as f:
   generated_magen_template = Template(f.read())
 
 generated_magen_template = generated_magen_template.render(
