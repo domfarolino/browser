@@ -25,8 +25,8 @@ class Receiver {
     stub_->BindToHandle(local_handle, impl, base::GetCurrentThreadTaskRunner());
   }
 
-  // TODO(domfarolino): We probably want some way to unbind handles from
-  // mage::Receivers.
+  // In the future, we'll want to support unbinding receivers. This is difficult
+  // to achieve however; see the design notes.
 
  private:
   // This is the receiver stub that once bound to a |MageHandle|, associates

@@ -80,14 +80,6 @@ class Node : public Channel::Delegate {
   // we've given it, we update instances of its temporary name with its "real"
   // one that it provides in the invitation acceptance message.
   std::map<NodeName, std::shared_ptr<Endpoint>> pending_invitations_;
-
-  // TODO(domfarolino): Once we support passing endpoints over existing
-  // endpoints, it will be possible for a node to be given an endpoint to a node
-  // that it doesn't know of yet. We'll need a map of queues like the following
-  // to hold messages destined to peers that belong to nodes we don't know yet.
-  // We may also be able to hold these queues on the local |Endpoint|s
-  // themselves.
-  // std::map<NodeName, std::map<EndpointName, std::queue<Message>>> pending_outgoing_endpoint_messages_;
 };
 
 }; // namespace mage

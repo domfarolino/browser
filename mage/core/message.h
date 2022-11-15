@@ -224,7 +224,15 @@ struct ArrayHeader {
   int num_elements;
 };
 
-// TODO(domfarolino): Document this.
+// When a message sends a `MageHandle` (representing an existing, local
+// `Endpoint`) over an existing connection, the handle may very well end up in
+// another process which means we need a way to essentially send the local
+// `Endpoint` over to that process. The way we achieve this is not by actually
+// sending the C++ `Endpoint` object to the other process, but by sending all of
+// the information about it that the receiver would need to know to create an
+// endpoint that looks just like it. All of that information is captured by
+// `EndpointDescriptor`, which is what we send over the wire in place of a given
+// `MageHandle` that gets sent.
 struct EndpointDescriptor {
   // The endpoint that `this` describes in the node that `this` was created in.
   // It allows consumers of `this` to look up the endpoint that backs `this` in

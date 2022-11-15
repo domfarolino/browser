@@ -3,8 +3,8 @@
 
 namespace mage {
 
-// Typedefing this for explicitness. Each |MageHandle| references an underlying
-// |Endpoint|, whose peer's address may be local or remote.
+// Typedefing this for explicitness. Each `MageHandle` references an underlying
+// `Endpoint`, whose peer's address may be local or remote.
 typedef uint32_t MageHandle;
 
 }; // namspace mage
