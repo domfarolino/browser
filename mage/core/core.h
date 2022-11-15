@@ -18,10 +18,13 @@ class Node;
 // A global singleton for processes that initializes mage.
 class Core {
  public:
+  // Main public APIs:
+
+  // Relies on the IO thread's TaskLoop being synchronously accessible from the
+  // UI thread.
   static void Init();
   static void ShutdownCleanly();
 
-  // Main public APIs:
   // TODO(domfarolino): This should not actually be used outside of mage/core.
   static Core* Get();
   static std::vector<MageHandle> CreateMessagePipes();

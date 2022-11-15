@@ -7,6 +7,8 @@ namespace mage {
 // `Endpoint`, whose peer's address may be local or remote.
 typedef uint32_t MageHandle;
 
+static MageHandle kInvalidHandle = 0;
+
 }; // namspace mage
 
 #endif // MAGE_CORE_HANDLES_H_

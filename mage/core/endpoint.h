@@ -99,7 +99,8 @@ class Endpoint final {
   void RegisterDelegate(std::weak_ptr<ReceiverDelegate> delegate,
                         std::shared_ptr<base::TaskRunner> delegate_task_runner);
 
-  // Not implemented yet.
+  // Not implemented yet. See design notes for why unregistering a receiver
+  // delegate is difficult.
   void UnregisterDelegate();
 
   void SetProxying(std::string in_node_name, std::string in_endpoint_name);
@@ -130,9 +131,6 @@ class Endpoint final {
   //   - kUnboundAndQueueing: The message will be queued in
   //     `incoming_message_queues_` and will be replayed to `delegate_` once
   //     bound.
-  // TODO(domfarolino): It seems possible for this to be called for a node in
-  // the proxying state. We should verify this and fix this. Probably messages
-  // received for nodes in the proxying state should be handled by `Node`.
   void AcceptMessage(Message message);  // Guarded by `lock_`.
 
   // Thread-safe: This method is called whenever `this` needs to post a message
@@ -149,8 +147,18 @@ class Endpoint final {
   // `delegate_task_runner_`.
   std::queue<Message> incoming_message_queue_;
 
-  // TODO(domfarolino): Document this and make sure that it is accessed/updated
-  // atomically with `state`, `delegate_`, and `incoming_message_queue_`.
+  // When `this` is bound and receives a message, we forward the message to
+  // `delegate_`. But we may receive the message on a different thread than
+  // `delegate_` was bound on, so when require that a delegate pass in a
+  // TaskRunner to the thread it's running on, so that we can post a task to
+  // that thread for the receiver to read the message.
+  //
+  // TaskRunners are thread-safe, so ordinarily we wouldn't need to guard access
+  // to one with a lock, but in this class, `delegate_task_runner_` is expected
+  // to be assigned (and eventually cleared) with `delegate_`. That means one
+  // thread may try and assign this member while another thread wants to use it,
+  // so access must be guarded by `lock_` so that it doesn't get out-of-sync
+  // with `delegate_`.
   std::shared_ptr<base::TaskRunner> delegate_task_runner_;
 
   // The receiver we post messages to when `state == State::kBound`.

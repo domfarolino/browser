@@ -189,7 +189,10 @@ class MageTest : public testing::Test {
     launcher = std::unique_ptr<ProcessLauncher>(new ProcessLauncher());
     main_thread = base::TaskLoop::Create(base::ThreadType::UI);
     io_thread.Start();
-    // TODO(domfarolino): Why do we need this?
+    // Mage relies on `base::GetIOThreadTaskLoop()` being synchronously
+    // available from the UI thread upon start up, which only happens after the
+    // IO thread has actually started, which we can know by only continuing once
+    // we've confirmed it is running tasks.
     io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
     main_thread->Run();
 
@@ -309,7 +312,7 @@ TEST_F(MageTest, SendInvitationUnitTest) {
       launcher->GetLocalFd()
     );
 
-  EXPECT_NE(message_pipe, 0);
+  EXPECT_NE(message_pipe, kInvalidHandle);
   EXPECT_EQ(CoreHandleTable().size(), 2);
   EXPECT_EQ(NodeLocalEndpoints().size(), 2);
 
@@ -359,7 +362,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MageHandle message_pipe){
-    EXPECT_NE(message_pipe, 0);
+    EXPECT_NE(message_pipe, kInvalidHandle);
     EXPECT_EQ(CoreHandleTable().size(), 1);
     EXPECT_EQ(NodeLocalEndpoints().size(), 1);
 
@@ -403,7 +406,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiverButChildBlocksOnAcceptance) {
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MageHandle message_pipe){
-    EXPECT_NE(message_pipe, 0);
+    EXPECT_NE(message_pipe, kInvalidHandle);
     EXPECT_EQ(CoreHandleTable().size(), 1);
     EXPECT_EQ(NodeLocalEndpoints().size(), 1);
 
@@ -711,7 +714,7 @@ class FirstInterfaceImplDummy1 final : public magen::FirstInterface {
   void SendHandles(MageHandle, MageHandle) override { NOTREACHED(); }
 
   MageHandle GetSecondInterfaceReceiverHandle() {
-    CHECK_NE(second_interface_receiver_handle_, 0);
+    CHECK_NE(second_interface_receiver_handle_, kInvalidHandle);
     return second_interface_receiver_handle_;
   }
 
@@ -829,9 +832,7 @@ class ChildPassInvitationPipeBackToParentMageHandler :
   void NotifyDoneViaCallback() override { NOTREACHED(); }
 
   MageHandle GetFirstInterfaceHandle() {
-    // TODO(domfarolino): Can we check this against something more standard than
-    // just 0 literal?
-    CHECK_NE(remote_to_first_interface_, 0);
+    CHECK_NE(remote_to_first_interface_, kInvalidHandle);
     return remote_to_first_interface_;
   }
 
@@ -945,9 +946,7 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface,
   void SendReceiverForFourthInterface(MageHandle) override { NOTREACHED(); }
 
   MageHandle GetSecondInterfaceRemoteHandle() {
-    // TODO(domfarolino): Can we check this against something more standard than
-    // just 0 literal?
-    CHECK_NE(remote_to_second_interface_, 0);
+    CHECK_NE(remote_to_second_interface_, kInvalidHandle);
     return remote_to_second_interface_;
   }
 

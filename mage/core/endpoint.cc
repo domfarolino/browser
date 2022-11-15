@@ -100,9 +100,6 @@ void Endpoint::PostMessageToDelegate(Message message) {
 
 std::queue<Message> Endpoint::TakeQueuedMessages() {
   CHECK(!is_weak_ptr_assigned(delegate_));
-  // TODO(domfarolino): We should also probably set some state so that any
-  // more usage of |this| will crash, since after this call, we should be
-  // deleted.
   std::queue<Message> messages_to_return = std::move(incoming_message_queue_);
   return messages_to_return;
 }
@@ -135,8 +132,8 @@ void Endpoint::RegisterDelegate(
   Unlock();
 }
 
+// Not implemented. See header documentation.
 void Endpoint::UnregisterDelegate() {
-  // TODO(domfarolino): Support unregistering a delegate.
   NOTREACHED();
   CHECK_EQ(state, State::kBound);
   state = State::kUnboundAndQueueing;
