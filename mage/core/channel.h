@@ -3,7 +3,6 @@
 
 #include <string>
 
-#include "base/check.h"
 #include "base/scheduling/task_loop_for_io.h"
 
 namespace mage {

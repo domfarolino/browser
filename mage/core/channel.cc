@@ -146,9 +146,8 @@ void Channel::OnCanReadFromSocket() {
   // Read the message header.
   {
     size_t header_size = sizeof(MessageHeader);
-    // TODO(domfarolino): Deal with this memory leak.
-    char* buffer = new char[header_size];
-    struct iovec iov = {buffer, header_size};
+    std::vector<char> buffer(header_size);
+    struct iovec iov = {buffer.data(), header_size};
     char cmsg_buffer[CMSG_SPACE(header_size)];
     struct msghdr msg = {};
     msg.msg_iov = &iov;
@@ -158,8 +157,7 @@ void Channel::OnCanReadFromSocket() {
 
     int rv = recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
     CHECK_EQ(rv, header_size);
-    std::vector<char> tmp_header_buffer(buffer, buffer + header_size);
-    full_message_buffer = std::move(tmp_header_buffer);
+    full_message_buffer = std::move(buffer);
   }
 
   // Pull out the message header.
@@ -172,9 +170,8 @@ void Channel::OnCanReadFromSocket() {
   // Read the message body.
   {
     size_t body_size = header->size - sizeof(MessageHeader);
-    // TODO(domfarolino): Deal with this memory leak.
-    char* buffer = new char[body_size];
-    struct iovec iov = {buffer, body_size};
+    std::vector<char> buffer(body_size);
+    struct iovec iov = {buffer.data(), body_size};
     char cmsg_buffer[CMSG_SPACE(body_size)];
     struct msghdr msg = {};
     msg.msg_iov = &iov;
@@ -184,7 +181,7 @@ void Channel::OnCanReadFromSocket() {
 
     int rv = recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
     CHECK_EQ(rv, body_size);
-    memcpy(full_message_buffer.data() + sizeof(MessageHeader), buffer, body_size);
+    memcpy(full_message_buffer.data() + sizeof(MessageHeader), buffer.data(), body_size);
   }
 
   Message message(header->type);

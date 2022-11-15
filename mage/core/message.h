@@ -311,8 +311,8 @@ class Message final {
   Message(Message&& other);
 
   // This method will always start reading at the first byte after the
-  // MessageHeader in memory. In order to read or maniupulate the MessageHeader,
-  // use |GetMutableMessageHeader()|.
+  // MessageHeader in memory. In order to read or manipulate the MessageHeader,
+  // use `GetMutableMessageHeader()`.
   template <typename MessageFragment>
   MessageFragment* Get(int starting_index) {
     CHECK_GE(starting_index, 0);
