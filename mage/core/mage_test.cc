@@ -245,6 +245,46 @@ TEST_F(MageTest, UseUnboundRemoteCrashes2) {
   }, "Assertion failed: (bound_)*");
 }
 
+// `Endpoint`s only track of they are bound to a receiver, not a remote, so when
+// we send an endpoint over an existing pipe, the logic in `Node::SendMessage()`
+// that checks to see if all sent-endpoints are bound only doesn't work for
+// endpoints bound to a remote, as this test sadly asserts. This isn't great
+// behavior, but it shouldn't really be possible to run into anyways once
+// MageHandles move-only.
+TEST_F(MageTest, SendBoundRemoteTechnicallyAllowedUnitTest) {
+  std::vector<mage::MageHandle> first_pair = mage::Core::CreateMessagePipes();
+  std::vector<mage::MageHandle> second_pair = mage::Core::CreateMessagePipes();
+
+  mage::Remote<magen::FirstInterface> remote;
+  remote.Bind(first_pair[0]);
+  mage::Remote<magen::SecondInterface> second_remote;
+  second_remote.Bind(second_pair[0]);
+
+  // Bad, but we don't protect against it:
+  remote->SendSecondInterfaceReceiver(second_pair[0]);
+}
+
+class SIDummy : public magen::SecondInterface {
+ public:
+  void SendStringAndNotifyDoneViaCallback(std::string msg) { NOTREACHED(); }
+  void NotifyDoneViaCallback() { NOTREACHED(); }
+  void SendReceiverForThirdInterface(MageHandle receiver) { NOTREACHED(); }
+};
+TEST_F(MageTest, SendBoundReceiverUnitTest) {
+  std::vector<mage::MageHandle> first_pair = mage::Core::CreateMessagePipes();
+  std::vector<mage::MageHandle> second_pair = mage::Core::CreateMessagePipes();
+
+  mage::Remote<magen::FirstInterface> remote;
+  remote.Bind(first_pair[0]);
+  mage::Receiver<magen::SecondInterface> receiver;
+  SIDummy second_interface_impl;
+  receiver.Bind(second_pair[0], &second_interface_impl);
+
+  ASSERT_DEATH({
+    remote->SendSecondInterfaceReceiver(second_pair[0]);
+  }, "Assertion failed: (endpoint->state != Endpoint::State::kBound)*");
+}
+
 TEST_F(MageTest, InitializeAndEntangleEndpointsUnitTest) {
   const auto& [local, remote] = Node().InitializeAndEntangleEndpoints();
 

@@ -128,6 +128,22 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
                        Message message) {
   printf("Node::SendMessage() [pid=%d]\n", getpid());
   CHECK_EQ(message.GetMutableMessageHeader().type, MessageType::USER_MESSAGE);
+
+  // Sanity check that no endpoints we're sending are bound. Note that this
+  // check only catches endpoints that are bound to receivers, since `Endpoint`s
+  // don't track whether they are bound to remotes.
+  // TODO: This might be a good block to hide behind a debug flag or something
+  // so we don't do all of this locking in "production".
+  for (EndpointDescriptor& descriptor : message.GetEndpointDescriptors()) {
+    std::string endpoint_name(descriptor.endpoint_name, kIdentifierSize);
+    auto it = local_endpoints_.find(endpoint_name);
+    std::shared_ptr<Endpoint> endpoint = it->second;
+    CHECK(endpoint);
+    endpoint->Lock();
+    CHECK_NE(endpoint->state, Endpoint::State::kBound);
+    endpoint->Unlock();
+  }
+
   // If we're sending a message, one of the following, but not both, must be
   // true:
   //   1.) The peer endpoint is already in the remote node, in which case we can
