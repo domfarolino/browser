@@ -96,8 +96,7 @@ class {{Interface}}Proxy {
     message_fragment.Allocate();
 
 {# At template substition time we generate the total number of handles that a
-   message contains; this is better than doing it at runtime by looping in C++.
-   TODO(domfarolino): Maybe get rid of this since it does not seem necessary. #}
+   message contains; this is better than doing it at runtime by looping in C++. #}
 {% set num_endpoints_in_message_jinja = [] %}
 {%- for argument_pair in Method.arguments %}
   {% if IsHandleType(argument_pair[0]) %}
@@ -116,9 +115,7 @@ class {{Interface}}Proxy {
     {
       // Create a new array message fragment.
 
-      // TODO(domfarolino): Don't hardcode char. Introduce some "GetBaseType()"
-      // method, or better yet, defer to C++ like mojo does.
-      mage::MessageFragment<mage::ArrayHeader<char>> array(message);
+      mage::MessageFragment<mage::ArrayHeader<{{ GetArrayPrimitiveType(argument_pair[0]) }}>> array(message);
       array.AllocateArray({{ argument_pair[1] }}.size());
       memcpy(array.data()->array_storage(), {{ argument_pair[1] }}.c_str(), {{ argument_pair[1] }}.size());
       message_fragment.data()->{{ argument_pair[1] }}.Set(array.data());
@@ -139,8 +136,6 @@ class {{Interface}}Proxy {
 
     // Write the endpoints last in the header. See the documentation above
     // `mage::MessageHeader::endpoints_in_message` to see why this is necessary.
-    // TODO(domfarolino): Get rid fo this printf.
-    printf("endpoints_to_write.size(): %lu\n", endpoints_to_write.size());
     CHECK_EQ(num_endpoints_in_message, endpoints_to_write.size());
     mage::MessageFragment<mage::ArrayHeader<mage::EndpointDescriptor>> endpoint_array_at_end_of_message(message);
     endpoint_array_at_end_of_message.AllocateArray(num_endpoints_in_message);

@@ -97,6 +97,11 @@ def IsArrayType(magen_type):
     return True
   return False
 
+def GetArrayPrimitiveType(magen_type):
+  if magen_type == "string":
+    return "char"
+  assert false
+
 def IsHandleType(magen_type):
   if magen_type == "MageHandle":
     return True
@@ -114,6 +119,7 @@ generated_magen_template = generated_magen_template.render(
                              GetNativeType=GetNativeType,
                              GetMagenParamsType=GetMagenParamsType,
                              IsArrayType=IsArrayType,
+                             GetArrayPrimitiveType=GetArrayPrimitiveType,
                              IsHandleType=IsHandleType,
                            )
 
