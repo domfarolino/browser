@@ -288,6 +288,29 @@ TEST_F(MageTest, SendBoundReceiverUnitTest) {
   }, "Assertion failed: (endpoint->state != Endpoint::State::kBound)*");
 }
 
+class SecondInterfaceOnlyStringAcceptor : public magen::SecondInterface {
+ public:
+  void SendStringAndNotifyDoneViaCallback(std::string msg) {
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+  void NotifyDoneViaCallback() { NOTREACHED(); }
+  void SendReceiverForThirdInterface(MageHandle receiver) { NOTREACHED(); }
+};
+TEST_F(MageTest, RemoteAndReceiverDifferentInterfaces) {
+  std::vector<mage::MageHandle> pipes = mage::Core::CreateMessagePipes();
+
+  mage::Remote<magen::FirstInterface> remote;
+  remote.Bind(pipes[0]);
+  mage::Receiver<magen::SecondInterface> receiver;
+  SecondInterfaceOnlyStringAcceptor second_interface_impl;
+  receiver.Bind(pipes[1], &second_interface_impl);
+
+  remote->SendString("Dominic");
+  ASSERT_DEATH({
+    main_thread->Run();
+  }, "Assertion failed: (false)*");
+}
+
 TEST_F(MageTest, InitializeAndEntangleEndpointsUnitTest) {
   const auto& [local, remote] = Node().InitializeAndEntangleEndpoints();
 

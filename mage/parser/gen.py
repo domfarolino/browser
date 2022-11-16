@@ -1,7 +1,8 @@
 from jinja2 import Template
 
-import sys
+import hashlib
 import os
+import sys
 
 ######################################################################## HELPERS
 class Method:
@@ -106,6 +107,9 @@ def IsHandleType(magen_type):
   if magen_type == "MageHandle":
     return True
   return False
+
+def MethodIDHash(method_name):
+  return abs(hash(method_name)) % (10 ** 8)
 ################################################# END HELPERS USED IN TEMPLATING
 
 # Generate a C++ header from the parsed source parameters.
@@ -121,6 +125,7 @@ generated_magen_template = generated_magen_template.render(
                              IsArrayType=IsArrayType,
                              GetArrayPrimitiveType=GetArrayPrimitiveType,
                              IsHandleType=IsHandleType,
+                             MethodIDHash=MethodIDHash,
                            )
 
 destination = sys.argv[1:][1]

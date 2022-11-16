@@ -15,12 +15,15 @@ class {{Interface}}Proxy;
 class {{Interface}}ReceiverStub;
 
 // We give each message, which corresponds to each method of the {{Interface}}
-// interface, an ID that is unique within the interface. This allows
-// {{Interface}}ReceiverStub::OnReceivedMessage() to distinguish between the
-// messages, and go down deserialization path and invoke the right method on the
-// interface implementation.
+// interface, an ID that is a hash of {{Interface}} + the method name. This
+// allows {{Interface}}ReceiverStub::OnReceivedMessage() to distinguish between
+// the messages, and go down deserialization path and invoke the right method on the
+// interface implementation. It also helps us *mostly* catch the case where a
+// message from one interface remote is sent to a receiver for a different
+// interface. Our catch fails if the interfaces have the same name and method
+// name, however, but that's good enough for now.
 {%- for Method in Methods %}
-static const int {{Interface}}_{{Method.name}}_ID = {{loop.index0}};
+static const int {{Interface}}_{{Method.name}}_ID = {{ MethodIDHash(Interface+Method.name) }};
 {%- endfor %}
 
 ////////////////////////////////////////////////////////////////////////////////

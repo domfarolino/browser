@@ -8,6 +8,8 @@ package(default_visibility = ["//visibility:public"])
 # `gen.py-created` file).
 genrule(
     name = "gen",
+# List :classes as a source, because `gen.py(-created)` runs on the template
+# emitted by :classes.
     srcs = [":classes"],
     tools = ["gen.py", "classes.tmpl"],
     outs = ["gen.py-created"],
