@@ -224,17 +224,9 @@ TEST_P(ThreadTest, StopWhenIdleRunsQueuedTasks) {
   EXPECT_TRUE(second_task_ran);
 }
 
-#if defined(OS_MACOS)
 INSTANTIATE_TEST_SUITE_P(All,
                          ThreadTest,
                          testing::Values(ThreadType::UI, ThreadType::IO, ThreadType::WORKER),
                          &ThreadTest::DescribeParams);
-#else
-// ThreadType::IO is only supported on macos for now.
-INSTANTIATE_TEST_SUITE_P(All,
-                         ThreadTest,
-                         testing::Values(ThreadType::UI, ThreadType::WORKER),
-                         &ThreadTest::DescribeParams);
-#endif
 
 }; // namespace base
