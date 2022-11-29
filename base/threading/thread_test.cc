@@ -25,6 +25,9 @@ class ThreadTest : public testing::Test,
       case ThreadType::WORKER:
         return "WORKER";
     }
+
+    NOTREACHED();
+    return "NOTREACHED";
   }
 
   void SetUp() override {

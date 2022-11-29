@@ -57,7 +57,7 @@ class TaskLoopForIOTestBase : public testing::Test {
 
   void OnMessageRead(std::string message) {
     messages_read.push_back(message);
-    if (messages_read.size() == expected_message_count_)
+    if ((int)messages_read.size() == expected_message_count_)
       task_loop_for_io->Quit();
   }
 

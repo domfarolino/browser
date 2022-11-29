@@ -31,7 +31,7 @@ cc_library(
   ] +
   select({
     ":mac": ["scheduling/task_loop_for_io_mac.h"],
-    ":linux": [],
+    ":linux": ["scheduling/task_loop_for_io_linux.h"],
   }),
   srcs = [
     "scheduling/scheduling_handles.cc",
@@ -42,7 +42,7 @@ cc_library(
   ] +
   select({
     ":mac": ["scheduling/task_loop_for_io_mac.cc"],
-    ":linux": [],
+    ":linux": ["scheduling/task_loop_for_io_linux.cc"],
   }),
 
   deps = [],
@@ -64,8 +64,10 @@ cc_test(
       "scheduling/task_loop_for_io_test.cc",
       "scheduling/scheduling_handles_test.cc",
     ],
-    # TODO(domfarolino): Enable the task loop for IO tests on linux once an IO task loop is implemented there.
-    ":linux": [],
+    ":linux": [
+      "scheduling/task_loop_for_io_test.cc",
+      "scheduling/scheduling_handles_test.cc",
+    ],
   }),
   copts = ["-Iexternal/gtest/include"],
   deps = [

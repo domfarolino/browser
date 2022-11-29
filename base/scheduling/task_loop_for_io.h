@@ -30,8 +30,8 @@
 
 #if defined(OS_MACOS)
 #include "base/scheduling/task_loop_for_io_mac.h"
-// TODO(domfarolino): Implement an IO task loop for Linux, and maybe even it
-// will be general enough for both platforms.
+#elif defined(OS_LINUX)
+#include "base/scheduling/task_loop_for_io_linux.h"
 #endif
 
 namespace base {
@@ -39,8 +39,7 @@ namespace base {
 #if defined(OS_MACOS)
 using TaskLoopForIO = TaskLoopForIOMac;
 #elif defined(OS_LINUX)
-// using TaskLoopForIO = TaskLoopForIOLinux;
-#error This platform does not support TaskLoopForIO just yet
+using TaskLoopForIO = TaskLoopForIOLinux;
 #endif
 
 } // namespace base
