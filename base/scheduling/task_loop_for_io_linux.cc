@@ -165,7 +165,7 @@ void TaskLoopForIOLinux::Wakeup() {
   // in `TaskLoopForIOMac::Wakeup()`.
   //
   // The value of what we write doesn't matter since `eventfd_wakeup_` is in
-  // `EFD_SEMAPHORE` mode. See `TaskLoopForIOLinux::ctor()`.
+  // `EFD_SEMAPHORE` mode. See documentation above `eventfd_wakeup_`.
   uint64_t msg = 1;
   ssize_t rv = write(eventfd_wakeup_, &msg, sizeof(msg));
   CHECK(rv != 0);
