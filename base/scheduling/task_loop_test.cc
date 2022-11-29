@@ -24,6 +24,9 @@ class TaskLoopTest : public testing::Test,
       case base::ThreadType::WORKER:
         return "WORKER";
     }
+
+    NOTREACHED();
+    return "NOTREACHED";
   }
 
   TaskLoopTest() : thread_type_(GetParam()) {}
