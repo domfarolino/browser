@@ -23,6 +23,8 @@ TaskLoopForIOLinux::TaskLoopForIOLinux()
 }
 
 TaskLoopForIOLinux::~TaskLoopForIOLinux() {
+  CHECK(close(eventfd_wakeup_) != -1);
+  CHECK(close(epollfd_) != -1);
   CHECK(async_socket_readers_.empty());
 }
 
