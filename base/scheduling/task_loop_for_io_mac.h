@@ -17,10 +17,7 @@
 namespace base {
 
 // Note that this |TaskLoop| variant only works on macOS, as it uses Mach ports
-// and |kevent64()| to block on OS-level IPC primitives. Once we support
-// detecting which platform we're on, we'll need to make an equivalent class
-// that uses glib, libevent, or something for Linux, and ensure that we
-// instantiate the correct one depending on the platform we're running on.
+// and |kevent64()| to block on OS-level IPC primitives.
 class TaskLoopForIOMac : public TaskLoop {
  public:
   // |SocketReader|s register themselves with a |TaskLoopForIO| associated with

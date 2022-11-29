@@ -2,29 +2,15 @@
 
 #include <stdint.h>
 #include <sys/epoll.h>
-#include <sys/errno.h>
 #include <sys/eventfd.h>
-#include <sys/socket.h>
-
-#include <iostream>
-#include <vector>
 
 namespace base {
 
-TaskLoopForIOLinux::TaskLoopForIOLinux() {
-  epollfd_ = epoll_create1(0);
+TaskLoopForIOLinux::TaskLoopForIOLinux() : epollfd_(epoll_create1(0)), eventfd_wakeup_(eventfd(0, EFD_SEMAPHORE)) {
   CHECK(epollfd_ != -1);
-
-  // Use `EFD_SEMAPHORE` so that multiple wakeups sent to `eventfd_wakeup_`
-  // (from multiple e.g., PostTask()s, Quit()s, QuitWhenIdle()s) result in the
-  // internal counter for the file descriptor being incremented each time. This
-  // results in `epoll_wait()` always notifying `TaskLoopForIOLinux::Run()` that
-  // there is something that needs to be addressed until we `read()` each
-  // message off of the file descriptor, which decrements the internal counter.
-  //
-  // See https://man7.org/linux/man-pages/man2/eventfd.2.html.
-  eventfd_wakeup_ = eventfd(0, EFD_SEMAPHORE);
   CHECK(eventfd_wakeup_ != -1);
+
+  // Register `eventfd_wakeup_` with the epoll.
   epoll_data_t event_data;
   event_data.fd = eventfd_wakeup_;
   struct epoll_event ev;
@@ -41,9 +27,9 @@ TaskLoopForIOLinux::~TaskLoopForIOLinux() {
 
 void TaskLoopForIOLinux::Run() {
   while (true) {
-    struct epoll_event events[MAX_EVENTS];
+    struct epoll_event events[event_count_];
     int timeout = quit_when_idle_ ? 0 : -1;
-    int rv = epoll_wait(epollfd_, events, MAX_EVENTS, timeout);
+    int rv = epoll_wait(epollfd_, events, event_count_, timeout);
 
     // We grab a lock so that neither of the following are tampered with on
     // another thread while we are reading/writing them:
@@ -128,7 +114,7 @@ void TaskLoopForIOLinux::WatchSocket(SocketReader* socket_reader) {
   // A socket reader can only be registered once.
   CHECK_EQ(async_socket_readers_.find(fd), async_socket_readers_.end());
   async_socket_readers_[fd] = socket_reader;
-  // event_count_++;
+  event_count_++;
   mutex_.unlock();
 }
 
@@ -148,7 +134,7 @@ void TaskLoopForIOLinux::UnwatchSocket(SocketReader* socket_reader) {
   mutex_.lock();
   CHECK(!async_socket_readers_.empty());
   async_socket_readers_.erase(fd);
-  // event_count_--;
+  event_count_--;
   mutex_.unlock();
 }
 
