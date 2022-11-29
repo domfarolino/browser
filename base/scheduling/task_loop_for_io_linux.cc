@@ -6,7 +6,8 @@
 
 namespace base {
 
-TaskLoopForIOLinux::TaskLoopForIOLinux() : epollfd_(epoll_create1(0)), eventfd_wakeup_(eventfd(0, EFD_SEMAPHORE)) {
+TaskLoopForIOLinux::TaskLoopForIOLinux()
+    : epollfd_(epoll_create1(0)), eventfd_wakeup_(eventfd(0, EFD_SEMAPHORE)) {
   CHECK(epollfd_ != -1);
   CHECK(eventfd_wakeup_ != -1);
 
@@ -89,7 +90,7 @@ void TaskLoopForIOLinux::Run() {
     // deadlocks. For example, if we keep |mutex_| locked while we run a task
     // that we pull from the |queue_|, then if that task calls PostTask() on
     // this loop, then it will try and lock |mutex_| and deadlock forever.
-  } // while (true).
+  }  // while (true).
 
   // We need to reset |quit_| when |Run()| actually completes, so that we can
   // call |Run()| again later.
@@ -170,4 +171,4 @@ void TaskLoopForIOLinux::Wakeup() {
   CHECK(rv != 0);
 }
 
-}; // namespace base
+};  // namespace base

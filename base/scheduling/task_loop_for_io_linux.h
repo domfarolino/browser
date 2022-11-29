@@ -17,10 +17,11 @@ class TaskLoopForIOLinux : public TaskLoop {
   // descriptor can be read from.
   class SocketReader {
    public:
-    SocketReader(int fd): fd_(fd) {}
+    SocketReader(int fd) : fd_(fd) {}
     virtual ~SocketReader() = default;
     int Socket() { return fd_; }
     virtual void OnCanReadFromSocket() = 0;
+
    protected:
     int fd_;
   };
@@ -84,6 +85,6 @@ class TaskLoopForIOLinux : public TaskLoop {
   size_t event_count_ = 1;
 };
 
-} // namespace base
+}  // namespace base
 
-#endif // BASE_SCHEDULING_TASK_LOOP_FOR_IO_LINUX_H_
+#endif  // BASE_SCHEDULING_TASK_LOOP_FOR_IO_LINUX_H_
