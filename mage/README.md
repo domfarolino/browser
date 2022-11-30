@@ -46,19 +46,18 @@ mage::Remote<magen::Foo> remote;
 remote.Bind();
 
 // Start sending IPCs!
-remote->ArbitraryMessage();
+remote->ArbitraryMessage("some payload");
 ```
 
 ### `mage::Receiver`
 
 Messages send over a bound `mage::Remote<magen::Foo>` get queued on the other
-end of the message pipe's `MageHandle`, until _it_ too gets bound, to a
-corresponding `mage::Receiver<magen::Foo>`. A `Receiver` represents the backing
-implementation of a given interface `magen::Foo`. The receiver itself does not
+end of the message pipe's `MageHandle`, until _it_ gets bound to a corresponding
+`mage::Receiver<magen::Foo>`. A `Receiver<magen::Foo>` represents the concrete
+implementation of a Mage interface `magen::Foo`. The receiver itself does not
 handle messages that were dispatched by the corresponding remote, but rather the
 receiver has as a reference to a C++ object that implements the `magen::Foo`
-interface, and it forwards messages to that user-provided backing
-implementation.
+interface, and it forwards messages to that user-provided implementation.
 
 Here's what a concrete implementation of a cross-process Mage object looks like:
 
