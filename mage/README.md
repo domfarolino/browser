@@ -21,12 +21,68 @@ Mage IPC allows you to seamlessly send asynchronous messages to an object that
 lives in another process, thread, or even the same thread, without the sender
 having to know anything about where the target object actually is.
 
-Public API primitives:
+To use Mage, you need to be familiar with three concepts from its public API:
  - `mage::MageHandle`
  - `mage::Remote`
  - `mage::Receiver`
 
-TODO: Finish filling this section out.
+Each end of a bidirectional message pipe is represented by a `MageHandle`, which
+can be passed across processes. Ultimately, a `MageHandle` representing one end
+of a message pipe will get bound to a `Remote`, and the other end's `MageHandle`
+will get bound to a `Receiver`. It is through these objects that arbitrary
+messages get passed as IPCs.
+
+### `mage::Remote`
+
+Once bound, a `Remote<magen::Foo>` represents a local "proxy" for a `magen::Foo`
+object that may actually be implemented in another process. You can
+synchronously invoke any of `magen::Foo`'s methods on a `Remote<magen::Foo>`,
+and the remote proxy will forward the message to the right place, wherever the
+target object actually lives, even if it is moving around.
+
+```cpp
+MageHandle remote_handle = /* get handle from somewhere */;
+mage::Remote<magen::Foo> remote;
+remote.Bind();
+
+// Start sending IPCs!
+remote->ArbitraryMessage();
+```
+
+### `mage::Receiver`
+
+Messages send over a bound `mage::Remote<magen::Foo>` get queued on the other
+end of the message pipe's `MageHandle`, until _it_ too gets bound, to a
+corresponding `mage::Receiver<magen::Foo>`. A `Receiver` represents the backing
+implementation of a given interface `magen::Foo`. The receiver itself does not
+handle messages that were dispatched by the corresponding remote, but rather the
+receiver has as a reference to a C++ object that implements the `magen::Foo`
+interface, and it forwards messages to that user-provided backing
+implementation.
+
+Here's what a concrete implementation of a cross-process Mage object looks like:
+
+```cpp
+class FooImpl final : public magen::Foo {
+ public:
+  Bind(mage::MageHandle foo_receiver) {
+    // Tell `receiver_` that `this` is the concrete implementation of
+    // `magen::Foo` that can handle IPCs.
+    receiver_.Bind(foo_receiver, this);
+  }
+
+  // Implementation of magen::Foo. These methods get invoked by `receiver_` when
+  // it reads messages from its corresponding `mage::Remote`.
+  void Message1() { /* ... */ }
+  void ArbitraryMessage(string) { /* ... */ }
+  void AnotherIPC(MageHandle) { /* ... */ }
+
+ private:
+  // The receiver's corresponding remote may live in another process.
+  mage::Receiver<magen::Foo> receiver_;
+};
+```
+
 
 ## Magen Interface Definition Language (IDL)
 
