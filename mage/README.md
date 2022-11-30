@@ -1,9 +1,8 @@
 # mage
 
-A simple cross-platform (well, only Linux & macOS for now 😔) interprocess
-communication (IPC) library written in C++. Mage is heavily inspired by
-Chromium's [Mojo IPC library], and written by [Dominic Farolino] (a Chromium
-engineer) in his free time.
+A simple cross-platform[^1] interprocess communication (IPC) library written in
+C++. Mage is heavily inspired by Chromium's [Mojo IPC library], and written by
+[Dominic Farolino] (a Chromium engineer) in his free time.
 
 Chromium's Mojo is feature-rich and battle-tested, but it has a lot of
 Chromium-specific dependencies that prevent it from being portable and usable by
@@ -293,7 +292,7 @@ implementations play an outsized role in defining it.
 The boundary between less-privileged processes and more-privileged ones is
 crucial to audit when determining what capabilities or information is shared
 across processes. Since this boundary is largely defined by the IPC
-implementation being used[^1], IPC libraries tend to care a lot about security.
+implementation being used[^2], IPC libraries tend to care a lot about security.
 
 This is particularly important because less-privileged processes might be
 compromised by some sort of application code, so the protection of
@@ -346,7 +345,9 @@ communicate across privilege gradients:
  - https://wiki.mozilla.org/Security/Sandbox/IPCguide
  - https://mozilla.github.io/firefox-browser-architecture/text/0013-ipc-security-models-and-status.html#best-practices
 
-[^1]: Another tool that contributes to defining the process boundary for an
+[^1]: Well, technically it is only Linux & macOS for now 😔. Windows support
+will be coming.
+[^2]: Another tool that contributes to defining the process boundary for an
 application is whatever sandboxing library is being used, if any. Here are some
 examples of open source ones: [openjudge/sandbox], [Chromium sandbox],
 [google/sandboxed-api].
