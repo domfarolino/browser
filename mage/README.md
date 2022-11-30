@@ -1,9 +1,25 @@
 # mage
 
 A simple cross-platform (well, only Linux & macOS for now 😔) interprocess
-communication (IPC) library written in C++.
+communication IPC) library written in C++. Mage is heavily inspired by
+Chromium's [Mojo IPC library], and written by [Dominic Farolino] (a Chromium
+engineer) in his free time.
+
+Chromium's Mojo is feature-rich and battle-tested, but it has a lot of
+Chromium-specific dependencies that prevent it from being portable and usable by
+other applications. The motivation for Mage was to create a watered down version
+of Mage, with no dependencies on the Chromium tree, for learning purposes and
+for use by arbitrary C++ applications.
+
+Mage's only dependency is [`//base`], a simple threading a scheduling library
+developed alongside Mage. Design work for separating the two entirely is being
+considered, to make Mage even more standalone.
 
 ## Overview
+
+Mage IPC allows you to seamlessly send asynchronous messages to an object that
+lives in another process, thread, or even the same thread, without the sender
+having to know anything about where the target object actually is.
 
 Public API primitives:
  - `mage::MageHandle`
@@ -248,13 +264,19 @@ are:
       library catches invalid data in a received message, it should attempt to
       kill the process that sent the data, and refuse to pass the message to the
       user code that would normally handle it
+ 1. IPC libraries often have the concept of a single "master" process that is
+    responsible for brokering communication between other processes that don't
+    otherwise have the ability to communicate on their own. In Chromium, this is
+    literally called [the "Broker" process]. This is important especially in
+    sandboxed environments where less-privileged processes can't do many things,
+    and require the Broker to grant powerful capabilities
  1. Much more...
 
 As it stands right now, Mage is mostly written as a proof-of-concept, for use in
 basic applications, but not audited to uphold the security guarantees that might
-be required by major, critical applications in production. It would be great if
-Mage could get to this point, and it's certainly within reach, however as it
-stands right now, Mage has not been designed for these purposes.
+be required by major, critical applications in production (including the ones
+above). It would be great if Mage could get to this point, and it's certainly
+within reach, but right now Mage has not been designed for these purposes.
 
 ### Writing safe IPCs
 
@@ -275,8 +297,12 @@ examples of open source ones: [openjudge/sandbox], [Chromium sandbox],
 [google/sandboxed-api].
 
 
+[Mojo IPC library]: https://chromium.googlesource.com/chromium/src/+/master/mojo/README.md
+[Dominic Farolino]: https://github.com/domfarolino
+[`//base`]: https://github.com/domfarolino/browser/tree/master/base
 [IDL]: https://en.wikipedia.org/wiki/Interface_description_language
 [compromised renderer processes]: https://chromium.googlesource.com/chromium/src/+/main/docs/security/compromised-renderers.md
+[the "Broker" process]: https://chromium.googlesource.com/chromium/src/+/master/mojo/core/README.md#:~:text=The%20Broker%20has%20some%20special%20responsibilities
 [openjudge/sandbox]: https://github.com/openjudge/sandbox
 [Chromium sandbox]: https://chromium.googlesource.com/chromium/src/+/master/docs/design/sandbox.md
 [google/sandboxed-api]: https://github.com/google/sandboxed-api
