@@ -1,7 +1,7 @@
 # mage
 
 A simple cross-platform (well, only Linux & macOS for now 😔) interprocess
-communication IPC) library written in C++. Mage is heavily inspired by
+communication (IPC) library written in C++. Mage is heavily inspired by
 Chromium's [Mojo IPC library], and written by [Dominic Farolino] (a Chromium
 engineer) in his free time.
 
