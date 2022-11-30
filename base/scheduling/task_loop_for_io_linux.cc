@@ -65,7 +65,8 @@ void TaskLoopForIOLinux::Run() {
         int read_rv = read(eventfd_wakeup_, &msg, sizeof(msg));
         CHECK(read_rv != -1);
 
-        // See documentation above this code in `TaskLoopForIOMac`.
+        // See corresponding documentation above this code in
+        // `TaskLoopForIOMac`.
         if (queue_.empty()) {
           mutex_.unlock();
           continue;
@@ -85,13 +86,7 @@ void TaskLoopForIOLinux::Run() {
       }
     }
 
-    // By this point, |mutex_| will always be unlocked so that we can lock it
-    // for the next iteration. Note that we can't just unlock it here at the end
-    // of this loop, to make things simple. We have to unlock it before we
-    // process whatever event type we're processing or else we are prone to
-    // deadlocks. For example, if we keep |mutex_| locked while we run a task
-    // that we pull from the |queue_|, then if that task calls PostTask() on
-    // this loop, then it will try and lock |mutex_| and deadlock forever.
+    // See corresponding documentation at this location in `TaskLoopForIOMac`.
   }  // while (true).
 
   // We need to reset |quit_| when |Run()| actually completes, so that we can
