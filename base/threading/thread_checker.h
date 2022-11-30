@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "base/scheduling/scheduling_handles.h"
+#include "base/threading/thread.h"
 
 namespace base {
 
@@ -19,15 +20,15 @@ namespace base {
 // constructed on.
 #define CHECK_ON_THREAD(thread_type) \
 switch (thread_type) { \
-  case ThreadType::UI: \
+  case base::ThreadType::UI: \
     CHECK(base::GetCurrentThreadTaskLoop()); \
     CHECK_EQ(base::GetUIThreadTaskLoop(), base::GetCurrentThreadTaskLoop()); \
     break; \
-  case ThreadType::IO: \
+  case base::ThreadType::IO: \
     CHECK(base::GetCurrentThreadTaskLoop()); \
     CHECK_EQ(base::GetIOThreadTaskLoop(), base::GetCurrentThreadTaskLoop()); \
     break; \
-  case ThreadType::WORKER: \
+  case base::ThreadType::WORKER: \
     NOTREACHED(); \
     break; \
 }

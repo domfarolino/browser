@@ -7,6 +7,7 @@ namespace base {
 
 #define CHECK(condition) assert(condition)
 #define CHECK_EQ(actual, expected) CHECK(actual == expected)
+#define CHECK_NE(actual, expected) CHECK(actual != expected)
 #define CHECK_GE(actual, expected) CHECK(actual >= expected)
 #define CHECK_LT(actual, expected) CHECK(actual < expected)
 #define NOTREACHED() CHECK(false)

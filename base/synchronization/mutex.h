@@ -6,7 +6,6 @@
 #include <mutex>  // std::unique_lock.
 
 #include "base/check.h"
-#include "base/synchronization/condition_variable.h"
 #include "base/synchronization/synchronization_helpers.h"
 
 namespace base {

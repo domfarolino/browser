@@ -13,6 +13,7 @@ void SetIOThreadTaskLoop(std::weak_ptr<TaskLoop>);
 void SetCurrentThreadTaskLoop(std::weak_ptr<TaskLoop>);
 
 std::shared_ptr<TaskLoop> GetUIThreadTaskLoop();
+// TODO(domfarolino): Consider returning `TaskLoopForIO` directly.
 std::shared_ptr<TaskLoop> GetIOThreadTaskLoop();
 std::shared_ptr<TaskLoop> GetCurrentThreadTaskLoop();
 std::shared_ptr<TaskRunner> GetCurrentThreadTaskRunner();
