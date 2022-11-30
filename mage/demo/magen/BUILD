@@ -1,21 +1,13 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//mage/parser:magen_build.bzl", "magen_build")
 
 package(default_visibility = ["//visibility:public"])
 
-genrule(
-    name = "gen",
-    tools = [
-      "//mage/parser:gen",
-      "demo.magen",
-    ],
-    outs = [
-      "demo.magen.h",
-    ],
-    cmd = " && ".join([
-      # Follow the pattern below:
-      # python3 $(location //generated:gen) <input *.mage file> <output *.magen.h file>
-      "python3 $(location //mage/parser:gen) $(location demo.magen) $(location demo.magen.h)",
-    ]),
+magen_build(
+  name = "gen",
+  srcs = [
+    "demo.magen",
+  ],
 )
 
 cc_library(
