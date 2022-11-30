@@ -8,8 +8,8 @@ namespace base {
 
 TaskLoopForIOLinux::TaskLoopForIOLinux()
     : epollfd_(epoll_create1(0)), eventfd_wakeup_(eventfd(0, EFD_SEMAPHORE)) {
-  CHECK(epollfd_ != -1);
-  CHECK(eventfd_wakeup_ != -1);
+  CHECK_NE(epollfd_, -1);
+  CHECK_NE(eventfd_wakeup_, -1);
 
   // Register `eventfd_wakeup_` with the epoll.
   epoll_data_t event_data;
@@ -19,17 +19,18 @@ TaskLoopForIOLinux::TaskLoopForIOLinux()
   ev.data = event_data;
 
   int rv = epoll_ctl(epollfd_, EPOLL_CTL_ADD, eventfd_wakeup_, &ev);
-  CHECK(rv != -1);
+  CHECK_NE(rv, -1);
 }
 
 TaskLoopForIOLinux::~TaskLoopForIOLinux() {
-  CHECK(close(eventfd_wakeup_) != -1);
-  CHECK(close(epollfd_) != -1);
+  CHECK_NE(close(eventfd_wakeup_), -1);
+  CHECK_NE(close(epollfd_), -1);
   CHECK(async_socket_readers_.empty());
 }
 
 void TaskLoopForIOLinux::Run() {
   while (true) {
+    CHECK_GE(event_count_, 1);
     struct epoll_event events[event_count_];
     int timeout = quit_when_idle_ ? 0 : -1;
     int rv = epoll_wait(epollfd_, events, event_count_, timeout);
@@ -63,7 +64,7 @@ void TaskLoopForIOLinux::Run() {
         // `EFD_SEMAPHORE` mode.
         uint64_t msg = 0;
         int read_rv = read(eventfd_wakeup_, &msg, sizeof(msg));
-        CHECK(read_rv != -1);
+        CHECK_NE(read_rv, -1);
 
         // See corresponding documentation above this code in
         // `TaskLoopForIOMac`.
@@ -106,13 +107,16 @@ void TaskLoopForIOLinux::WatchSocket(SocketReader* socket_reader) {
   ev.data = event_data;
 
   int rv = epoll_ctl(epollfd_, EPOLL_CTL_ADD, fd, &ev);
-  CHECK(rv != -1);
+  CHECK_NE(rv, -1);
 
   mutex_.lock();
   // A socket reader can only be registered once.
   CHECK_EQ(async_socket_readers_.find(fd), async_socket_readers_.end());
   async_socket_readers_[fd] = socket_reader;
+  CHECK_GE(event_count_, 1);
   event_count_++;
+  // Protect against overflow.
+  CHECK_GE(event_count_, 1);
   mutex_.unlock();
 }
 
@@ -127,12 +131,13 @@ void TaskLoopForIOLinux::UnwatchSocket(SocketReader* socket_reader) {
   ev.data = event_data;
 
   int rv = epoll_ctl(epollfd_, EPOLL_CTL_DEL, fd, &ev);
-  CHECK(rv != -1);
+  CHECK_NE(rv, -1);
 
   mutex_.lock();
   CHECK(!async_socket_readers_.empty());
   async_socket_readers_.erase(fd);
   event_count_--;
+  CHECK_GE(event_count_, 1);
   mutex_.unlock();
 }
 

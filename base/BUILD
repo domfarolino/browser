@@ -58,17 +58,9 @@ cc_test(
     "threading/simple_thread_test.cc",
     "threading/thread_checker_test.cc",
     "threading/thread_test.cc",
-  ] +
-  select({
-    ":mac": [
-      "scheduling/task_loop_for_io_test.cc",
-      "scheduling/scheduling_handles_test.cc",
-    ],
-    ":linux": [
-      "scheduling/task_loop_for_io_test.cc",
-      "scheduling/scheduling_handles_test.cc",
-    ],
-  }),
+    "scheduling/task_loop_for_io_test.cc",
+    "scheduling/scheduling_handles_test.cc",
+  ],
   copts = ["-Iexternal/gtest/include"],
   deps = [
     "//base:base",
