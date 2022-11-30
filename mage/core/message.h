@@ -149,24 +149,24 @@ enum MessageType : int {
 // In memory, the struct would look like so (assuming 4-byte integers just for
 // drawing simplicity):
 // +------------+
-// |str_offset1 |\
-// +------------+ \
+// |str_offset1 |\.
+// +------------+ \.
 // |str_offset2 |  |
 // +------------+  | 4 bytes to store `str`'s offset
 // |str_offset3 |  |
 // +------------+ /
 // |str_offset4 |/
 // +------------+
-// |str2_offset1|\
-// +------------+ \
+// |str2_offset1|\.
+// +------------+ \.
 // |str2_offset2|  |
 // +------------+  | 4 bytes to store value of `str_2`'s offset
 // |str2_offset3|  |
 // +------------+ /
 // |str2_offset4|/
 // +------------+
-// |     a1     |\
-// +------------+ \
+// |     a1     |\.
+// +------------+ \.
 // |     a2     |  |
 // +------------+  | 4 bytes to store value of `a`
 // |     a3     |  |
