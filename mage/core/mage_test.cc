@@ -234,7 +234,7 @@ TEST_F(MageTest, UseUnboundRemoteCrashes) {
   mage::Remote<magen::TestInterface> remote;
   ASSERT_DEATH({
     remote->SendMoney(0, "");
-  }, "Assertion failed: (bound_)*");
+  }, "bound_*");
 }
 TEST_F(MageTest, UseUnboundRemoteCrashes2) {
   std::vector<mage::MageHandle> pipes = mage::Core::CreateMessagePipes();
@@ -245,7 +245,7 @@ TEST_F(MageTest, UseUnboundRemoteCrashes2) {
   remote.Unbind();
   ASSERT_DEATH({
     remote->SendMoney(0, "");
-  }, "Assertion failed: (bound_)*");
+  }, "bound_*");
 }
 
 // `Endpoint`s only track of they are bound to a receiver, not a remote, so when
@@ -285,7 +285,7 @@ TEST_F(MageTest, SendBoundReceiverUnitTest) {
 
   ASSERT_DEATH({
     remote->SendSecondInterfaceReceiver(second_pair[0]);
-  }, "Assertion failed: (endpoint->state != Endpoint::State::kBound)*");
+  }, "endpoint->state != Endpoint::State::kBound*");
 }
 
 class SecondInterfaceOnlyStringAcceptor : public magen::SecondInterface {
@@ -308,7 +308,7 @@ TEST_F(MageTest, RemoteAndReceiverDifferentInterfaces) {
   remote->SendString("Dominic");
   ASSERT_DEATH({
     main_thread->Run();
-  }, "Assertion failed: (false)*");
+  }, "false*");
 }
 
 TEST_F(MageTest, InitializeAndEntangleEndpointsUnitTest) {

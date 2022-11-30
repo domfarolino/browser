@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 
+#include <cstring>
 #include <string>
 #include <queue>
 #include <vector>
