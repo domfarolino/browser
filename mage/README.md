@@ -105,7 +105,7 @@ Once you've written your `.magen` file you need to tell Bazel about it so it can
 "build" it.
 
 ```starlark
-// network_process/magen/BUILD
+# network_process/magen/BUILD
 
 load("//mage/parser:magen_build.bzl", "magen_build")
 load("@rules_cc//cc:defs.bzl", "cc_library")
@@ -129,7 +129,7 @@ the `cc_library(name="include")` target is for above. With that defined, other
 BUILD files can reference the generated code from your interface:
 
 ```diff
-// src/BUILD
+# src/BUILD
 
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
