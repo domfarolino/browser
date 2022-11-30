@@ -92,7 +92,7 @@ networking tasks) what URL to fetch. In this case, you've already written the
 interface through which `main.cc` will communicate with the network process:
 
 ```cpp
-// network_process.magen
+// network_process/magen/network_process.magen
 
 interface NetworkProcess {
   FetchURL(string url);
@@ -104,8 +104,8 @@ interface NetworkProcess {
 Once you've written your `.magen` file you need to tell Bazel about it so it can
 "build" it.
 
-```
-//network_process/magen/BUILD
+```starlark
+// network_process/magen/BUILD
 
 load("//mage/parser:magen_build.bzl", "magen_build")
 load("@rules_cc//cc:defs.bzl", "cc_library")
@@ -129,7 +129,7 @@ the `cc_library(name="include")` target is for above. With that defined, other
 BUILD files can reference the generated code from your interface:
 
 ```diff
-//src/BUILD
+// src/BUILD
 
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
@@ -158,6 +158,7 @@ what does the networking, and will accept commands from the main process for
 URLs to fetch. We'll need to define this interface now:
 
 ```cpp
+// network_process/network_process.cc
 #include "network_process/magen/network_process.magen.h" // Generated.
 
 // The network process's backing implementation of the `magen::NetworkProcess`
@@ -191,7 +192,27 @@ int main() {
 
 ### Wire up `Remote` and use your cross-process interface
 
-TODO...
+The main application binary can communicate to the network process via a
+`mage::Remote<magen::NetworkProcess>`, by the methods defined on the interface.
+
+```cpp
+// src/main.cc
+
+#include "network_process/magen/network_process.magen.h" // Generated.
+#include "mage/bindings/remote.h"
+
+// Main binary that the user runs.
+int main() {
+  MageHandle network_remote = /* obtained from creating the network process */
+  mage::Remote<magen::NetworkProcess> remote;
+  remote.Bind(network_remote);
+
+  remote->FetchURL("https://google.com");
+
+  RunApplicationForever();
+  return 0;
+}
+```
 
 ## Security considerations
 
