@@ -6,20 +6,192 @@ communication (IPC) library written in C++.
 ## Overview
 
 Public API primitives:
+ - `mage::MageHandle`
  - `mage::Remote`
  - `mage::Receiver`
- - `mage::MageHandle`
+
+TODO: Finish filling this section out.
 
 ## Magen Interface Definition Language (IDL)
 
-Magen is the [IDL] that describes Mage interfaces.
+Magen is the [IDL] that describes Mage interfaces. Interfaces are written in
+`.magen` files and are understood by the `magen_build(...)` Bazel rule, which
+generates C++ bindings code based on your interface.
+
+The magen IDL is quite simple. Each `.magen` file describes a single interface
+with the `interface` keyword, which can have any number of methods described by
+their names and parameters.
+
+C-style comments are supported. Here are a list of supported parameter types:
+ - `bool`
+ - `int`
+ - `long`
+ - `double`
+ - `char`
+ - `string`
+ - `MageHandle`
+
+The types are self-explanatory, with the exception of `MageHandle`. A
+`MageHandle` that is not bound to a `Remote` or `Receiver` can be passed from
+one process, over an existing IPC interface, to be bound to a
+`Remote`/`Receiver` in another process. This is the basic primitive with which
+it's possible to expand the number of connections that span two processes.
+
+Here's an example of an interface:
+
+```cpp
+// This interface is implemented by the master process. It is used by its child
+// processes to communicate commands to the master process.
+interface ParentProcess {
+  // Child tells parent process to navigate to `url`, with an arbitrary delay of
+  // `delay` seconds.
+  NavigateToURL(string url, int delay);
+
+  // ...
+  OpenFile(string name, bool truncate);
+
+  // Before calling this, the child will mint two entangled `MageHandle`s. It
+  // binds one to its `ChildProcess` receiver, and passes the other to the
+  // parent for use as a remote. The parent binds this to a
+  // `mage::Remote<magen::ChildProcess>` so it can send commands back to its
+  // child.
+  BindChildProcessRemote(MageHandle child_remote);
+}
+```
 
 ## Using Mage in an application
 
 Using Mage to provide IPC support in an application is pretty simple; there are
 only a few steps:
 
- 1. Create your interface
+ 1. Create your interface in a `.magen` file (covered by the previous section)
+ 1. Reference the `.magen` file in your project's Bazel `BUILD` file
+ 1. Implement your interface in C++
+ 1. Wire up a `Remote` and start using your interface cross-process (or
+    same-process on any thread)
+
+Let's assume you have a project structure like:
+
+```
+my_project/
+├─ src/
+│  ├─ BUILD
+│  ├─ main.cc
+├─ network_process/
+│  ├─ BUILD
+│  ├─ socket.h
+│  ├─ network_process.cc
+│  ├─ magen/
+│  │  ├─ network_process.magen
+├─ .gitignore
+```
+
+You have a networking project, and you want code inside `main.cc` to tell
+`network_process.cc` (a separate process that `main.cc` spins up to take care of
+networking tasks) what URL to fetch. In this case, you've already written the
+interface through which `main.cc` will communicate with the network process:
+
+```cpp
+// network_process.magen
+
+interface NetworkProcess {
+  FetchURL(string url);
+}
+```
+
+### Reference your `.magen` file in Bazel
+
+Once you've written your `.magen` file you need to tell Bazel about it so it can
+"build" it.
+
+```
+//network_process/magen/BUILD
+
+load("//mage/parser:magen_build.bzl", "magen_build")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+magen_build(
+  name = "gen",
+  srcs = [
+    "network_process.magen",
+  ],
+)
+cc_library(
+  name = "include",
+  hdrs = [":gen"]
+)
+```
+
+This tells Mage to generate C++ code based on your interface. Both your
+`main.cc` and `network_process.cc` have to reference this interface, so they'll
+need to `#include` the C++ code that gets generated from this step. That's what
+the `cc_library(name="include")` target is for above. With that defined, other
+BUILD files can reference the generated code from your interface:
+
+```diff
+//src/BUILD
+
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+  name = "main",
+  srcs = [
+    "main.cc",
+  ],
++  deps = [
++    "//mage:mage",
++    "//network_process/mage/magen:include",
++  ],
+  visibility = ["//visibility:public"],
+)
+```
+
+You'll need to do the same for `//network_process/BUILD`, so that the
+`network_process.cc` binary can also `#include` the generated code from your
+interface.
+
+### Implement your interface in C++
+
+The C++ object that will _back_ the `magen::NetworkProcess` interface that you
+designed will of course live in the `network_process.cc` binary, since that's
+what does the networking, and will accept commands from the main process for
+URLs to fetch. We'll need to define this interface now:
+
+```cpp
+#include "network_process/magen/network_process.magen.h" // Generated.
+
+// The network process's backing implementation of the `magen::NetworkProcess`
+// interface that other processes can use to talk to us!
+class NetworkProcess final : public magen::NetworkProcess {
+ public:
+  // Bind a receiver that we get from the parent, so `this` can start receiving
+  // cross-process messages.
+  NetworkProcess(mage::MageHandle receiver) {
+    receiver_.Bind(receiver, this);
+  }
+
+  // magen::NetworkProcess implementation:
+  void FetchURL(std::string url) override { /* ... */ }
+ private:
+  mage::Receiver<magen::NetworkProcess> receiver_;
+};
+
+// Network_process binary.
+int main() {
+  // Accept the mage invitation from the process.
+  mage::MageHandle network_receiver = /* ... */
+  NetworkProcess network_process_impl(network_receiver);
+  // `network_process_impl` can start receiving asynchronous IPCs from the
+  // parent process, directing it to fetch URLs.
+
+  RunApplicationLoopForever();
+  return 0;
+}
+```
+
+### Wire up `Remote` and use your cross-process interface
+
+TODO...
 
 ## Security considerations
 
