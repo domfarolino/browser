@@ -5,9 +5,7 @@
 #include "base/build_config.h"
 #include "base/check.h"
 #include "base/scheduling/scheduling_handles.h"
-#if defined(OS_MACOS)
 #include "base/scheduling/task_loop_for_io.h"
-#endif
 #include "base/scheduling/task_loop_for_ui.h"
 #include "base/scheduling/task_loop_for_worker.h"
 
@@ -43,12 +41,7 @@ std::shared_ptr<TaskLoop> TaskLoop::CreateUnbound(ThreadType type) {
     case ThreadType::UI:
       return std::shared_ptr<TaskLoopForUI>(new TaskLoopForUI());
     case ThreadType::IO:
-#if defined(OS_MACOS)
       return std::shared_ptr<TaskLoopForIO>(new TaskLoopForIO());
-#else
-      NOTREACHED();
-      return std::shared_ptr<TaskLoopForWorker>();
-#endif
     case ThreadType::WORKER:
       return std::shared_ptr<TaskLoopForWorker>(new TaskLoopForWorker());
   }

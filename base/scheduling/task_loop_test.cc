@@ -336,17 +336,9 @@ TEST_P(TaskLoopTest, QuitWhenIdleMidTask) {
 }
 
 
-#if defined(OS_MACOS)
 INSTANTIATE_TEST_SUITE_P(All,
                          TaskLoopTest,
                          testing::Values(ThreadType::UI, ThreadType::IO, ThreadType::WORKER),
                          &TaskLoopTest::DescribeParams);
-#else
-// ThreadType::IO is only supported on macos for now.
-INSTANTIATE_TEST_SUITE_P(All,
-                         TaskLoopTest,
-                         testing::Values(ThreadType::UI, ThreadType::WORKER),
-                         &TaskLoopTest::DescribeParams);
-#endif
 
 }; // namespace base
