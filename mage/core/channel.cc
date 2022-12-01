@@ -133,7 +133,7 @@ void Channel::SendMessage(Message message) {
   PrintFullMessageContents(message);
 
   std::vector<char>& payload_buffer = message.payload_buffer();
-  CHECK_EQ(message.Size(), payload_buffer.size());
+  CHECK_EQ(message.Size(), (int)payload_buffer.size());
   int rv = write(fd_, payload_buffer.data(), payload_buffer.size());
   CHECK_EQ(rv, message.Size());
 }
@@ -155,7 +155,7 @@ void Channel::OnCanReadFromSocket() {
     msg.msg_control = cmsg_buffer;
     msg.msg_controllen = sizeof(cmsg_buffer);
 
-    int rv = recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
+    size_t rv = recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
     CHECK_EQ(rv, header_size);
     full_message_buffer = std::move(buffer);
   }
@@ -165,7 +165,7 @@ void Channel::OnCanReadFromSocket() {
   full_message_buffer.resize(total_message_size);
 
   MessageHeader* header = reinterpret_cast<MessageHeader*>(full_message_buffer.data());
-  CHECK_EQ(header->size, full_message_buffer.size());
+  CHECK_EQ(header->size, (int)full_message_buffer.size());
 
   // Read the message body.
   {
@@ -179,7 +179,7 @@ void Channel::OnCanReadFromSocket() {
     msg.msg_control = cmsg_buffer;
     msg.msg_controllen = sizeof(cmsg_buffer);
 
-    int rv = recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
+    size_t rv = recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
     CHECK_EQ(rv, body_size);
     memcpy(full_message_buffer.data() + sizeof(MessageHeader), buffer.data(), body_size);
   }

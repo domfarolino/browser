@@ -146,7 +146,9 @@ class {{Interface}}Proxy {
       endpoints_to_write[i].Print();
       char* endpoint_as_bytes = reinterpret_cast<char*>(&endpoints_to_write[i]);
       // Write the endpoint.
-      memcpy(endpoint_array_at_end_of_message.data()->array_storage() + i,
+      char* endpoint_to_populate_as_bytes =
+          reinterpret_cast<char*>(endpoint_array_at_end_of_message.data()->array_storage() + i);
+      memcpy(/*destination=*/endpoint_to_populate_as_bytes,
              /*source=*/endpoint_as_bytes,
              /*source_size=*/sizeof(mage::EndpointDescriptor));
     }

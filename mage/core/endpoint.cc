@@ -24,7 +24,7 @@ void Endpoint::AcceptMessageOnIOThread(Message message) {
   CHECK(state != State::kUnboundAndProxying);
   printf("Endpoint::AcceptMessageOnIOThread [this=%p] [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
-  printf("  state: %d\n", state);
+  printf("  state: %d\n", (int)state);
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
 
@@ -35,7 +35,7 @@ void Endpoint::AcceptMessageOnDelegateThread(Message message) {
   CHECK(state != State::kUnboundAndProxying);
   printf("Endpoint::AcceptMessageOnDelegateThread [this=%p] [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
-  printf("  state: %d\n", state);
+  printf("  state: %d\n", (int)state);
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
 
@@ -59,7 +59,7 @@ void Endpoint::AcceptMessage(Message message) {
   CHECK(state != State::kUnboundAndProxying);
   printf("Endpoint::AcceptMessage() [this=%p], [pid=%d]\n", this, getpid());
   printf("  name: %s\n", name.c_str());
-  printf("  state: %d\n", state);
+  printf("  state: %d\n", (int)state);
   printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
   printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
   printf("  number_of_handles: %d\n", message.NumberOfHandles());
@@ -112,7 +112,7 @@ void Endpoint::RegisterDelegate(
   Lock();
 
   printf("Endpoint::RegisterDelegate() [this=%p] [getpid=%d]\n", this, getpid());
-  printf("state: %d\n", state);
+  printf("state: %d\n", (int)state);
   CHECK_EQ(state, State::kUnboundAndQueueing);
   state = State::kBound;
   // printf("RegisterDelegate() just set state = kBound\n");

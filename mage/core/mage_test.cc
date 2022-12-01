@@ -143,8 +143,9 @@ class ProcessLauncher {
   ~ProcessLauncher() {
     EXPECT_EQ(close(fds_[0]), 0);
     EXPECT_EQ(close(fds_[1]), 0);
-    if (child_pid_ != 0)
+    if (child_pid_ != 0) {
       EXPECT_EQ(kill(child_pid_, SIGKILL), 0);
+    }
   }
 
   void Launch(const char child_binary[]) {
