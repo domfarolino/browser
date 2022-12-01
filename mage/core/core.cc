@@ -145,14 +145,14 @@ void Core::PopulateEndpointDescriptor(
   memcpy(endpoint_descriptor_to_populate.peer_endpoint_name,
          endpoint_being_sent->peer_address.endpoint_name.c_str(),
          kIdentifierSize);
-  printf("endpoint_descriptor_to_populate.endpoint_name: %s\n",
-         endpoint_descriptor_to_populate.endpoint_name);
-  printf("endpoint_descriptor_to_populate.cross_node_endpoint_name: %s\n",
-         endpoint_descriptor_to_populate.cross_node_endpoint_name);
-  printf("endpoint_descriptor_to_populate.peer_node_name: %s\n",
-         endpoint_descriptor_to_populate.peer_node_name);
-  printf("endpoint_descriptor_to_populate.peer_endpoint_name: %s\n",
-         endpoint_descriptor_to_populate.peer_endpoint_name);
+  printf("endpoint_descriptor_to_populate.endpoint_name: %.*s\n",
+         kIdentifierSize, endpoint_descriptor_to_populate.endpoint_name);
+  printf("endpoint_descriptor_to_populate.cross_node_endpoint_name: %.*s\n",
+         kIdentifierSize, endpoint_descriptor_to_populate.cross_node_endpoint_name);
+  printf("endpoint_descriptor_to_populate.peer_node_name: %.*s\n",
+         kIdentifierSize, endpoint_descriptor_to_populate.peer_node_name);
+  printf("endpoint_descriptor_to_populate.peer_endpoint_name: %.*s\n",
+         kIdentifierSize, endpoint_descriptor_to_populate.peer_endpoint_name);
 }
 
 // static
@@ -243,9 +243,6 @@ void Core::RegisterLocalHandleAndEndpoint(
   }
 
   // Next, we check that `local_endpoint` doesn't already exist in this node.
-  // TODO(domfarolino): Support the case where an endpoint travels back to a
-  // node where it previously lived. This would require us relaxing this check,
-  // but it's also a bit more work.
   {
     auto endpoint_it = node_->local_endpoints_.find(local_endpoint->name);
     CHECK_EQ(endpoint_it, node_->local_endpoints_.end());

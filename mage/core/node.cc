@@ -165,7 +165,7 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
   memcpy(message.GetMutableMessageHeader().target_endpoint, peer_endpoint_name.c_str(), kIdentifierSize);
 
   bool peer_is_local = (endpoint_it != local_endpoints_.end());
-  printf(" peer_is_local: %d\n", getpid());
+  printf(" peer_is_local: %d, %d\n", peer_is_local, getpid());
   if (!peer_is_local) {
     std::queue<Message> messages_to_send;
     messages_to_send.push(std::move(message));
@@ -518,27 +518,36 @@ void Node::PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint, Messa
     CHECK_NE(it, local_endpoints_.end());
     std::shared_ptr<Endpoint> backing_endpoint = it->second;
 
-    // TODO(domfarolino): At this point, per the above `CHECK_NE`, we know
-    // this message is being proxied to another node. But what happens here is
-    // that we send the descriptor *as-is* untouched, to the proxy target.
-    // This means the endpoint will have the same
-    // name/cross_node_endpoint_name here as it does the proxy target, which
-    // is bad; sending the same endopoint back and forth between the same two
-    // processes will blow up because after the first cycle, the endpoint name
-    // is never changing. What we should do is:
+    // At this point, per the above `CHECK_NE`, we know this message and its
+    // dependent endpoints (`descriptors_to_forward`) are being
+    // forwarded/proxied to another node. This means that we cannot just send
+    // the descriptor *as-is* untouched, to the proxy target. If we did this,
+    // the endpoint that gets recovered from `message` in the remote node will
+    // have the same `endpoint_name` & `cross_node_endpoint_name` as the one
+    // that got recovered inside this process does, which breaks our invariant.
+    // This is a problem because if that same endpoint got proxied *back* to
+    // this node, it would try and "recover" the endpoint with the same name as
+    // one that already exists in this node, and we'd crash.
+    //
+    // So in order to properly forward dependent endpoints, we must:
     //   1.) Regenerate a new `cross_node_endpoint_name`
-    //   2.) Change the descriptor *as it lives on the message* (not a copy)
-    //       to make:
+    std::string new_cross_node_endpoint_name = util::RandomIdentifier();
+    //   2.) Change the descriptor *as it lives on the message* (not a copy) to
+    //       inchworm forward in the proxying process:
     //       `endpoint_name = cross_node_endpoint_name`
+    memcpy(descriptor->endpoint_name, descriptor->cross_node_endpoint_name, kIdentifierSize);
+    //   3.) Inchworm the `cross_node_endpoint_name` forwrad too, with the new
+    //       one we generated:
     //       `cross_node_endpoint_name = new_cross_node_endpoint_name`
+    memcpy(descriptor->cross_node_endpoint_name, new_cross_node_endpoint_name.c_str(), kIdentifierSize);
     //   3.) Set `backing_endpoint` to proxy to the *new*
     //       `cross_node_endpoint_name` since that will be the name of this
-    //       endpoint in the proxy target process.
-
+    //       endpoint in the proxy target node:
+    //
     // We don't need to acquire a lock here, since no other thread should know
     // about these dependent endpoints inside `message`, since they were just
     // created during this flow and not exported anywhere.
-    backing_endpoint->SetProxying(/*in_node_name=*/endpoint->proxy_target.node_name, /*in_endpoint_name=*/endpoint_name);
+    backing_endpoint->SetProxying(/*in_node_name=*/endpoint->proxy_target.node_name, /*in_endpoint_name=*/new_cross_node_endpoint_name);
   }
 }
 

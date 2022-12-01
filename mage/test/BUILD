@@ -108,3 +108,15 @@ cc_binary(
   ],
   visibility = ["//visibility:public"],
 )
+cc_binary(
+  name = "pass_pipe_back_and_forth",
+  srcs = [
+    "pass_pipe_back_and_forth.cc",
+  ],
+  deps = [
+    "//base:base",
+    "//mage:mage",
+    "//mage/test/magen:include",
+  ],
+  visibility = ["//visibility:public"],
+)

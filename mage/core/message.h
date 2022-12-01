@@ -271,10 +271,10 @@ struct EndpointDescriptor {
   char peer_endpoint_name[kIdentifierSize];
 
   void Print() const {
-    printf("  endpoint_name: %s\n", endpoint_name);
-    printf("  cross_node_endpoint_name: %s\n", cross_node_endpoint_name);
-    printf("  peer_node_name: %s\n", peer_node_name);
-    printf("  peer_endpoint_name: %s\n", peer_endpoint_name);
+    printf("  endpoint_name: %.*s\n", kIdentifierSize, endpoint_name);
+    printf("  cross_node_endpoint_name: %.*s\n", kIdentifierSize, cross_node_endpoint_name);
+    printf("  peer_node_name: %.*s\n", kIdentifierSize, peer_node_name);
+    printf("  peer_endpoint_name: %.*s\n", kIdentifierSize, peer_endpoint_name);
   }
 
   EndpointDescriptor() = default;

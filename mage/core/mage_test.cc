@@ -133,6 +133,8 @@ static const char kChildSendsSendInvitationPipeToParent[] =
     RESOLVE_BINARY_PATH(mage/test/child_sends_send_invitation_pipe_to_parent);
 static const char kChildSendsTwoPipesToParent[] =
     RESOLVE_BINARY_PATH(mage/test/child_sends_two_pipes_to_parent);
+static const char kPassPipeBackAndForth[] =
+    RESOLVE_BINARY_PATH(mage/test/pass_pipe_back_and_forth);
 
 class ProcessLauncher {
  public:
@@ -1075,6 +1077,240 @@ TEST_F(MageTest, ChildPassRemoteAndReceiverToParentToSendEndpointBaringMessageOv
   EXPECT_EQ(NodeLocalEndpoints().size(), 7);
 }
 
+class HandleAccepterImpl2 : public magen::HandleAccepter, public magen::CallbackInterface {
+ public:
+  HandleAccepterImpl2(MageHandle handle_accepter_remote, MageHandle callback_receiver) {
+    remote_.Bind(handle_accepter_remote);
+    // At this point, we can send handles to the child. We need the child to be
+    // able to send handles to us though. So we'll set up another
+    // `magen::HandleAccepter` connection going the other way.
+
+    std::vector<MageHandle> child_to_parent_accepter_pipes = mage::Core::CreateMessagePipes();
+    handle_accepter_receiver_.Bind(child_to_parent_accepter_pipes[0], this);
+    remote_->PassHandle(child_to_parent_accepter_pipes[1]);
+
+    // Now that we have bidirectional communication established, we can send the
+    // callback receiver pipe to the child. The child will just automatically
+    // send it back to us, and we'll repeat this cycle 10 times, as per our
+    // `PassHandle()` implementation below.
+    remote_->PassHandle(callback_receiver);
+  }
+
+  // magen::HandleAccepter implementation.
+  void PassHandle(MageHandle callback_receiver) override {
+    if (pass_count_ < 10) {
+      remote_->PassHandle(callback_receiver);
+      pass_count_++;
+      return;
+    }
+
+    callback_receiver_.Bind(callback_receiver, this);
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+
+  // magen::CallbackInterface implementation.
+  void NotifyDone() override {
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+
+ private:
+  mage::Remote<magen::HandleAccepter> remote_;
+  mage::Receiver<magen::HandleAccepter> handle_accepter_receiver_;
+  mage::Receiver<magen::CallbackInterface> callback_receiver_;
+
+  // This is what we increment each time we pass a handle back to the child
+  // process. Once it reaches a maximum number, we stop, take the handle, and
+  // bind it to `callback_receiver_`;
+  int pass_count_ = 0;
+};
+// This test creates a bidirectional connection between the parent and child
+// processes as so:
+//            Parent                                Child
+//   Remote<PassHandle>           --->      Receiver<PassHandle>
+//   Receiver<PassHandle>         <---      Remote<PassHandle>
+//
+// The parent then creates another message pipe pair for
+// `magen::CallbackInterface` and passes the receiver end to
+// (child -> parent -> child -> ...) 10 times, and it eventually ends up in the
+// parent for ultimate binding. The parent (in the test fixture code) calls
+// `NotifyDone()` on the callback remote and expects the message to go through
+// tons of proxies between the two processes, ultimately making it back to the
+// parent receiver where we'll quit the test.
+//
+// This test is exercising the following logic:
+//   1.) Several independent calls to the endpoint sending and recovery logic
+//   (`Node::SendMessagesAndRecursiveDependents()` and
+//   `Core::RecoverNewMageHandleFromEndpointDescriptor()`) between processes: As
+//   user code receives a message with a handle, it manually sends it back to the
+//   other process, so we rely on this code continually sending and recovering
+//   the same endpoint over and over again with unique cross-node endpoint name.
+//
+// See the next test for even more complicated logic being exercised.
+TEST_F(MageTest, PassHandleBackAndForthBetweenProcesses) {
+  launcher->Launch(kPassPipeBackAndForth);
+
+  MageHandle invitation_pipe =
+    mage::Core::SendInvitationAndGetMessagePipe(
+      launcher->GetLocalFd()
+    );
+
+  std::vector<MageHandle> callback_pipes = mage::Core::CreateMessagePipes();
+  mage::Remote<magen::CallbackInterface> callback_remote;
+  callback_remote.Bind(callback_pipes[0]);
+
+  HandleAccepterImpl2 impl(/*handle_accepter_remote=*/invitation_pipe, /*callback_receiver=*/callback_pipes[1]);
+  // Run the test until the `callback_receiver` makes its many round trips
+  // between the parent and child processes.
+  main_thread->Run();
+
+  // This should, unfortunately, take several round trips between the parent and
+  // child processes. Finally though, it will end up in
+  // `HandleAccepterImpl2::NotifyDone()`, and the test will stop/pass.
+  callback_remote->NotifyDone();
+  main_thread->Run();
+}
+
+class HandleAccepterImpl3 : public magen::HandleAccepter, public magen::CallbackInterface {
+ public:
+  HandleAccepterImpl3(MageHandle handle_accepter_remote, MageHandle callback_receiver_handle) {
+    // Save this for later. See documentation above member.
+    callback_receiver_handle_ = callback_receiver_handle;
+
+    remote_.Bind(handle_accepter_remote);
+    // At this point, we can send handles to the child. We need the child to be
+    // able to send handles to us though. So we'll set up another
+    // `magen::HandleAccepter` connection going the other way.
+
+    std::vector<MageHandle> child_to_parent_accepter_pipes = mage::Core::CreateMessagePipes();
+    handle_accepter_receiver_.Bind(child_to_parent_accepter_pipes[0], this);
+    remote_->PassHandle(child_to_parent_accepter_pipes[1]);
+
+    // Now that we have bidirectional communication established, we can
+    // establish *another* `magen::HandleAccepter` connection between us and the
+    // child. This one will not be a direct connection however, it will have
+    // many cross-process proxies, that ultimately end up back to `this`.
+    std::vector<MageHandle> pass_handle_over_proxy = mage::Core::CreateMessagePipes();
+    remote_through_proxies_.Bind(pass_handle_over_proxy[0]);
+    remote_->PassHandle(pass_handle_over_proxy[1]);
+  }
+
+  // magen::HandleAccepter implementation.
+  void PassHandle(MageHandle receiver) override {
+    // Stage 1:
+    //
+    // In this case, `receiver` is the handle accepter receiver that is going
+    // through multiple proxies. After 10 passes it will get bound to
+    // `receiver_through_proxies_`.
+    if (pass_count_ < 10) {
+      remote_->PassHandle(receiver);
+      pass_count_++;
+      return;
+    }
+
+    // Stage 2:
+    //
+    // In this case `receiver` is the handle accepter receiver that *has gone
+    // through* many proxies, and is ready for binding to
+    // `receiver_through_proxies_`.
+    if (!sent_callback_receiver_already_) {
+      receiver_through_proxies_.Bind(receiver, this);
+
+      // Now we can send the callback receiver over `remote_through_proxies_`
+      // which is where the complicated logic will be tested. It should end up
+      // back in this method in "Stage 3" below.
+      remote_through_proxies_->PassHandle(callback_receiver_handle_);
+      sent_callback_receiver_already_ = true;
+      return;
+    }
+
+    // Stage 3:
+    //
+    // In this case, `receiver` is the callback receiver, which we need to bind
+    // to ourself. We can then quit, and the test will continue by using the
+    // callback remote, and the message should end up in `this`'s `NotifyDone()`
+    // implementation below.
+    if (sent_callback_receiver_already_) {
+      callback_receiver_.Bind(receiver, this);
+      base::GetCurrentThreadTaskLoop()->Quit();
+    }
+  }
+
+  // magen::CallbackInterface implementation.
+  void NotifyDone() override {
+    base::GetCurrentThreadTaskLoop()->Quit();
+  }
+
+ private:
+  mage::Remote<magen::HandleAccepter> remote_;
+  mage::Receiver<magen::HandleAccepter> handle_accepter_receiver_;
+
+  // This will ultimately get bound to `callback_receiver_` in "Stage 2" above.
+  mage::MageHandle callback_receiver_handle_;
+  mage::Receiver<magen::CallbackInterface> callback_receiver_;
+
+  mage::Remote<magen::HandleAccepter> remote_through_proxies_;
+  mage::Receiver<magen::HandleAccepter> receiver_through_proxies_;
+
+  // This is what we increment each time we pass a handle back to the child
+  // process. Once it reaches a maximum number, we stop, take the handle, and
+  // bind it to `callback_receiver_`;
+  int pass_count_ = 0;
+  bool sent_callback_receiver_already_ = false;
+};
+// This test creates a bidirectional connection between the parent and child
+// processes as so:
+//            Parent                                Child
+//   Remote<PassHandle>           --->      Receiver<PassHandle>
+//   Receiver<PassHandle>         <---      Remote<PassHandle>
+//
+//   The parent creates *another* message pipe pair for a normal
+//   `magen::PassHandle` pair. It binds the remote, and passes the receiver to
+//   (child -> parent -> child ...) 10 times, and it finally ends up in the
+//   child for ultimate binding. Now the diagram looks like this:
+//
+//           Parent                                Child
+//   Remote<PassHandle>           --->      Receiver<PassHandle>
+//   Receiver<PassHandle>         <---      Remote<PassHandle>
+//   Remote<PassHandle>  --(circular proxies)-->+
+//                                              |
+//   Receiver<PassHandle> <---------------------+
+//
+// The parent then creates *another* message pipe for
+// `magen::CallbackInterface`. It binds the remote, and passes the receiver over
+// the second `Remote<PassHandle`, which goes through many many proxies but ends
+// up back in the parent.
+// Then the parent calls `NotifyDone()` on the callback remote, and expects the
+// message to end up back in the parent to quit the test.
+//
+// This test is exercising the following logic:
+//   1.) Automatic proxying of user messages that contain endpoints. This is
+//   mostly the logic that exists in `PrepareToForwardUserMessage()`. See the
+//   documentation for why it is complicated.
+TEST_F(MageTest, PassEndpointBearingHandleBackAndForthBetweenProcesses) {
+  launcher->Launch(kPassPipeBackAndForth);
+
+  MageHandle invitation_pipe =
+    mage::Core::SendInvitationAndGetMessagePipe(
+      launcher->GetLocalFd()
+    );
+
+  std::vector<MageHandle> callback_pipes = mage::Core::CreateMessagePipes();
+  mage::Remote<magen::CallbackInterface> callback_remote;
+  callback_remote.Bind(callback_pipes[0]);
+
+  HandleAccepterImpl3 impl(/*handle_accepter_remote=*/invitation_pipe, /*callback_receiver=*/callback_pipes[1]);
+  // Run the test until the `callback_receiver` makes its many round trips
+  // between the parent and child processes.
+  main_thread->Run();
+
+  // This should, unfortunately, take several round trips between the parent and
+  // child processes. Finally though, it will end up in
+  // `HandleAccepterImpl2::NotifyDone()`, and the test will stop/pass.
+  callback_remote->NotifyDone();
+  main_thread->Run();
+}
+
+
 /////////////////////////////// IN-PROCESS TESTS ///////////////////////////////
 TEST_F(MageTest, InProcessQueuedMessagesAfterReceiverBound) {
   std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
@@ -1456,6 +1692,7 @@ TEST_F(MageTest, SendMessageToDeletedReceiver) {
   main_thread->Run();
 }
 
+// This implementation is only used in the immediately following test.
 class HandleAccepterImpl : public magen::HandleAccepter {
  public:
   HandleAccepterImpl(MageHandle receiver) {
@@ -1471,7 +1708,6 @@ class HandleAccepterImpl : public magen::HandleAccepter {
   mage::Receiver<magen::HandleAccepter> receiver_;
   std::unique_ptr<CallbackInterfaceImpl> callback_impl_;
 };
-
 TEST_F(MageTest, SendHandleToBoundEndpoint) {
   std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
   EXPECT_EQ(mage_handles.size(), 2);

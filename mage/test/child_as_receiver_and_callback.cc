@@ -29,7 +29,7 @@
 //   5.) [Maybe] SecondInterface::SendReceiverForThirdInterface()
 //   6.) [If above] ThirdInterface::SendReceiverForFourthInterface()
 //   7.) [If above] FourthInterface::SendStringAndNotifyDoneViaCallback()
-//   8/) [If above] FourthInterface::NotifyDoneViaCallback()
+//   8.) [If above] FourthInterface::NotifyDoneViaCallback()
 
 bool first_interface_received_send_string = false;
 bool first_interface_received_send_handles = false;
