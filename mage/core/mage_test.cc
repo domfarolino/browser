@@ -16,11 +16,12 @@
 #include "mage/core/handles.h"
 #include "mage/core/node.h"
 #include "mage/test/magen/callback_interface.magen.h" // Generated.
-#include "mage/test/magen/first_interface.magen.h" // Generated.
-#include "mage/test/magen/second_interface.magen.h" // Generated.
-#include "mage/test/magen/third_interface.magen.h" // Generated.
-#include "mage/test/magen/fourth_interface.magen.h" // Generated.
-#include "mage/test/magen/test.magen.h" // Generated.
+#include "mage/test/magen/first_interface.magen.h"    // Generated.
+#include "mage/test/magen/handle_accepter.magen.h"    // Generated.
+#include "mage/test/magen/second_interface.magen.h"   // Generated.
+#include "mage/test/magen/third_interface.magen.h"    // Generated.
+#include "mage/test/magen/fourth_interface.magen.h"   // Generated.
+#include "mage/test/magen/test.magen.h"               // Generated.
 
 namespace mage {
 
@@ -1452,6 +1453,46 @@ TEST_F(MageTest, SendMessageToDeletedReceiver) {
   // without crashing.
   base::GetCurrentThreadTaskRunner()->PostTask(main_thread->QuitClosure());
 
+  main_thread->Run();
+}
+
+class HandleAccepterImpl : public magen::HandleAccepter {
+ public:
+  HandleAccepterImpl(MageHandle receiver) {
+    receiver_.Bind(receiver, this);
+  }
+
+  void PassHandle(MageHandle callback_receiver) override {
+    std::function<void()> quit_closure = std::bind(&base::TaskLoop::Quit, base::GetCurrentThreadTaskLoop().get());
+    callback_impl_ = std::make_unique<CallbackInterfaceImpl>(callback_receiver, quit_closure);
+  }
+
+ private:
+  mage::Receiver<magen::HandleAccepter> receiver_;
+  std::unique_ptr<CallbackInterfaceImpl> callback_impl_;
+};
+
+TEST_F(MageTest, SendHandleToBoundEndpoint) {
+  std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
+  EXPECT_EQ(mage_handles.size(), 2);
+
+  MageHandle remote_handle = mage_handles[0],
+             receiver_handle = mage_handles[1];
+  mage::Remote<magen::HandleAccepter> remote;
+  remote.Bind(remote_handle);
+  HandleAccepterImpl handle_accepter(receiver_handle);
+
+  std::vector<MageHandle> callback_handles = mage::Core::CreateMessagePipes();
+  MageHandle callback_remote_handle = callback_handles[0],
+             callback_receiver_handle = callback_handles[1];
+
+  // Send the `callback_receiver_handle`
+  mage::Remote<magen::CallbackInterface> callback_remote;
+  remote->PassHandle(callback_receiver_handle);
+  callback_remote.Bind(callback_remote_handle);
+  callback_remote->NotifyDone();
+
+  // The loop will be quit once the callback receives a message.
   main_thread->Run();
 }
 
