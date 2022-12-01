@@ -99,7 +99,7 @@ enum MessageType : int {
   //     +                               ^
   //     |                               |
   //     +-------------------------------+
-  //     
+  //
   //     ^                 ^             ^
   //     |                 |             |
   //     +------Node 1-----+-----Node2---+
@@ -194,7 +194,13 @@ enum MessageType : int {
 // first available slot on the end of the backing payload buffer after expanding
 // it enough to fit the actual runtime contents of `str_2` and so on.
 //
-// TODO(domfarolino): Explain how decoding pointers work.
+//
+// Decoding a `Pointer` works similar to encoding, but in reverse. In order to
+// go from `offset` to the address of the first byte of data that `Pointer`
+// represents, we simply take the address of `offset` and add to the number (of
+// bytes) written to `offset` as its value. That jumps ahead `offset` bytes from
+// the address of `offset`, giving us a pointer to the first byte in front of
+// `offset` where the data that `Pointer` represents is stored.
 template <typename T>
 struct Pointer {
   void Set(T* ptr) {
@@ -212,7 +218,16 @@ struct Pointer {
   uint64_t offset = 0;
 };
 
-// TODO(domfarolino): Document how this related to `Pointer` above.
+// Arrays are stored in serialized message buffers as:
+//   mage::Pointer<ArrayHeader<T>> array;
+//
+// When we decode a `Pointer`, this gives us the address (in the message buffer)
+// of the first thing stored in the pointer, which is an `ArrayHeader`.
+// `ArrayHeader` is a `Pointer`-like object, where it stores data *about* the
+// array (namely the number of elements in `num_elements`). That means in order
+// to go from `ArrayHeader` to the actual data in the array, we have to jump
+// ahead in memory by exactly `sizeof(ArrayHeader)` bytes; see `array_storage()`
+// below.
 template <typename T>
 struct ArrayHeader {
   T* array_storage() {
