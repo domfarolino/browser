@@ -124,7 +124,7 @@ void Node::AcceptInvitation(int fd) {
   has_accepted_invitation_ = true;
 }
 
-void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,        
+void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
                        Message message) {
   printf("Node::SendMessage() [pid=%d]\n", getpid());
   CHECK_EQ(message.GetMutableMessageHeader().type, MessageType::USER_MESSAGE);
@@ -134,8 +134,8 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
   // don't track whether they are bound to remotes.
   // TODO: This might be a good block to hide behind a debug flag or something
   // so we don't do all of this locking in "production".
-  for (EndpointDescriptor& descriptor : message.GetEndpointDescriptors()) {
-    std::string endpoint_name(descriptor.endpoint_name, kIdentifierSize);
+  for (const EndpointDescriptor* const descriptor : message.GetEndpointDescriptors()) {
+    std::string endpoint_name(descriptor->endpoint_name, kIdentifierSize);
     auto it = local_endpoints_.find(endpoint_name);
     std::shared_ptr<Endpoint> endpoint = it->second;
     CHECK(endpoint);
@@ -384,7 +384,7 @@ void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_se
 
     // Push possibly many more messages to `message_to_send`.
     printf("      Forwarding a message NumberOfHandles(): %d\n", message_to_send.NumberOfHandles());
-    std::vector<EndpointDescriptor> descriptors = message_to_send.GetEndpointDescriptors();
+    std::vector<EndpointDescriptor*> descriptors = message_to_send.GetEndpointDescriptors();
 
     // As we process each dependent endpoint of `message_to_send`, we have to
     // lock them. The meat of what we do below is:
@@ -400,11 +400,11 @@ void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_se
     // because it received a message for an endpoint that it's not aware of yet.
     std::vector<std::shared_ptr<Endpoint>> locked_dependent_endpoints;
 
-    for (const EndpointDescriptor& descriptor : descriptors) {
-      std::string endpoint_name(descriptor.endpoint_name, kIdentifierSize);
-      std::string cross_node_endpoint_name(descriptor.cross_node_endpoint_name, kIdentifierSize);
+    for (const EndpointDescriptor* const descriptor : descriptors) {
+      std::string endpoint_name(descriptor->endpoint_name, kIdentifierSize);
+      std::string cross_node_endpoint_name(descriptor->cross_node_endpoint_name, kIdentifierSize);
       printf("        An EndpointDescriptor in this message:\n");
-      descriptor.Print();
+      descriptor->Print();
 
       auto it = local_endpoints_.find(endpoint_name);
       CHECK_NE(it, local_endpoints_.end());
@@ -470,12 +470,12 @@ void Node::OnReceivedUserMessage(Message message) {
 
   // Process and register all of the endpoints that `message` is carrying before
   // we either queue or dispatch it.
-  std::vector<EndpointDescriptor> endpoints_in_message = message.GetEndpointDescriptors();
+  std::vector<EndpointDescriptor*> endpoints_in_message = message.GetEndpointDescriptors();
   printf("  endpoints_in_message.size()= %lu\n", endpoints_in_message.size());
-  for (const EndpointDescriptor& endpoint_descriptor : endpoints_in_message) {
+  for (const EndpointDescriptor* const endpoint_descriptor : endpoints_in_message) {
     MageHandle local_handle =
-        Core::RecoverNewMageHandleFromEndpointDescriptor(endpoint_descriptor);
-    endpoint_descriptor.Print();
+        Core::RecoverNewMageHandleFromEndpointDescriptor(*endpoint_descriptor);
+    endpoint_descriptor->Print();
     printf("     Queueing handle to message after recovering new endpoint\n");
     message.QueueHandle(local_handle);
   }
@@ -507,10 +507,10 @@ void Node::PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint, Messa
   CHECK_ON_THREAD(base::ThreadType::IO);
   CHECK_EQ(endpoint->state, Endpoint::State::kUnboundAndProxying);
 
-  std::vector<EndpointDescriptor> descriptors_to_forward =
+  std::vector<EndpointDescriptor*> descriptors_to_forward =
       message.GetEndpointDescriptors();
-  for (EndpointDescriptor& descriptor : descriptors_to_forward) {
-    std::string endpoint_name(descriptor.cross_node_endpoint_name, kIdentifierSize);
+  for (EndpointDescriptor* descriptor : descriptors_to_forward) {
+    std::string endpoint_name(descriptor->cross_node_endpoint_name, kIdentifierSize);
     printf("Looking for a local endpoint by the name of: %s to put into a proxying state\n", endpoint_name.c_str());
     // Endpoints being sent in this message should be "recovered" by
     // `Node::OnReceivedUserMessage()`.
