@@ -431,8 +431,8 @@ int main(int argc, char** argv) {
   int fd = std::stoi(argv[1]);
   mage::Core::AcceptInvitation(fd, &OnInvitationAccepted);
 
-  // This will run the event loop indefinitely, processing tasks when they are
-  // posted.
+  // This will run the event loop indefinitely, running tasks when they are
+  // posted (including the `OnInvitationAccepted()` function above.
   main_thread->Run();
   return 0;
 }
