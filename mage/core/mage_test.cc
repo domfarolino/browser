@@ -264,8 +264,7 @@ TEST_F(MageTest, SendBoundRemoteTechnicallyAllowedUnitTest) {
 
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(first_pair[0]);
-  mage::Remote<magen::SecondInterface> second_remote;
-  second_remote.Bind(second_pair[0]);
+  mage::Remote<magen::SecondInterface> second_remote(second_pair[0]);
 
   // Bad, but we don't protect against it:
   remote->SendSecondInterfaceReceiver(second_pair[0]);
@@ -281,8 +280,7 @@ TEST_F(MageTest, SendBoundReceiverUnitTest) {
   std::vector<mage::MessagePipe> first_pair = mage::Core::CreateMessagePipes();
   std::vector<mage::MessagePipe> second_pair = mage::Core::CreateMessagePipes();
 
-  mage::Remote<magen::FirstInterface> remote;
-  remote.Bind(first_pair[0]);
+  mage::Remote<magen::FirstInterface> remote(first_pair[0]);
   mage::Receiver<magen::SecondInterface> receiver;
   SIDummy second_interface_impl;
   receiver.Bind(second_pair[0], &second_interface_impl);
@@ -303,8 +301,7 @@ class SecondInterfaceOnlyStringAcceptor : public magen::SecondInterface {
 TEST_F(MageTest, RemoteAndReceiverDifferentInterfaces) {
   std::vector<mage::MessagePipe> pipes = mage::Core::CreateMessagePipes();
 
-  mage::Remote<magen::FirstInterface> remote;
-  remote.Bind(pipes[0]);
+  mage::Remote<magen::FirstInterface> remote(pipes[0]);
   mage::Receiver<magen::SecondInterface> receiver;
   SecondInterfaceOnlyStringAcceptor second_interface_impl;
   receiver.Bind(pipes[1], &second_interface_impl);
@@ -917,8 +914,7 @@ TEST_F(MageTest, ChildPassSendInvitationPipeBackToParent) {
     EXPECT_EQ(CoreHandleTable().size(), 3);
 
     MessagePipe first_interface_remote_handle = handler.GetFirstInterfaceHandle();
-    mage::Remote<magen::FirstInterface> remote;
-    remote.Bind(first_interface_remote_handle);
+    mage::Remote<magen::FirstInterface> remote(first_interface_remote_handle);
     remote->SendString("This is my test");
 
     main_thread->Run();

@@ -12,6 +12,9 @@ class Remote {
   using InterfaceProxy = typename Interface::Proxy;
 
   Remote() : proxy_(std::make_unique<InterfaceProxy>()) {}
+  explicit Remote(MessagePipe local_handle) : Remote() {
+    Bind(local_handle);
+  }
 
   void Bind(MessagePipe local_handle) {
     proxy_->BindToHandle(local_handle);

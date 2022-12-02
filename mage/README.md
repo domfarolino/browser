@@ -42,9 +42,8 @@ object actually lives (even if it is moving around). See the next section for
 defining interfaces in Magen IDL.
 
 ```cpp
-MessagePipe remote_handle = /* get handle from somewhere */;
-mage::Remote<magen::Foo> remote;
-remote.Bind();
+MessagePipe remote_pipe = /* get pipe from somewhere */;
+mage::Remote<magen::Foo> remote(remote_pipe);
 
 // Start sending IPCs!
 remote->ArbitraryMessage("some payload");
@@ -285,9 +284,8 @@ The main application binary can communicate to the network process with a
 
 // Main binary that the user runs.
 int main() {
-  MessagePipe network_remote = /* obtained from creating the network process */
-  mage::Remote<magen::NetworkProcess> remote;
-  remote.Bind(network_remote);
+  MessagePipe network_pipe = /* obtained from creating the network process */
+  mage::Remote<magen::NetworkProcess> remote(network_pipe);
 
   remote->FetchURL("https://google.com");
   RunApplicationLoopForever();
