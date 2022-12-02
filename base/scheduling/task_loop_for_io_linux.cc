@@ -100,15 +100,6 @@ void TaskLoopForIOLinux::WatchSocket(SocketReader* socket_reader) {
   CHECK(socket_reader);
   int fd = socket_reader->Socket();
 
-  epoll_data_t event_data;
-  event_data.fd = fd;
-  struct epoll_event ev;
-  ev.events = EPOLLIN;
-  ev.data = event_data;
-
-  int rv = epoll_ctl(epollfd_, EPOLL_CTL_ADD, fd, &ev);
-  CHECK_NE(rv, -1);
-
   mutex_.lock();
   // A socket reader can only be registered once.
   CHECK_EQ(async_socket_readers_.find(fd), async_socket_readers_.end());
@@ -118,6 +109,15 @@ void TaskLoopForIOLinux::WatchSocket(SocketReader* socket_reader) {
   // Protect against overflow.
   CHECK_GE(event_count_, 1);
   mutex_.unlock();
+
+  epoll_data_t event_data;
+  event_data.fd = fd;
+  struct epoll_event ev;
+  ev.events = EPOLLIN;
+  ev.data = event_data;
+
+  int rv = epoll_ctl(epollfd_, EPOLL_CTL_ADD, fd, &ev);
+  CHECK_NE(rv, -1);
 }
 
 void TaskLoopForIOLinux::UnwatchSocket(SocketReader* socket_reader) {
