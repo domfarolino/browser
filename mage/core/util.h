@@ -14,6 +14,9 @@ static const char alphanum[] =
 
 std::string RandomIdentifier();
 
+#define VA_ARGS(...) , ##__VA_ARGS__
+#define LOG(str, ...)      printf(str VA_ARGS(__VA_ARGS__));printf("\n")
+
 }; // namespace mage
 }; // namespace util
 

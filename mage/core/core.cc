@@ -63,7 +63,7 @@ void Core::AcceptInvitation(
 
 // static
 void Core::SendMessage(MessagePipe local_handle, Message message) {
-  printf("Core::SendMessage\n");
+  LOG("Core::SendMessage");
   Get()->handle_table_lock_.lock();
   auto endpoint_it = Get()->handle_table_.find(local_handle);
   CHECK_NE(endpoint_it, Get()->handle_table_.end());
