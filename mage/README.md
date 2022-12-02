@@ -292,21 +292,64 @@ int main() {
 
 ## Sending `MessagePipes` cross-process
 
-TODO: Document this.
+The previous section illustrates sending a message over a bound message pipe to
+another process, using a single remote/receiver pair that spans the two
+processes. But usually you don't want to have a single interface responsible for
+every single message that spans two processes. That leads to bad layering and
+design. Rather, you often want something like:
+
+```
+┌─────────────────────────┐             ┌──────────────────────────┐
+│         Proc A          │             │          Proc B          │
+│                         │             │                          │
+│  ┌───────────────────┐  │             │  ┌────────────────────┐  │
+│  │CompositorDirector │  │             │  │CompositorImpl      │  │
+│  │                   │  │             │  │                    │  │
+│  │   remote──────────┼──┼─────────────┼──┼──►receiver         │  │
+│  └───────────────────┘  │             │  └────────────────────┘  │
+│                         │             │                          │
+│  ┌───────────────────┐  │             │  ┌────────────────────┐  │
+│  │RemoteUIService    │  │             │  │UIServiceImpl       │  │
+│  │                   │  │             │  │                    │  │
+│  │   remote──────────┼──┼─────────────┼──┼──►receiver         │  │
+│  └───────────────────┘  │             │  └────────────────────┘  │
+│                         │             │                          │
+│  ┌───────────────────┐  │             │  ┌────────────────────┐  │
+│  │LoggerImpl         │  │             │  │RemoteLogger        │  │
+│  │                   │  │             │  │                    │  │
+│  │ receiver◄─────────┼──┼─────────────┼──┼──remote            │  │
+│  └───────────────────┘  │             │  └────────────────────┘  │
+│                         │             │                          │
+└─────────────────────────┘             └──────────────────────────┘
+```
+
+As long as you have a single interface spanning two processes, you can use it to
+indefinitely expand the number of interfaces between them, by passing
+`MessagePipe`s over an existing interface:
+
+```cpp
+mage::Remote<magen::BoostrapInterface> remote = /* ... */;
+
+// Create two entangled message pipes, and send one (intended for use as a
+// receiver) to the remote process.
+std::vector<mage::MessagePipe> new_pipes = mage::Core::CreateMessagePipes();
+
+remote->SendCompositorReceiver(new_pipes[1]);
+mage::Remote<magen::Compositor> compositor_remote(new_pipes[0]);
+
+// Now you can start invoking methods on the remote compositor, and they'll
+// arrive in the remote process once the receiver (new_pipes[1]) gets bound.
+compositor_remote->StartCompositing();
+```
 
 ## Mage invitations
 
 The above sections are great primers on how to use Mage in an existing
-application, but they only cover the basics. Every example assumes you have two
-processes that are already connected by a `MessagePipe` that you _somehow_
-magically obtain. Once you have that primordial connection, you can then send
-messages, including other `MessagePipe`s that expand the number of connections
-across two processes.
-
-But how do you establish the _first_ connection between two processes, with
-which you send more messages and create more connections? This section covers
-how to do just that by sending a Mage "invitation" when a child process is spun
-up.
+application, but they only cover the basics. Every example assumes you already
+have a connection between two processes in your system. From there, you can send
+messages, and even expand the number of connections that span the two processes.
+But **how do you establish the initial connection**? This section introduces the
+Mage "invitation" concep, which helps you do this.
 
 TODO: Document this.
 
