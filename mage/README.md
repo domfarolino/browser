@@ -186,26 +186,22 @@ that invoke the Mage build process.
 ```starlark
 # network_process/magen/BUILD
 
-load("//mage/parser:magen_build.bzl", "magen_build")
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//mage/parser:magen_idl.bzl", "magen_idl")
 
-magen(
-  name = "gen",
+# Generates `network_process.magen.h`, which can be included by depending on the
+# ":include" target below.
+magen_idl(
+  name = "include",
   srcs = [
     "network_process.magen",
   ],
 )
-cc_library(
-  name = "include",
-  hdrs = [":gen"]
-)
 ```
 
-This tells Mage to generate C++ code based on your interface that both `main.cc`
-and `network_process.cc` can `#include`, to learn about your custom interface.
-That's what the `cc_library(name="include")` above is for; with it, other
-targets can reference the `:include` library, which gives them access to the
-generated interface headers. For example, you'd modify `src/BUILD` like so:
+This tells Mage to generate a C++ header called `network_process.magen.h` based
+on the supplied interface. Both `main.cc` and `network_process.cc` can
+`#include` this header by listing the `:include` rule as a dependency. For
+example, you'd modify `src/BUILD` like so:
 
 ```diff
 # src/BUILD
@@ -219,7 +215,7 @@ cc_binary(
   ],
 +  deps = [
 +    "//mage:mage",
-+    # Now `main.cc` can `include` the generated interface headers.
++    # Allows `main.cc` to `include` the generated interface header.
 +    "//network_process/magen:include",
 +  ],
   visibility = ["//visibility:public"],

@@ -1,15 +1,10 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("//mage/parser:magen_build.bzl", "magen_build")
+load("//mage/parser:magen_idl.bzl", "magen_idl")
 
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
+magen_idl(
   name = "include",
-  hdrs = [":gen"]
-)
-
-magen_build(
-  name = "gen",
   srcs = [
     "child_process.magen",
     "child_process_2.magen",
