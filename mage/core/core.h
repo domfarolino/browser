@@ -22,7 +22,7 @@ class Core {
 
   // Relies on the IO thread's TaskLoop being synchronously accessible from the
   // UI thread.
-  static void Init();
+  static void Init(bool verbose = false);
   static void ShutdownCleanly();
 
   // TODO(domfarolino): This should not actually be used outside of mage/core.

@@ -31,8 +31,7 @@ int main() {
   mage::MessagePipe local_message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(fds[0]);
 
-  mage::Remote<magen::Demo> remote;
-  remote.Bind(local_message_pipe);
+  mage::Remote<magen::Demo> remote(local_message_pipe);
   remote->Method1(1, "dom", "farolino");
   remote->SendName("domfarolino", true);
 

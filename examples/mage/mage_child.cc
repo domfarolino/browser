@@ -25,9 +25,9 @@ class ChildProcessImpl2 : public magen::ChildProcess2 {
   }
 
   void PrintMessage2(std::string msg) override {
-    printf("\033[34;1mChildProcessImpl2 is printing a message from the "
+    printf("\033[32;1mChildProcessImpl2 is printing a message from the "
            "parent:\033[0m\n");
-    printf("\033[34;1m%s\033[0m\n", msg.c_str());
+    printf("\033[32;1m%s\033[0m\n", msg.c_str());
   }
 
  private:
@@ -42,16 +42,16 @@ class ChildProcessImpl : public magen::ChildProcess {
   }
 
   void PrintMessage(std::string msg) override {
-    printf("\033[34;1mChildProcessImpl is printing a message from the "
+    printf("\033[32;1mChildProcessImpl is printing a message from the "
            "parent:\033[0m\n");
-    printf("\033[34;1m%s\033[0m\n", msg.c_str());
+    printf("\033[32;1m%s\033[0m\n", msg.c_str());
   }
 
   void PassHandle(mage::MessagePipe child_process_2_handle, mage::MessagePipe parent_process_handle) override {
-    printf("\033[34;1mChildProcessImpl::PassHandle\033[0m\n");
+    printf("\033[32;1mChildProcessImpl::PassHandle implementation called\033[0m\n");
     global_child_process_impl_2 = std::make_unique<ChildProcessImpl2>(child_process_2_handle);
-    mage::Remote<magen::ParentProcess> remote;
-    remote.Bind(parent_process_handle);
+    mage::Remote<magen::ParentProcess> remote(parent_process_handle);
+    printf("\033[32;1mChildProcessImpl invoking NotifyDone() on parent process\033[0m\n");
     remote->NotifyDone();
   }
 

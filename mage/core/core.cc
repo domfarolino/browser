@@ -17,7 +17,8 @@ Core::Core()
       node_(new Node()) {}
 
 // static
-void Core::Init() {
+void Core::Init(bool verbose) {
+  util::VerboseLogging = verbose;
   srand(getpid());
 
   CHECK(!g_core);

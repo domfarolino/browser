@@ -25,7 +25,7 @@ class ParentProcessImpl final : public magen::ParentProcess {
   // we send it. This is how we know how to quit our process and tear down the
   // child.
   void NotifyDone() {
-    printf("\033[34;1mParentProcessImpl::NotifyDone() being called from child\033[0m\n");
+    printf("\033[34;1mParentProcessImpl::NotifyDone() called from child\033[0m\n");
     base::GetCurrentThreadTaskLoop()->Quit();
   }
 
