@@ -69,7 +69,7 @@ class {{Interface}}_{{Method.name}}_Params {
 // the serialized message is passed to the mage core internals for sending.
 class {{Interface}}Proxy {
  public:
-  void BindToHandle(mage::MessagePipe local_handle) {
+  void BindToPipe(mage::MessagePipe local_handle) {
     CHECK(!bound_);
     bound_ = true;
     local_handle_ = local_handle;
@@ -169,7 +169,7 @@ class {{Interface}}Proxy {
 
 class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate, public std::enable_shared_from_this<{{Interface}}ReceiverStub> {
  public:
-  void BindToHandle(mage::MessagePipe local_handle, {{Interface}}* impl, std::shared_ptr<base::TaskRunner> impl_task_runner) {
+  void BindToPipe(mage::MessagePipe local_handle, {{Interface}}* impl, std::shared_ptr<base::TaskRunner> impl_task_runner) {
     CHECK(!bound_);
     bound_ = true;
     local_handle_ = local_handle;
@@ -214,7 +214,7 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate, publi
           {% elif IsHandleType(argument_pair[0]) %}
             // The handle and endpoint have already been processed on the IO
             // thread, so we can just grab the handle directly from the message.
-            {{ argument_pair[1] }} = message.TakeNextHandle();
+            {{ argument_pair[1] }} = message.TakeNextPipe();
           {% endif %}
         {%- endfor %}
 

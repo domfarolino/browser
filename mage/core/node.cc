@@ -363,15 +363,19 @@ void Node::OnReceivedAcceptInvitation(Message message) {
       remote_endpoint->TakeQueuedMessages();
   LOG("    Node has %lu messages queued up in the remote invitation endpoint", messages_to_forward.size());
 
-  // TODO(domfarolino): I think this is just a stupid artifact of the fact that
-  // we let the recipient of the invitation choose its own name. We should still
-  // choose the intended endpoint name for it, but just make it a random name
-  // instead. That way we can avoid doing this update.
+  // TODO(domfarolino): This is a stupid artifact of the fact that we let the
+  // recipient of the invitation choose its own name. Ultimately we should not
+  // do this, perhaps for security reasons, but also to simplify this code. We
+  // should choose the intended endpoint name for the primordial endpoint in the
+  // remote process, and just make it a random name. That way we can avoid this
+  // update.
   //
   // All of these messages were written with the `target_endpoint` as
   // `remote_endpoint->name`. But since `remote_endpoint` is now proxying to a
-  // different-named endpoint in the remote process, we must re-target the
-  // queued messages. Re-targeting of the dependent messages happens in
+  // different-named endpoint in the remote process (that the remote process
+  // generated for itself), we must re-target the queued messages and all
+  // dependent messages. In this loop, we re-target all of the top-level
+  // messages; dependent messages are handled in
   // `SendMessagesAndRecursiveDependents()`.
   std::queue<Message> final_messages_to_forward;
   while (!messages_to_forward.empty()) {
@@ -398,7 +402,7 @@ void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_se
     Message message_to_send = std::move(messages_to_send.front());
 
     // Push possibly many more messages to `message_to_send`.
-    LOG("      Forwarding a message NumberOfHandles(): %d", message_to_send.NumberOfHandles());
+    LOG("      Forwarding a message NumberOfPipes(): %d", message_to_send.NumberOfPipes());
     std::vector<EndpointDescriptor*> descriptors = message_to_send.GetEndpointDescriptors();
 
     // As we process each dependent endpoint of `message_to_send`, we have to
@@ -488,11 +492,11 @@ void Node::OnReceivedUserMessage(Message message) {
   std::vector<EndpointDescriptor*> endpoints_in_message = message.GetEndpointDescriptors();
   LOG("  endpoints_in_message.size()= %lu", endpoints_in_message.size());
   for (const EndpointDescriptor* const endpoint_descriptor : endpoints_in_message) {
-    MessagePipe local_handle =
+    MessagePipe local_pipe =
         Core::RecoverNewMessagePipeFromEndpointDescriptor(*endpoint_descriptor);
     endpoint_descriptor->Print();
-    LOG("     Queueing handle to message after recovering new endpoint");
-    message.QueueHandle(local_handle);
+    LOG("     Queueing pipe to message after recovering new endpoint");
+    message.QueuePipe(local_pipe);
   }
 
   // 2. Tell the endpoint to handle the message.

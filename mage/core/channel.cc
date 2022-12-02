@@ -42,7 +42,7 @@ void PrintFullMessageContents(Message& message) {
   memcpy(target_endpoint_buffer, header->target_endpoint, kIdentifierSize);
   target_endpoint_buffer[kIdentifierSize] = '\0';
   LOG("| str target_endpoint = %s", target_endpoint_buffer);
-  LOG("| Pointer<ArrayHeader<EndpointDescriptor>>->num_endpoints_in_message = %d", message.NumberOfHandles());
+  LOG("| Pointer<ArrayHeader<EndpointDescriptor>>->num_endpoints_in_message = %d", message.NumberOfPipes());
   LOG("+-------- Message Body --------+");
 
   LOG_SL("|");

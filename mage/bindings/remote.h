@@ -16,8 +16,8 @@ class Remote {
     Bind(local_handle);
   }
 
-  void Bind(MessagePipe local_handle) {
-    proxy_->BindToHandle(local_handle);
+  void Bind(MessagePipe local_pipe) {
+    proxy_->BindToPipe(local_pipe);
   }
 
   MessagePipe Unbind() {

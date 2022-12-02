@@ -20,7 +20,7 @@ Message::Message(MessageType type) {
 
 Message::Message(Message&& other) {
   payload_buffer_ = std::move(other.payload_buffer_);
-  handles_ = std::move(other.handles_);
+  pipes_ = std::move(other.pipes_);
 }
 
 //////////////////// END MESSAGE ////////////////////

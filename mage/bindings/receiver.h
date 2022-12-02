@@ -17,12 +17,12 @@ class Receiver {
 
   Receiver() = default;
 
-  void Bind(MessagePipe local_handle, Interface* impl) {
+  void Bind(MessagePipe local_pipe, Interface* impl) {
     CHECK(thread_checker_.CalledOnConstructedThread());
     stub_ = std::make_shared<InterfaceStub>();
     // We pass in the current thread's `base::TaskRunner` so that mage knows
     // which task runner to dispatch messages to `impl_` on.
-    stub_->BindToHandle(local_handle, impl, base::GetCurrentThreadTaskRunner());
+    stub_->BindToPipe(local_pipe, impl, base::GetCurrentThreadTaskRunner());
   }
 
   // In the future, we'll want to support unbinding receivers. This is difficult

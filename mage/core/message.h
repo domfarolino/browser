@@ -242,7 +242,7 @@ struct ArrayHeader {
 };
 
 // When a message sends a `MessagePipe` (representing an existing, local
-// `Endpoint`) over an existing connection, the handle may very well end up in
+// `Endpoint`) over an existing connection, the pipe may very well end up in
 // another process which means we need a way to essentially send the local
 // `Endpoint` over to that process. The way we achieve this is not by actually
 // sending the C++ `Endpoint` object to the other process, but by sending all of
@@ -310,20 +310,20 @@ struct MessageHeader {
   // it is targeting, which is described by this member.
   char target_endpoint[kIdentifierSize];
 
-  // Both user and control messages can carry `MessagePipe`s to expand the number
-  // of connections between two nodes/processes. User message deserialization
-  // happens on the thread that the `Receiver` is bound to (typically this is
-  // the UI thread) by interface-specific generated code.
+  // Both user and control messages can carry `MessagePipe`s to expand the
+  // number of connections between two nodes/processes. User message
+  // deserialization happens on the thread that the `Receiver` is bound to
+  // (typically this is the UI thread) by interface-specific generated code.
   // However, if a user message carries `MessagePipe`s with it (which serialize
-  // to `EndpointDescriptor`s in the actual message buffer), we must unpack these and
-  // create concrete `Endpoint`s to represent these handles on the IO thread,
-  // before we dispatch the message to the `Receiver`. These `Endpoint`s must be
-  // created and registered before message dispatching because the very next
-  // message that may come in on the IO thread might be bound for one of the
-  // `Endpoint`s described by the previous message.
-  // Therefore, `num_endpoints_in_message` tells us up-front how many
-  // `EndpointDescriptor`s we have to unpack and memorialize before we do the
-  // message-specific deserialization and dispatching on the `Receiver` thread.
+  // to `EndpointDescriptor`s in the actual message buffer), we must unpack
+  // these and create concrete `Endpoint`s to represent these pipes on the IO
+  // thread, before we dispatch the message to the `Receiver`. These `Endpoint`s
+  // must be created and registered before message dispatching because the very
+  // next message that may come in on the IO thread might be bound for one of
+  // the `Endpoint`s described by the previous message. Therefore,
+  // `num_endpoints_in_message` tells us up-front how many `EndpointDescriptor`s
+  // we have to unpack and recover before we do the message-specific
+  // deserialization and dispatching on the `Receiver` thread.
   Pointer<ArrayHeader<EndpointDescriptor>> endpoints_in_message;
 };
 
@@ -383,21 +383,21 @@ class Message final {
     return endpoint_descriptors;
   }
 
-  void QueueHandle(MessagePipe handle) {
-    handles_.push(handle);
+  void QueuePipe(MessagePipe handle) {
+    pipes_.push(handle);
   }
 
-  int NumberOfHandles() {
+  int NumberOfPipes() {
     Pointer<ArrayHeader<EndpointDescriptor>>& endpoints_pointer =
         GetMutableMessageHeader().endpoints_in_message;
     return endpoints_pointer.Get() ? endpoints_pointer.Get()->num_elements : 0;
   }
 
-  MessagePipe TakeNextHandle() {
-    CHECK(handles_.size());
-    MessagePipe return_handle = handles_.front();
-    handles_.pop();
-    return return_handle;
+  MessagePipe TakeNextPipe() {
+    CHECK(pipes_.size());
+    MessagePipe return_pipe = pipes_.front();
+    pipes_.pop();
+    return return_pipe;
   }
 
   std::vector<char>& payload_buffer() {
@@ -413,8 +413,13 @@ class Message final {
   }
 
  private:
-  // TODO(domfarolino): Document this.
-  std::queue<MessagePipe> handles_;
+  // Messages can carry a number of message pipes on them, queryable by
+  // `NumberOfPipes()`. When a message is received, the pipes are "recovered"
+  // and wired up/associated with their backing `Endpoint`s, so that consumers
+  // of the message can easily pluck the pipes off of the message and start
+  // using them in remotes or receivers. This is where "recovered" pipes are
+  // stored, in the order that they appear on the message.
+  std::queue<MessagePipe> pipes_;
   std::vector<char> payload_buffer_;
 };
 
@@ -492,9 +497,9 @@ struct SendInvitationParams {
   // `SendAcceptInvitationParams`.
   char temporary_remote_node_name[kIdentifierSize];
   // When a node receives an invitation, it generates its own name for the
-  // endpoint that backs the accept-invitation handle. But that that endpoint
-  // must record its peer as the endpoint in the sender, which is what this
-  // parameter captures.
+  // endpoint that backs the accept-invitation pipe. But that that endpoint must
+  // record its peer as the endpoint in the sender, which is what this parameter
+  // captures.
   char intended_endpoint_peer_name[kIdentifierSize];
 };
 
@@ -511,7 +516,7 @@ struct SendAcceptInvitationParams {
   // The name of the endpoint that the invitation acceptor created when it
   // accepted the invitation. Its peer is
   // `SendInvitationParams::intended_endpoint_peer_name`. The inviter needs this
-  // name for the send-invitation handle's local peer's proxy target.
+  // name for the send-invitation pipe's local peer's proxy target.
   char accept_invitation_endpoint_name[kIdentifierSize];
 };
 

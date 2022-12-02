@@ -44,11 +44,11 @@ void Endpoint::AcceptMessageOnDelegateThread(Message message) {
   std::vector<EndpointDescriptor*> endpoints_in_message = message.GetEndpointDescriptors();
   LOG("  endpoints_in_message.size()= %lu", endpoints_in_message.size());
   for (const EndpointDescriptor* const endpoint_descriptor : endpoints_in_message) {
-    MessagePipe local_handle =
+    MessagePipe local_pipe =
         mage::Core::RecoverExistingMessagePipeFromEndpointDescriptor(*endpoint_descriptor);
     endpoint_descriptor->Print();
-    LOG("     Queueing handle to message after recovering endpoint");
-    message.QueueHandle(local_handle);
+    LOG("     Queueing pipe to message after recovering endpoint");
+    message.QueuePipe(local_pipe);
   }
 
   AcceptMessage(std::move(message));
@@ -62,7 +62,7 @@ void Endpoint::AcceptMessage(Message message) {
   LOG("  state: %d", (int)state);
   LOG("  peer_address.node_name: %s", peer_address.node_name.c_str());
   LOG("  peer_address.endpoint_name: %s", peer_address.endpoint_name.c_str());
-  LOG("  number_of_handles: %d", message.NumberOfHandles());
+  LOG("  number_of_pipes: %d", message.NumberOfPipes());
 
   switch (state) {
     case State::kUnboundAndQueueing:

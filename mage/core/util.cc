@@ -6,7 +6,10 @@
 namespace mage {
 namespace util {
 
-// TODO(domfarolino): You can do way better than this.
+// TODO(domfarolino): Using strings as random identifiers complicates things. In
+// particular, it means the control messages have to manage character buffers
+// intead of something more contained and easily copyable, like random integers.
+// We should consider changing this.
 std::string RandomIdentifier() {
   std::string return_id;
   for (int i = 0; i < kIdentifierSize; ++i) {
