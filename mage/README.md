@@ -15,6 +15,29 @@ developed alongside Mage, although design work for separating the two entirely
 is being considered, to make Mage even more standalone. Mage is also built with
 [Bazel] but can be integrated with other toolchains.
 
+<details><summary>History!</summary>
+
+The user-facing IDL portion of mojo was based on Darin Fisher's [ipc_idl]
+prototype, which describes a very similar IDL that python generates C++ bindings
+from, with the jinja2 templating engine.
+
+In the mid-2010s, development on the "guts" of Mojo began, with a simple
+messaging library called [ports]. If you're a Google employee, you can read
+[Mojo Core Ports Overview]. Ports now lives inside Mojo in the chromium tree:
+https://source.chromium.org/chromium/chromium/src/+/main:mojo/core/ports/.
+
+The Mojo language-specific bindings (like `mojo::Remote`, etc.) are built on top
+of `mojo/core` which is in turn built on top of ports.
+
+Mojo is built in an impressively layered fashion, allowing for its internals
+(much of the stuff underneath the bindings layer) to be swapped out for an
+entirely different backing implementation with no (Chromium) developer
+consequences. Ken Rockot built the [ipcz] library to experiment replacing much
+of the Mojo internals with his IPC system that implements message passing with
+shared memory pools instead of explicit message passing with sockets and file
+descriptors, etc.
+</details>
+
 ## Overview
 
 Mage IPC allows you to seamlessly send asynchronous messages to an object that
@@ -371,6 +394,10 @@ will be coming.
 [Dominic Farolino]: https://github.com/domfarolino
 [`//base`]: https://github.com/domfarolino/browser/tree/master/base
 [Bazel]: https://bazel.build/
+[ipc_idl]: https://github.com/darinf/ipc_idl
+[ports]: https://github.com/darinf/ports
 [IDL]: https://en.wikipedia.org/wiki/Interface_description_language
+[Mojo Core Ports Overview]: https://docs.google.com/document/d/1PaQEKfHi8pWifyiHRplnYeicjfjRuFJSMe3_zlJzhs8/edit
+[ipcz]: https://github.com/krockot/ipcz
 [docs/security.md]: docs/security.md
 [docs/design_limitations.md]: docs/design_limitations.md
