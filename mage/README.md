@@ -290,6 +290,85 @@ int main() {
 ```
 
 
+## Sending `MessagePipes` cross-process
+
+TODO: Document this.
+
+## Mage invitations
+
+The above sections are great primers on how to use Mage in an existing
+application, but they only cover the basics. Every example assumes you have two
+processes that are already connected by a `MessagePipe` that you _somehow_
+magically obtain. Once you have that primordial connection, you can then send
+messages, including other `MessagePipe`s that expand the number of connections
+across two processes.
+
+But how do you establish the _first_ connection between two processes, with
+which you send more messages and create more connections? This section covers
+how to do just that by sending a Mage "invitation" when a child process is spun
+up.
+
+TODO: Document this.
+
+## Design limitations
+
+Mage is currently in something approximating ["MVP" mode], and as such, it has
+several nontrivial design limitations for the time being. This section covers
+them.
+
+### No ability to send native sockets across processes
+
+TODO: Document this.
+
+### No proxy collapsing
+
+When you send a `mage::MessagePipe` to a remote process, under the hood, the
+internal `mage::Endpoint` that represents the sent pipe gets put into the
+`Endpoint::State::kUnboundAndProxying` state, and will forward messages any
+messages is receives to the concrete endpoint in the remote process. Now you can
+imagine this is repeated several times, and the "concrete" cross-process
+endpoint that is receiving forwarded messages from a proxy is _itself_ sent to
+another process, and put into the proxying state. We now have a chain like so:
+
+```
+┌──────────────────────────┐      ┌────────────┐      ┌────────────┐      ┌────────────┐
+│         A                │      │     B      │      │     C      │      │     D      │
+│                          │      │            │      │            │      │            │
+│ remote       receiver────│─────>│────pipe────│─────>│────pipe────│─────>│──receiver  │
+│   │         (proxying)   │      │ (proxying) │      │ (proxying) │      │            │
+│   └──────>───────┘       │      │            │      │            │      │            │
+└──────────────────────────┘      └────────────┘      └────────────┘      └────────────┘
+```
+
+This means that every message sent on `A`'s `remote` effectively gets copied
+several times before it makes it to the ultimate receiver `D`. We should be able
+to collapse this chain of proxies once they are all done forwarding their queued
+messages to their targets, and end up with something much more direct:
+
+```
+┌──────────────┐    ┌────────┐    ┌────────┐    ┌────────────┐
+│      A       │    │   B    │    │   C    │    │     D      │
+│              │    │        │    │        │    │            │
+│ remote       │    │        │    │        │    │  receiver  │
+│   │          │    │        │    │        │    │     ^      │
+│   │          │    │        │    │        │    │     │      │
+└───│──────────┘    └────────┘    └────────┘    └─────│──────┘
+    └─────────>───────────────────────>───────────────┘
+```
+
+In order to achieve this much more efficient end state, we require two things:
+  1. Proxy collapsing control messages: a set of control messages that a proxy
+     can send back to the endpoint sending messages to it, telling it to stop,
+     and instead send messages to the proxy's target directly. This is a pretty
+     complicated back and forth dance, and it gets really complicated with lots
+     of proxies in a chain. I haven't thought about what messages exactly would
+     need to be involved or what the exact flow would be. Chromium's Mojo
+     handles this case (it has to for performance), so when/if the time comes
+     for Mage to handle this, we could draw inspiration from Mojo.
+  1. The ability for process A to read a native socket for D that it did not
+     have when it started up. See the section above.
+
+
 ## Security considerations
 
 The process boundary is a critical security boundary for applications, and IPC
@@ -364,6 +443,7 @@ examples of open source ones: [openjudge/sandbox], [Chromium sandbox],
 [`//base`]: https://github.com/domfarolino/browser/tree/master/base
 [Bazel]: https://bazel.build/
 [IDL]: https://en.wikipedia.org/wiki/Interface_description_language
+["MVP" mode]: https://en.wikipedia.org/wiki/Minimum_viable_product
 [compromised renderer processes]: https://chromium.googlesource.com/chromium/src/+/main/docs/security/compromised-renderers.md
 [the "Broker" process]: https://chromium.googlesource.com/chromium/src/+/master/mojo/core/README.md#:~:text=The%20Broker%20has%20some%20special%20responsibilities
 [openjudge/sandbox]: https://github.com/openjudge/sandbox
