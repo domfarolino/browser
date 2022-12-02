@@ -132,8 +132,9 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
   // Sanity check that no endpoints we're sending are bound. Note that this
   // check only catches endpoints that are bound to receivers, since `Endpoint`s
   // don't track whether they are bound to remotes.
-  // TODO: This might be a good block to hide behind a debug flag or something
-  // so we don't do all of this locking in "production".
+  //
+  // This would be a good thing to gate behind a "debug-only" build check, so
+  // that we don't waste the time it takes to do this in "production".
   for (const EndpointDescriptor* const descriptor : message.GetEndpointDescriptors()) {
     std::string endpoint_name(descriptor->endpoint_name, kIdentifierSize);
     auto it = local_endpoints_.find(endpoint_name);
