@@ -499,9 +499,6 @@ void Node::OnReceivedUserMessage(Message message) {
   switch (endpoint->state) {
     case Endpoint::State::kUnboundAndProxying: {
       Address& proxy_target = endpoint->proxy_target;
-      // TODO(domfarolino): Is it ever possible to fail this check? What if an
-      // endpoint receives a message while in the proxying state, but it proxies
-      // to an endpoint that is in the same node?
       CHECK_NE(proxy_target.node_name, name_);
 
       LOG("  Node::OnReceivedUserMessage() received a message when in the proxying state. Forwarding message to proxy_target=(%s : %s)", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
