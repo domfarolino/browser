@@ -126,9 +126,6 @@ void Core::PopulateEndpointDescriptor(
   //       automatically knows the name by which to target the remote
   //       endpoint. This name is used in the `proxy_target` of the endpoint
   //       (in *this* process) that we're "sending".
-  // TODO(domfarolino): I think there is a bug with the following two steps.
-  // See the test case in https://github.com/domfarolino/browser/pull/32 that
-  // starts with "Process A creates two endpoints.
   //   3.) The target endpoint's peer node name when it lives in another other
   //       process is just the current endpoint's peer node name.
   //   4.) Same as (3), for the peer's endpoint name.
