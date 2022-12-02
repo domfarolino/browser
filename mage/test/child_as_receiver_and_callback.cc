@@ -43,8 +43,8 @@ class FourthInterfaceImpl final : public magen::FourthInterface {
   }
 
   void SendStringAndNotifyDoneViaCallback(std::string message) {
-    printf("\033[34;1mFourthInterfaceImpl received message: %s\033[0m\n",
-           message.c_str());
+    LOG("\033[34;1mFourthInterfaceImpl received message: %s\033[0m",
+        message.c_str());
 
     global_callback_remote->NotifyDone();
   }
@@ -66,7 +66,7 @@ class ThirdInterfaceImpl final : public magen::ThirdInterface {
 
   void NotifyDoneViaCallback() override { NOTREACHED(); }
   void SendReceiverForFourthInterface(mage::MessagePipe receiver) override {
-    printf("\033[34;1mThirdInterfaceImpl got receiver to bootstrap magen::FourthInterface\033[0m\n");
+    LOG("\033[34;1mThirdInterfaceImpl got receiver to bootstrap magen::FourthInterface\033[0m");
     global_fourth_interface = std::make_unique<FourthInterfaceImpl>(receiver);
   }
 
@@ -87,8 +87,8 @@ class SecondInterfaceImpl final : public magen::SecondInterface {
     CHECK(first_interface_received_send_handles);
 
     CHECK_EQ(message, "Message for SecondInterface");
-    printf("\033[34;1mSecondInterfaceImpl received message: %s\033[0m\n",
-           message.c_str());
+    LOG("\033[34;1mSecondInterfaceImpl received message: %s\033[0m",
+        message.c_str());
     // This will notify the parent process that we've received all of the
     // messages, so it can tear things down.
     global_callback_remote->NotifyDone();
@@ -115,8 +115,8 @@ class FirstInterfaceImpl final : public magen::FirstInterface {
 
   void SendString(std::string message) override {
     CHECK_EQ(message, "Message for FirstInterface");
-    printf("\033[34;1mFirstInterfaceImpl received message: %s\033[0m\n",
-           message.c_str());
+    LOG("\033[34;1mFirstInterfaceImpl received message: %s\033[0m",
+        message.c_str());
     first_interface_received_send_string = true;
   }
 

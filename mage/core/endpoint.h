@@ -33,7 +33,7 @@ class Endpoint final {
     static void DispatchMessageIfStillAlive(std::weak_ptr<ReceiverDelegate> weak_delegate, mage::Message message) {
       std::shared_ptr<ReceiverDelegate> receiver = weak_delegate.lock();
       if (!receiver) {
-        printf("\033[31;1m[static] ReceiverDelegate::DispatchMessageIfStillAlive() received a message for a destroyed delegate. Dropping the message.\033[0m\n");
+        LOG("\033[31;1m[static] ReceiverDelegate::DispatchMessageIfStillAlive() received a message for a destroyed delegate. Dropping the message.\033[0m");
         return;
       }
 

@@ -24,34 +24,34 @@ void PrintFullMessageContents(Message& message) {
   std::vector<char>& payload_buffer = message.payload_buffer();
 
   MessageHeader* header = reinterpret_cast<MessageHeader*>(payload_buffer.data());
-  printf("+------- Message Header -------+\n");
-  printf("| int size = %d\n", header->size);
+  LOG("+------- Message Header -------+");
+  LOG("| int size = %d", header->size);
   switch (header->type) {
     case MessageType::SEND_INVITATION:
-      printf("| MessageType type = SEND_INVITATION\n");
+      LOG("| MessageType type = SEND_INVITATION");
       break;
     case MessageType::ACCEPT_INVITATION:
-      printf("| MessageType type = ACCEPT_INVITATION\n");
+      LOG("| MessageType type = ACCEPT_INVITATION");
       break;
     case MessageType::USER_MESSAGE:
-      printf("| MessageType type = USER_MESSAGE\n");
+      LOG("| MessageType type = USER_MESSAGE");
       break;
   }
-  printf("| int user_message_id = %d\n", header->user_message_id);
+  LOG("| int user_message_id = %d", header->user_message_id);
   char target_endpoint_buffer[kIdentifierSize + 1];
   memcpy(target_endpoint_buffer, header->target_endpoint, kIdentifierSize);
   target_endpoint_buffer[kIdentifierSize] = '\0';
-  printf("| str target_endpoint = %s \n", target_endpoint_buffer);
-  printf("| Pointer<ArrayHeader<EndpointDescriptor>>->num_endpoints_in_message = %d \n", message.NumberOfHandles());
-  printf("+-------- Message Body --------+\n");
+  LOG("| str target_endpoint = %s", target_endpoint_buffer);
+  LOG("| Pointer<ArrayHeader<EndpointDescriptor>>->num_endpoints_in_message = %d", message.NumberOfHandles());
+  LOG("+-------- Message Body --------+");
 
-  printf("|");
+  LOG_SL("|");
   for (size_t i = sizeof(MessageHeader); i < payload_buffer.size(); ++i) {
-    printf("%02x ", payload_buffer[i]);
+    LOG_SL("%02x ", payload_buffer[i]);
   }
-  printf("\n");
+  LOG("");
 
-  printf("+-------- End Message --------+\n");
+  LOG("+-------- End Message --------+");
 }
 
 }; // namespace
@@ -128,7 +128,7 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
 }
 
 void Channel::SendMessage(Message message) {
-  printf("\n\nChannel::SendMessage(): getpid(): %d, fd_: %d\n", getpid(), fd_);
+  LOG("\n\nChannel::SendMessage(): getpid(): %d, fd_: %d", getpid(), fd_);
   // CHECK_ON_THREAD(base::ThreadType::UI);
   PrintFullMessageContents(message);
 
@@ -139,7 +139,7 @@ void Channel::SendMessage(Message message) {
 }
 
 void Channel::OnCanReadFromSocket() {
-  printf("\n\nChannel::OnCanReadFromSocket() getpid: %d\n", getpid());
+  LOG("\n\nChannel::OnCanReadFromSocket() getpid: %d", getpid());
   CHECK_ON_THREAD(base::ThreadType::IO);
   std::vector<char> full_message_buffer;
 
@@ -187,7 +187,7 @@ void Channel::OnCanReadFromSocket() {
   Message message(header->type);
   message.ConsumeBuffer(std::move(full_message_buffer));
 
-  printf("Channel::OnCanReadFromSocket() [getpid(): %d] message contents:\n", getpid());
+  LOG("Channel::OnCanReadFromSocket() [getpid(): %d] message contents:", getpid());
   PrintFullMessageContents(message);
 
   CHECK(delegate_);

@@ -10,6 +10,7 @@
 
 #include "base/check.h"
 #include "mage/core/handles.h"
+#include "mage/core/util.h"
 
 namespace mage {
 
@@ -271,10 +272,10 @@ struct EndpointDescriptor {
   char peer_endpoint_name[kIdentifierSize];
 
   void Print() const {
-    printf("  endpoint_name: %.*s\n", kIdentifierSize, endpoint_name);
-    printf("  cross_node_endpoint_name: %.*s\n", kIdentifierSize, cross_node_endpoint_name);
-    printf("  peer_node_name: %.*s\n", kIdentifierSize, peer_node_name);
-    printf("  peer_endpoint_name: %.*s\n", kIdentifierSize, peer_endpoint_name);
+    LOG("  endpoint_name: %.*s", kIdentifierSize, endpoint_name);
+    LOG("  cross_node_endpoint_name: %.*s", kIdentifierSize, cross_node_endpoint_name);
+    LOG("  peer_node_name: %.*s", kIdentifierSize, peer_node_name);
+    LOG("  peer_endpoint_name: %.*s", kIdentifierSize, peer_endpoint_name);
   }
 
   EndpointDescriptor() = default;

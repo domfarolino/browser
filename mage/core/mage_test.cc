@@ -29,9 +29,9 @@ namespace {
 
 void PRINT_THREAD() {
   if (base::GetIOThreadTaskLoop() == base::GetCurrentThreadTaskLoop()) {
-    printf("[ThreadType::IO]\n");
+    LOG("[ThreadType::IO]");
   } else if (base::GetUIThreadTaskLoop() == base::GetCurrentThreadTaskLoop()) {
-    printf("[ThreadType::UI]\n");
+    LOG("[ThreadType::UI]");
   }
 }
 
@@ -46,23 +46,23 @@ class TestInterfaceImpl : public magen::TestInterface {
   void Method1(int in_int, double in_double, std::string in_string) {
     PRINT_THREAD();
     has_called_method1 = true;
-    printf("TestInterfaceImpl::Method1\n");
+    LOG("TestInterfaceImpl::Method1");
 
     received_int = in_int;
     received_double = in_double;
     received_string = in_string;
-    printf("[TestInterfaceImpl]: Quit() on closure we were given\n");
+    LOG("[TestInterfaceImpl]: Quit() on closure we were given");
     base::GetCurrentThreadTaskLoop()->Quit();
   }
 
   void SendMoney(int in_amount, std::string in_currency) {
     PRINT_THREAD();
     has_called_send_money = true;
-    printf("TestInterfaceImpl::SendMoney\n");
+    LOG("TestInterfaceImpl::SendMoney");
 
     received_amount = in_amount;
     received_currency = in_currency;
-    printf("[TestInterfaceImpl]: Quit() on closure we were given\n");
+    LOG("[TestInterfaceImpl]: Quit() on closure we were given");
     base::GetCurrentThreadTaskLoop()->Quit();
   }
 
@@ -162,8 +162,7 @@ class ProcessLauncher {
     // Child process.
     char cwd[1024];
     getcwd(cwd, sizeof(cwd));
-    printf("getcwd(): %s\n\n\n", cwd);
-    printf("Running binary: %s", child_binary);
+    LOG("Running binary: %s", child_binary);
 
     rv = execl(child_binary, "--mage-socket=", fd_as_string.c_str(), NULL);
     ASSERT_EQ(rv, 0);
@@ -368,13 +367,13 @@ TEST_F(MageTest, ParentIsInviterAndReceiver) {
     );
 
   TestInterfaceImpl impl(message_pipe);
-  printf("[FROMUI] [Process: %d]: Run()\n", getpid());
+  LOG("[FROMUI] [Process: %d]: Run()", getpid());
   main_thread->Run();
   EXPECT_EQ(impl.received_int, 1);
   EXPECT_EQ(impl.received_double, .5);
   EXPECT_EQ(impl.received_string, "message");
 
-  printf("[FROMUI] [Process: %d]: Run()\n", getpid());
+  LOG("[FROMUI] [Process: %d]: Run()", getpid());
   main_thread->Run();
   EXPECT_EQ(impl.received_amount, 1000);
   EXPECT_EQ(impl.received_currency, "JPY");
@@ -837,7 +836,7 @@ class ChildPassInvitationPipeBackToParentMessagePiper :
 
   // FirstInterface overrides.
   void SendString(std::string) override {
-    printf("ChildPassInvitationPipeBackToParentMessagePiper::SendString() being called yessssss\n");
+    LOG("ChildPassInvitationPipeBackToParentMessagePiper::SendString() being called yessssss");
     base::GetCurrentThreadTaskLoop()->Quit();
   }
   void SendSecondInterfaceReceiver(MessagePipe receiver) override {

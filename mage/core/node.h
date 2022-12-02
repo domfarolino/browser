@@ -23,7 +23,7 @@ static const std::string kInitialChannelName = "INIT";
 class Node : public Channel::Delegate {
  public:
   Node() : name_(util::RandomIdentifier()) {
-    printf("\n\nNode name_: %s\n", name_.c_str());
+    LOG("\n\nNode name_: %s", name_.c_str());
   }
   ~Node() = default;
 

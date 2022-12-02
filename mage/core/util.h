@@ -15,6 +15,9 @@ static const char alphanum[] =
 std::string RandomIdentifier();
 
 #define VA_ARGS(...) , ##__VA_ARGS__
+// Log a message on a single line with no newline appended.
+#define LOG_SL(str, ...)   printf(str VA_ARGS(__VA_ARGS__))
+// Log a message with a new line appended to the end.
 #define LOG(str, ...)      printf(str VA_ARGS(__VA_ARGS__));printf("\n")
 
 }; // namespace mage

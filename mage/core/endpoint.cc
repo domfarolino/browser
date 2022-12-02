@@ -22,32 +22,32 @@ namespace {
 void Endpoint::AcceptMessageOnIOThread(Message message) {
   CHECK_ON_THREAD(base::ThreadType::IO);
   CHECK(state != State::kUnboundAndProxying);
-  printf("Endpoint::AcceptMessageOnIOThread [this=%p] [pid=%d]\n", this, getpid());
-  printf("  name: %s\n", name.c_str());
-  printf("  state: %d\n", (int)state);
-  printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
-  printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
+  LOG("Endpoint::AcceptMessageOnIOThread [this=%p] [pid=%d]", this, getpid());
+  LOG("  name: %s", name.c_str());
+  LOG("  state: %d", (int)state);
+  LOG("  peer_address.node_name: %s", peer_address.node_name.c_str());
+  LOG("  peer_address.endpoint_name: %s", peer_address.endpoint_name.c_str());
 
   AcceptMessage(std::move(message));
 }
 // Guarded by `lock_`.
 void Endpoint::AcceptMessageOnDelegateThread(Message message) {
   CHECK(state != State::kUnboundAndProxying);
-  printf("Endpoint::AcceptMessageOnDelegateThread [this=%p] [pid=%d]\n", this, getpid());
-  printf("  name: %s\n", name.c_str());
-  printf("  state: %d\n", (int)state);
-  printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
-  printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
+  LOG("Endpoint::AcceptMessageOnDelegateThread [this=%p] [pid=%d]", this, getpid());
+  LOG("  name: %s", name.c_str());
+  LOG("  state: %d", (int)state);
+  LOG("  peer_address.node_name: %s", peer_address.node_name.c_str());
+  LOG("  peer_address.endpoint_name: %s", peer_address.endpoint_name.c_str());
 
   // Process and register all of the endpoints that `message` is carrying before
   // we either queue or dispatch it.
   std::vector<EndpointDescriptor*> endpoints_in_message = message.GetEndpointDescriptors();
-  printf("  endpoints_in_message.size()= %lu\n", endpoints_in_message.size());
+  LOG("  endpoints_in_message.size()= %lu", endpoints_in_message.size());
   for (const EndpointDescriptor* const endpoint_descriptor : endpoints_in_message) {
     MessagePipe local_handle =
         mage::Core::RecoverExistingMessagePipeFromEndpointDescriptor(*endpoint_descriptor);
     endpoint_descriptor->Print();
-    printf("     Queueing handle to message after recovering endpoint\n");
+    LOG("     Queueing handle to message after recovering endpoint");
     message.QueueHandle(local_handle);
   }
 
@@ -57,22 +57,22 @@ void Endpoint::AcceptMessageOnDelegateThread(Message message) {
 // Guarded by `lock_`.
 void Endpoint::AcceptMessage(Message message) {
   CHECK(state != State::kUnboundAndProxying);
-  printf("Endpoint::AcceptMessage() [this=%p], [pid=%d]\n", this, getpid());
-  printf("  name: %s\n", name.c_str());
-  printf("  state: %d\n", (int)state);
-  printf("  peer_address.node_name: %s\n", peer_address.node_name.c_str());
-  printf("  peer_address.endpoint_name: %s\n", peer_address.endpoint_name.c_str());
-  printf("  number_of_handles: %d\n", message.NumberOfHandles());
+  LOG("Endpoint::AcceptMessage() [this=%p], [pid=%d]", this, getpid());
+  LOG("  name: %s", name.c_str());
+  LOG("  state: %d", (int)state);
+  LOG("  peer_address.node_name: %s", peer_address.node_name.c_str());
+  LOG("  peer_address.endpoint_name: %s", peer_address.endpoint_name.c_str());
+  LOG("  number_of_handles: %d", message.NumberOfHandles());
 
   switch (state) {
     case State::kUnboundAndQueueing:
       CHECK(!is_weak_ptr_assigned(delegate_));
-      printf("  Endpoint is queueing a message to `incoming_message_queue_`\n");
+      LOG("  Endpoint is queueing a message to `incoming_message_queue_`");
       incoming_message_queue_.push(std::move(message));
       break;
     case State::kBound:
       CHECK(is_weak_ptr_assigned(delegate_));
-      printf("  Endpoint has accepted a message. Now forwarding it to `delegate_` on the delegate's task runner\n");
+      LOG("  Endpoint has accepted a message. Now forwarding it to `delegate_` on the delegate's task runner");
       PostMessageToDelegate(std::move(message));
       break;
     case State::kUnboundAndProxying:
@@ -81,7 +81,7 @@ void Endpoint::AcceptMessage(Message message) {
       NOTREACHED();
       break;
   }
-  printf("Endpoint::AcceptMessage() DONE\n");
+  LOG("Endpoint::AcceptMessage() DONE");
 }
 
 // Guarded by `lock_`.
@@ -111,24 +111,24 @@ void Endpoint::RegisterDelegate(
   // lock in case another thread is modifying this state.
   Lock();
 
-  printf("Endpoint::RegisterDelegate() [this=%p] [getpid=%d]\n", this, getpid());
-  printf("state: %d\n", (int)state);
+  LOG("Endpoint::RegisterDelegate() [this=%p] [getpid=%d]", this, getpid());
+  LOG("state: %d", (int)state);
   CHECK_EQ(state, State::kUnboundAndQueueing);
   state = State::kBound;
-  // printf("RegisterDelegate() just set state = kBound\n");
+  // LOG("RegisterDelegate() just set state = kBound");
   CHECK(!is_weak_ptr_assigned(delegate_));
   delegate_ = delegate;
   CHECK(!delegate_task_runner_);
   delegate_task_runner_ = delegate_task_runner;
 
-  printf("  Endpoint::RegisterDelegate() seeing if we have queued messages to deliver\n");
+  LOG("  Endpoint::RegisterDelegate() seeing if we have queued messages to deliver");
   // We may have messages queued up for our `delegate_` already .
   while (!incoming_message_queue_.empty()) {
-    printf("    >> Found a message; calling PostMessageToDelegate() to forward the queued message to delegate\n");
+    LOG("    >> Found a message; calling PostMessageToDelegate() to forward the queued message to delegate");
     PostMessageToDelegate(std::move(incoming_message_queue_.front()));
     incoming_message_queue_.pop();
   }
-  printf("  Endpoint::RegisterDelegate() done delivering messages \n");
+  LOG("  Endpoint::RegisterDelegate() done delivering messages");
   Unlock();
 }
 
@@ -146,7 +146,7 @@ void Endpoint::SetProxying(std::string in_node_name, std::string in_endpoint_nam
   state = State::kUnboundAndProxying;
   proxy_target.node_name = in_node_name;
   proxy_target.endpoint_name = in_endpoint_name;
-  printf("Endpoint::SetProxying() proxy_target: (%s, %s):\n", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
+  LOG("Endpoint::SetProxying() proxy_target: (%s, %s):", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
 }
 
 }; // namspace mage

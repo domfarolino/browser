@@ -104,12 +104,12 @@ void Core::PopulateEndpointDescriptor(
   std::string peer_endpoint_name =
       local_endpoint_of_preexisting_connection->peer_address.endpoint_name;
 
-  printf(
+  LOG(
       "**************PopulateEndpointDescriptor() populating "
-      "EndpointDescriptor:\n");
-  printf("    'carrier/host' endpoint name: %s\n",
+      "EndpointDescriptor:");
+  LOG("    'carrier/host' endpoint name: %s",
          local_endpoint_of_preexisting_connection->name.c_str());
-  printf("    'carrier/host' peer address [%s:%s]\n", peer_node_name.c_str(), peer_endpoint_name.c_str());
+  LOG("    'carrier/host' peer address [%s:%s]", peer_node_name.c_str(), peer_endpoint_name.c_str());
 
   // Populating an `EndpointDescriptor` is easy regardless of whether it is
   // being sent same-process or cross-process.
@@ -145,22 +145,22 @@ void Core::PopulateEndpointDescriptor(
   memcpy(endpoint_descriptor_to_populate.peer_endpoint_name,
          endpoint_being_sent->peer_address.endpoint_name.c_str(),
          kIdentifierSize);
-  printf("endpoint_descriptor_to_populate.endpoint_name: %.*s\n",
-         kIdentifierSize, endpoint_descriptor_to_populate.endpoint_name);
-  printf("endpoint_descriptor_to_populate.cross_node_endpoint_name: %.*s\n",
-         kIdentifierSize, endpoint_descriptor_to_populate.cross_node_endpoint_name);
-  printf("endpoint_descriptor_to_populate.peer_node_name: %.*s\n",
-         kIdentifierSize, endpoint_descriptor_to_populate.peer_node_name);
-  printf("endpoint_descriptor_to_populate.peer_endpoint_name: %.*s\n",
-         kIdentifierSize, endpoint_descriptor_to_populate.peer_endpoint_name);
+  LOG("endpoint_descriptor_to_populate.endpoint_name: %.*s",
+      kIdentifierSize, endpoint_descriptor_to_populate.endpoint_name);
+  LOG("endpoint_descriptor_to_populate.cross_node_endpoint_name: %.*s",
+      kIdentifierSize, endpoint_descriptor_to_populate.cross_node_endpoint_name);
+  LOG("endpoint_descriptor_to_populate.peer_node_name: %.*s",
+      kIdentifierSize, endpoint_descriptor_to_populate.peer_node_name);
+  LOG("endpoint_descriptor_to_populate.peer_endpoint_name: %.*s",
+      kIdentifierSize, endpoint_descriptor_to_populate.peer_endpoint_name);
 }
 
 // static
 MessagePipe Core::RecoverExistingMessagePipeFromEndpointDescriptor(
     const EndpointDescriptor& endpoint_descriptor) {
-  printf(
+  LOG(
       "Core::RecoverExistingMessagePipeFromEndpointDescriptor(endpoint_"
-      "descriptor)\n");
+      "descriptor)");
   std::string endpoint_name(
       endpoint_descriptor.endpoint_name,
       endpoint_descriptor.endpoint_name + kIdentifierSize);
@@ -185,8 +185,8 @@ MessagePipe Core::RecoverExistingMessagePipeFromEndpointDescriptor(
 // static
 MessagePipe Core::RecoverNewMessagePipeFromEndpointDescriptor(
     const EndpointDescriptor& endpoint_descriptor) {
-  printf(
-      "Core::RecoverMessagePipeFromEndpointDescriptor(endpoint_descriptor)\n");
+  LOG(
+      "Core::RecoverMessagePipeFromEndpointDescriptor(endpoint_descriptor)");
   endpoint_descriptor.Print();
 
   std::string cross_node_endpoint_name(
@@ -249,13 +249,12 @@ void Core::RegisterLocalHandleAndEndpoint(
   }
 
   // Finally, we can register the endpoint with `this` and `node_`.
-  printf("Core::RegisterLocalHandle registering local_handle (%d) and endpoint with name: %s\n", local_handle, local_endpoint->name.c_str());
+  LOG("Core::RegisterLocalHandle registering local_handle (%d) and endpoint with name: %s", local_handle, local_endpoint->name.c_str());
   handle_table_lock_.lock();
   handle_table_.insert({local_handle, local_endpoint});
   handle_table_lock_.unlock();
   node_->local_endpoints_.insert({local_endpoint->name, local_endpoint});
-  printf("node_->local_endpoints_.size(): %lu\n",
-         node_->local_endpoints_.size());
+  LOG("node_->local_endpoints_.size(): %lu", node_->local_endpoints_.size());
 }
 
 };  // namespace mage
