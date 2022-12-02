@@ -151,8 +151,15 @@ void TaskLoopForIOMac::Run() {
 void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {
   CHECK(socket_reader);
   int fd = socket_reader->Socket();
-  std::vector<kevent64_s> events;
 
+  mutex_.lock();
+  // A socket reader can only be registered once.
+  CHECK_EQ(async_socket_readers_.find(fd), async_socket_readers_.end());
+  async_socket_readers_[fd] = socket_reader;
+  event_count_++;
+  mutex_.unlock();
+
+  std::vector<kevent64_s> events;
   kevent64_s new_event{};
   new_event.ident = fd;
   new_event.flags = EV_ADD;
@@ -166,13 +173,6 @@ void TaskLoopForIOMac::WatchSocket(SocketReader* socket_reader) {
                     /*num_changes=*/events.size(), /*event_list=*/nullptr,
                     /*num_events=*/0, /*flags=*/0, /*timeout=*/nullptr);
   CHECK_GE(rv, 0);
-
-  mutex_.lock();
-  // A socket reader can only be registered once.
-  CHECK_EQ(async_socket_readers_.find(fd), async_socket_readers_.end());
-  async_socket_readers_[fd] = socket_reader;
-  event_count_++;
-  mutex_.unlock();
 }
 
 void TaskLoopForIOMac::UnwatchSocket(SocketReader* socket_reader) {
