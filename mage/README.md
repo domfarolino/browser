@@ -1,7 +1,6 @@
 # mage 🧙‍♂️
 
 ![ci-shield](https://github.com/domfarolino/browser/actions/workflows/workflow.yml/badge.svg)
-![license-shield](https://img.shields.io/badge/license-MIT-success)
 
 A simple cross-platform[^1] interprocess communication (IPC) library written in
 C++. Mage is heavily inspired by Chromium's [Mojo IPC library], and written by
@@ -375,16 +374,69 @@ application, but they only cover the basics. Every example assumes you already
 have a connection between two processes in your system. From there, you can send
 messages, and even expand the number of connections that span the two processes.
 But **how do you establish the initial connection**? This section introduces the
-Mage "invitation" concep, which helps you do this.
+Mage "invitation" concept, which helps you do this.
 
-There are two public APIs for establishing the initial message pipe connection
+There are three public APIs for establishing the initial message pipe connection
 across two processes:
- - From the parent process:
-   `mage::Core::SendInvitationAndGetMessagePipe(int file_descriptor)`
- - From the child process:
-   `mage::Core::AcceptInvitation(int file_descriptor, std::function<void(MessagePipe)> callback)`
+ - Called in every process that uses Mage: `mage::Core::Init()`. Performs
+   routine setup, and must be called before any other Mage APIs are called
+ - Called from the parent process[^2]:
+   `mage::Core::SendInvitationAndGetMessagePipe(int socket)`
+ - Called from the child process:
+   `mage::Core::AcceptInvitation(int socket, std::function<void(MessagePipe)> callback)`
 
-TODO: Finish
+First, the parent process must create a native socket pair that the child
+process inherits upon creation. The parent passes the pipe into the
+`mage::SendInvitationAndGetMessagePipe()` API in exchange for a
+`mage::MessagePipe` that's wired up with the Mage internals. This pipe can
+immediately be bound to a remote and the parent can start sending messages that
+will eventually be received by the child. (It can just as well be used as a
+receiver).
+
+```cpp
+int fd = /* ... */;
+mage::MessagePipe pipe = mage::Core::SendInvitationAndGetMessagePipe(fd);
+mage::Remote<magen::BoostrapInterface> remote(pipe);
+remote->MyMessageHere("payload!");
+```
+
+Child process initialization is a little more involved. The process inherits all
+of the parent's sockets, but it needs to know which one to use for the
+invitation. This is typically communicated via an argument passed to the child
+binary when the parent launches it.
+
+When the child recovers the native socket, from any thread it can call
+`mage::Core::AcceptInvitation(socket, callback)` to accept an invitation on the
+socket. This API takes a callback that runs on the same thread that invoked
+`AccceptInvitation()`, after the invitation gets processed on the IO thread. The
+callback gives the child a `mage::MessagePipe` that's connected to the parent
+process and ready for immediate use. Here's the typical flow:
+
+```cpp
+void OnInvitationAccepted(mage::MessagePipe receiver_pipe) {
+  CHECK_ON_THREAD(base::ThreadType::UI);
+  first_interface = std::make_unique<FirstInterfaceImpl>(receiver_pipe);
+}
+
+int main(int argc, char** argv) {
+  std::shared_ptr<base::TaskLoop> main_thread = base::TaskLoop::Create(base::ThreadType::UI);
+  base::Thread io_thread(base::ThreadType::IO);
+  io_thread.Start();
+  io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
+  main_thread->Run();
+
+  mage::Core::Init();
+
+  CHECK_EQ(argc, 2);
+  int fd = std::stoi(argv[1]);
+  mage::Core::AcceptInvitation(fd, &OnInvitationAccepted);
+
+  // This will run the event loop indefinitely, processing tasks when they are
+  // posted.
+  main_thread->Run();
+  return 0;
+}
+```
 
 
 ## Design limitations
@@ -399,6 +451,10 @@ See [docs/security.md].
 
 [^1]: Well, technically it is only Linux & macOS for now 😔. Windows support
 will be coming.
+[^2]: In practice, it doesn't matter who of the parent and child is the
+invitation "sender" vs "acceptor", though it is perhaps more natural to think of
+the parent process as the one inviting the child to the network of processes,
+via a Mage invitation.
 
 [Mojo IPC library]: https://chromium.googlesource.com/chromium/src/+/master/mojo/README.md
 [Dominic Farolino]: https://github.com/domfarolino
