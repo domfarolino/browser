@@ -242,8 +242,8 @@ void Core::RegisterLocalHandleAndEndpoint(
 
   // Next, we check that `local_endpoint` doesn't already exist in this node.
   {
-    auto endpoint_it = node_->local_endpoints_.find(local_endpoint->name);
-    CHECK_EQ(endpoint_it, node_->local_endpoints_.end());
+    std::shared_ptr<Endpoint> null_endpoint = node_->GetEndpoint(local_endpoint->name);
+    CHECK(!null_endpoint);
   }
 
   // Finally, we can register the endpoint with `this` and `node_`.
@@ -251,8 +251,7 @@ void Core::RegisterLocalHandleAndEndpoint(
   handle_table_lock_.lock();
   handle_table_.insert({local_handle, local_endpoint});
   handle_table_lock_.unlock();
-  node_->local_endpoints_.insert({local_endpoint->name, local_endpoint});
-  LOG("node_->local_endpoints_.size(): %lu", node_->local_endpoints_.size());
+  node_->RegisterEndpoint(local_endpoint);
 }
 
 };  // namespace mage

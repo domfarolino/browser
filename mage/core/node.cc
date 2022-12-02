@@ -31,6 +31,22 @@ std::pair<std::shared_ptr<Endpoint>, std::shared_ptr<Endpoint>> Node::Initialize
   return std::make_pair(ep1, ep2);
 }
 
+std::shared_ptr<Endpoint> Node::GetEndpoint(std::string endpoint_name) {
+  auto it = local_endpoints_.find(endpoint_name);
+  if (it == local_endpoints_.end())
+    return nullptr;
+
+  return it->second;
+}
+
+void Node::RegisterEndpoint(std::shared_ptr<Endpoint> new_endpoint) {
+  // Make sure the endpoint isn't already registered.
+  auto it = local_endpoints_.find(new_endpoint->name);
+  CHECK_EQ(it, local_endpoints_.end());
+
+  local_endpoints_.insert({new_endpoint->name, new_endpoint});
+}
+
 std::vector<MessagePipe> Node::CreateMessagePipes() {
   CHECK_ON_THREAD(base::ThreadType::UI);
   std::vector<std::pair<MessagePipe, std::shared_ptr<Endpoint>>>

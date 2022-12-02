@@ -32,16 +32,18 @@ class Node : public Channel::Delegate {
   void AcceptInvitation(int fd);
   void SendMessage(std::shared_ptr<Endpoint> local_endpoint, Message message);
 
+  std::shared_ptr<Endpoint> GetEndpoint(std::string);
+  void RegisterEndpoint(std::shared_ptr<Endpoint>);
+
   // Channel::Delegate implementation:
   void OnReceivedMessage(Message message) override;
 
+ private:
+  // Control message handlers.
   void OnReceivedInvitation(Message message);
   void OnReceivedAcceptInvitation(Message message);
   void OnReceivedUserMessage(Message message);
 
- private:
-  // TODO(domfarolino): This is a bit nasty. Can we remove this.
-  friend class Core;
   friend class MageTest;
   FRIEND_TEST(MageTest, InitializeAndEntangleEndpointsUnitTest);
 
