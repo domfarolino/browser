@@ -39,7 +39,7 @@ void PRINT_THREAD() {
 // the test fixture by invoking callbacks.
 class TestInterfaceImpl : public magen::TestInterface {
  public:
-  TestInterfaceImpl(MageHandle message_pipe) {
+  TestInterfaceImpl(MessagePipe message_pipe) {
     receiver_.Bind(message_pipe, this);
   }
 
@@ -87,7 +87,7 @@ class TestInterfaceImpl : public magen::TestInterface {
 // done.
 class CallbackInterfaceImpl: public magen::CallbackInterface {
  public:
-  CallbackInterfaceImpl(MageHandle message_pipe, std::function<void()> quit_closure)
+  CallbackInterfaceImpl(MessagePipe message_pipe, std::function<void()> quit_closure)
       : quit_closure_(std::move(quit_closure)) {
     receiver_.Bind(message_pipe, this);
   }
@@ -212,7 +212,7 @@ class MageTest : public testing::Test {
   }
 
  protected:
-  std::map<MageHandle, std::shared_ptr<Endpoint>>& CoreHandleTable() {
+  std::map<MessagePipe, std::shared_ptr<Endpoint>>& CoreHandleTable() {
     return mage::Core::Get()->handle_table_;
   }
 
@@ -241,7 +241,7 @@ TEST_F(MageTest, UseUnboundRemoteCrashes) {
   }, "bound_*");
 }
 TEST_F(MageTest, UseUnboundRemoteCrashes2) {
-  std::vector<mage::MageHandle> pipes = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> pipes = mage::Core::CreateMessagePipes();
   mage::Remote<magen::TestInterface> remote;
   remote.Bind(pipes[0]);
   remote->SendMoney(0, "");
@@ -257,10 +257,10 @@ TEST_F(MageTest, UseUnboundRemoteCrashes2) {
 // that checks to see if all sent-endpoints are bound only doesn't work for
 // endpoints bound to a remote, as this test sadly asserts. This isn't great
 // behavior, but it shouldn't really be possible to run into anyways once
-// MageHandles move-only.
+// MessagePipes move-only.
 TEST_F(MageTest, SendBoundRemoteTechnicallyAllowedUnitTest) {
-  std::vector<mage::MageHandle> first_pair = mage::Core::CreateMessagePipes();
-  std::vector<mage::MageHandle> second_pair = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> first_pair = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> second_pair = mage::Core::CreateMessagePipes();
 
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(first_pair[0]);
@@ -275,11 +275,11 @@ class SIDummy : public magen::SecondInterface {
  public:
   void SendStringAndNotifyDoneViaCallback(std::string msg) { NOTREACHED(); }
   void NotifyDoneViaCallback() { NOTREACHED(); }
-  void SendReceiverForThirdInterface(MageHandle receiver) { NOTREACHED(); }
+  void SendReceiverForThirdInterface(MessagePipe receiver) { NOTREACHED(); }
 };
 TEST_F(MageTest, SendBoundReceiverUnitTest) {
-  std::vector<mage::MageHandle> first_pair = mage::Core::CreateMessagePipes();
-  std::vector<mage::MageHandle> second_pair = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> first_pair = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> second_pair = mage::Core::CreateMessagePipes();
 
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(first_pair[0]);
@@ -298,10 +298,10 @@ class SecondInterfaceOnlyStringAcceptor : public magen::SecondInterface {
     base::GetCurrentThreadTaskLoop()->Quit();
   }
   void NotifyDoneViaCallback() { NOTREACHED(); }
-  void SendReceiverForThirdInterface(MageHandle receiver) { NOTREACHED(); }
+  void SendReceiverForThirdInterface(MessagePipe receiver) { NOTREACHED(); }
 };
 TEST_F(MageTest, RemoteAndReceiverDifferentInterfaces) {
-  std::vector<mage::MageHandle> pipes = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> pipes = mage::Core::CreateMessagePipes();
 
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(pipes[0]);
@@ -334,7 +334,7 @@ TEST_F(MageTest, InitializeAndEntangleEndpointsUnitTest) {
 }
 
 TEST_F(MageTest, SendInvitationUnitTest) {
-  MageHandle message_pipe =
+  MessagePipe message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
@@ -351,7 +351,7 @@ TEST_F(MageTest, SendInvitationUnitTest) {
 
 TEST_F(MageTest, AcceptInvitationUnitTest) {
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
-                               [](MageHandle) {
+                               [](MessagePipe) {
                                  NOTREACHED();
                                });
 
@@ -365,7 +365,7 @@ TEST_F(MageTest, AcceptInvitationUnitTest) {
 TEST_F(MageTest, ParentIsInviterAndReceiver) {
   launcher->Launch(kChildAcceptorAndRemote);
 
-  MageHandle message_pipe =
+  MessagePipe message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
@@ -388,7 +388,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
   launcher->Launch(kChildInviterAndRemote);
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
-                               std::bind([&](MageHandle message_pipe){
+                               std::bind([&](MessagePipe message_pipe){
     EXPECT_NE(message_pipe, kInvalidHandle);
     EXPECT_EQ(CoreHandleTable().size(), 1);
     EXPECT_EQ(NodeLocalEndpoints().size(), 1);
@@ -432,7 +432,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiverButChildBlocksOnAcceptance) {
   launcher->Launch(kInviterAsRemoteBlockOnAcceptance);
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
-                               std::bind([&](MageHandle message_pipe){
+                               std::bind([&](MessagePipe message_pipe){
     EXPECT_NE(message_pipe, kInvalidHandle);
     EXPECT_EQ(CoreHandleTable().size(), 1);
     EXPECT_EQ(NodeLocalEndpoints().size(), 1);
@@ -507,7 +507,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_01) {
   launcher->Launch(kChildReceiveHandle);
 
   // 1.) Send invitation (pipe used for FirstInterface)
-  MageHandle invitation_pipe =
+  MessagePipe invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
@@ -516,8 +516,8 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_01) {
   EXPECT_EQ(NodeLocalEndpoints().size(), 2);
 
   // 2.) Create message pipes for SecondInterface and callback
-  std::vector<mage::MageHandle> second_handles = mage::Core::CreateMessagePipes();
-  std::vector<mage::MageHandle> callback_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> second_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> callback_handles = mage::Core::CreateMessagePipes();
 
   EXPECT_EQ(CoreHandleTable().size(), 6);
   EXPECT_EQ(NodeLocalEndpoints().size(), 6);
@@ -559,7 +559,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_02) {
   launcher->Launch(kChildReceiveHandle);
 
   // 1.) Send invitation (pipe used for FirstInterface)
-  MageHandle invitation_pipe =
+  MessagePipe invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
@@ -568,8 +568,8 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_02) {
   EXPECT_EQ(NodeLocalEndpoints().size(), 2);
 
   // 2.) Create message pipes for SecondInterface and callback
-  std::vector<mage::MageHandle> second_handles = mage::Core::CreateMessagePipes();
-  std::vector<mage::MageHandle> callback_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> second_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> callback_handles = mage::Core::CreateMessagePipes();
 
   EXPECT_EQ(CoreHandleTable().size(), 6);
   EXPECT_EQ(NodeLocalEndpoints().size(), 6);
@@ -608,8 +608,8 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_05) {
   launcher->Launch(kChildReceiveHandle);
 
   // 1.) Create message pipes for SecondInterface and callback
-  std::vector<mage::MageHandle> second_handles = mage::Core::CreateMessagePipes();
-  std::vector<mage::MageHandle> callback_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> second_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> callback_handles = mage::Core::CreateMessagePipes();
 
   EXPECT_EQ(CoreHandleTable().size(), 4);
   EXPECT_EQ(NodeLocalEndpoints().size(), 4);
@@ -620,7 +620,7 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverInitialPipe_05) {
   second_remote->SendStringAndNotifyDoneViaCallback("Message for SecondInterface");
 
   // 3.) Send invitation (pipe used for FirstInterface)
-  MageHandle invitation_pipe =
+  MessagePipe invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
@@ -667,14 +667,14 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverArbitraryPipe) {
   launcher->Launch(kChildReceiveHandle);
 
   // 1.) Send invitation (pipe used for FirstInterface)
-  MageHandle invitation_pipe =
+  MessagePipe invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
 
   // 2.) Create message pipes for SecondInterface and callback
-  std::vector<mage::MageHandle> second_handles = mage::Core::CreateMessagePipes();
-  std::vector<mage::MageHandle> callback_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> second_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> callback_handles = mage::Core::CreateMessagePipes();
 
   // 3.) Send one of SecondInterface's handles to other process via
   //     FirstInterface and assert everything was received
@@ -699,13 +699,13 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverArbitraryPipe) {
   // This is where the real meat of this test starts. We:
   //   1.) Create pipes for ThirdInterface
   //   2.) Bind a remote to ThirdInterface
-  std::vector<mage::MageHandle> third_interface_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> third_interface_handles = mage::Core::CreateMessagePipes();
   mage::Remote<magen::ThirdInterface> third_remote;
   third_remote.Bind(third_interface_handles[0]);
 
   //   3.) Create pipes for FourthInterface
   //   4.) Bind a remote to FourthInterface
-  std::vector<mage::MageHandle> fourth_interface_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> fourth_interface_handles = mage::Core::CreateMessagePipes();
   mage::Remote<magen::FourthInterface> fourth_remote;
   fourth_remote.Bind(fourth_interface_handles[0]);
 
@@ -729,29 +729,29 @@ TEST_F(MageTest, SendHandleAndQueuedMessageOverArbitraryPipe) {
 // `SendInvitationAndReceiveQueuedEndpointsFromAcceptor` test below.
 class FirstInterfaceImplDummy1 final : public magen::FirstInterface {
  public:
-  FirstInterfaceImplDummy1(MageHandle handle) {
+  FirstInterfaceImplDummy1(MessagePipe handle) {
     receiver_.Bind(handle, this);
   }
 
   void SendString(std::string msg) override { NOTREACHED(); }
-  void SendSecondInterfaceReceiver(MageHandle receiver) override {
+  void SendSecondInterfaceReceiver(MessagePipe receiver) override {
     second_interface_receiver_handle_ = receiver;
     base::GetCurrentThreadTaskLoop()->Quit();
   }
-  void SendHandles(MageHandle, MageHandle) override { NOTREACHED(); }
+  void SendHandles(MessagePipe, MessagePipe) override { NOTREACHED(); }
 
-  MageHandle GetSecondInterfaceReceiverHandle() {
+  MessagePipe GetSecondInterfaceReceiverHandle() {
     CHECK_NE(second_interface_receiver_handle_, kInvalidHandle);
     return second_interface_receiver_handle_;
   }
 
  private:
   mage::Receiver<magen::FirstInterface> receiver_;
-  MageHandle second_interface_receiver_handle_ = 0;
+  MessagePipe second_interface_receiver_handle_ = 0;
 };
 class SecondInterfaceImplDummy1 final : public magen::SecondInterface {
  public:
-  SecondInterfaceImplDummy1(MageHandle handle) {
+  SecondInterfaceImplDummy1(MessagePipe handle) {
     receiver_.Bind(handle, this);
   }
 
@@ -759,7 +759,7 @@ class SecondInterfaceImplDummy1 final : public magen::SecondInterface {
     base::GetCurrentThreadTaskLoop()->Quit();
   }
   void NotifyDoneViaCallback() { NOTREACHED(); }
-  void SendReceiverForThirdInterface(MageHandle receiver) { NOTREACHED(); }
+  void SendReceiverForThirdInterface(MessagePipe receiver) { NOTREACHED(); }
 
  private:
   mage::Receiver<magen::SecondInterface> receiver_;
@@ -774,7 +774,7 @@ TEST_F(MageTest, SendInvitationAndReceiveQueuedEndpointsFromAcceptor) {
   launcher->Launch(kChildSendMessageWithQueuedHandle);
 
   // 1.) Send invitation (pipe used for FirstInterface)
-  MageHandle invitation_pipe =
+  MessagePipe invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
@@ -795,15 +795,15 @@ TEST_F(MageTest, SendInvitationAndReceiveQueuedEndpointsFromAcceptor) {
 // below.
 class FirstInterfaceImplDummy final : public magen::FirstInterface {
  public:
-  FirstInterfaceImplDummy(MageHandle handle) {
+  FirstInterfaceImplDummy(MessagePipe handle) {
     receiver_.Bind(handle, this);
   }
 
   void SendString(std::string msg) override { NOTREACHED(); }
-  void SendSecondInterfaceReceiver(MageHandle receiver) override {
+  void SendSecondInterfaceReceiver(MessagePipe receiver) override {
     base::GetCurrentThreadTaskLoop()->Quit();
   }
-  void SendHandles(MageHandle, MageHandle) override { NOTREACHED(); }
+  void SendHandles(MessagePipe, MessagePipe) override { NOTREACHED(); }
 
  private:
   mage::Receiver<magen::FirstInterface> receiver_;
@@ -813,7 +813,7 @@ class FirstInterfaceImplDummy final : public magen::FirstInterface {
 TEST_F(MageTest, ReceiveHandleFromRemoteNode) {
   launcher->Launch(kParentReceiveHandle);
 
-  MageHandle invitation_pipe =
+  MessagePipe invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
@@ -831,34 +831,34 @@ TEST_F(MageTest, ReceiveHandleFromRemoteNode) {
   EXPECT_EQ(NodeLocalEndpoints().size(), 3);
 }
 
-class ChildPassInvitationPipeBackToParentMageHandler :
+class ChildPassInvitationPipeBackToParentMessagePiper :
     public magen::FirstInterface, public magen::SecondInterface {
  public:
-  ChildPassInvitationPipeBackToParentMageHandler(MageHandle receiver) {
+  ChildPassInvitationPipeBackToParentMessagePiper(MessagePipe receiver) {
     first_receiver_.Bind(receiver, this);
   }
 
   // FirstInterface overrides.
   void SendString(std::string) override {
-    printf("ChildPassInvitationPipeBackToParentMageHandler::SendString() being called yessssss\n");
+    printf("ChildPassInvitationPipeBackToParentMessagePiper::SendString() being called yessssss\n");
     base::GetCurrentThreadTaskLoop()->Quit();
   }
-  void SendSecondInterfaceReceiver(MageHandle receiver) override {
+  void SendSecondInterfaceReceiver(MessagePipe receiver) override {
     second_receiver_.Bind(receiver, this);
   }
-  void SendHandles(MageHandle, MageHandle) override { NOTREACHED(); }
+  void SendHandles(MessagePipe, MessagePipe) override { NOTREACHED(); }
 
   // SecondInterface overrides.
   // This is where the child's remote for `FirstInterface` will come in. We'll
   // save it for later use by the test.
-  void SendReceiverForThirdInterface(MageHandle remote) override {
+  void SendReceiverForThirdInterface(MessagePipe remote) override {
     remote_to_first_interface_ = remote;
     base::GetCurrentThreadTaskLoop()->Quit();
   }
   void SendStringAndNotifyDoneViaCallback(std::string) override { NOTREACHED(); }
   void NotifyDoneViaCallback() override { NOTREACHED(); }
 
-  MageHandle GetFirstInterfaceHandle() {
+  MessagePipe GetFirstInterfaceHandle() {
     CHECK_NE(remote_to_first_interface_, kInvalidHandle);
     return remote_to_first_interface_;
   }
@@ -866,7 +866,7 @@ class ChildPassInvitationPipeBackToParentMageHandler :
  private:
   mage::Receiver<magen::FirstInterface> first_receiver_;
   mage::Receiver<magen::SecondInterface> second_receiver_;
-  MageHandle remote_to_first_interface_;
+  MessagePipe remote_to_first_interface_;
 };
 // This test exercises weird but valid behavior: a child process takes the
 // message pipe it gets from accepting an invitation from its parent, and sends
@@ -875,12 +875,12 @@ class ChildPassInvitationPipeBackToParentMageHandler :
 TEST_F(MageTest, ChildPassAcceptInvitationPipeBackToParent) {
   launcher->Launch(kChildSendsAcceptInvitationPipeToParent);
 
-  MageHandle invitation_pipe =
+  MessagePipe invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
 
-  ChildPassInvitationPipeBackToParentMageHandler handler(invitation_pipe);
+  ChildPassInvitationPipeBackToParentMessagePiper handler(invitation_pipe);
 
   EXPECT_EQ(CoreHandleTable().size(), 2);
   EXPECT_EQ(NodeLocalEndpoints().size(), 2);
@@ -890,7 +890,7 @@ TEST_F(MageTest, ChildPassAcceptInvitationPipeBackToParent) {
   EXPECT_EQ(CoreHandleTable().size(), 4);
   EXPECT_EQ(NodeLocalEndpoints().size(), 4);
 
-  MageHandle first_interface_remote_handle = handler.GetFirstInterfaceHandle();
+  MessagePipe first_interface_remote_handle = handler.GetFirstInterfaceHandle();
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(first_interface_remote_handle);
   remote->SendString("This is my test");
@@ -905,8 +905,8 @@ TEST_F(MageTest, ChildPassSendInvitationPipeBackToParent) {
   launcher->Launch(kChildSendsSendInvitationPipeToParent);
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
-                               std::bind([&](MageHandle message_pipe){
-    ChildPassInvitationPipeBackToParentMageHandler handler(message_pipe);
+                               std::bind([&](MessagePipe message_pipe){
+    ChildPassInvitationPipeBackToParentMessagePiper handler(message_pipe);
 
     // We can't assert anything about the number of local endpoints or handles,
     // because the child process is sending us several handles.
@@ -916,7 +916,7 @@ TEST_F(MageTest, ChildPassSendInvitationPipeBackToParent) {
     EXPECT_EQ(NodeLocalEndpoints().size(), 3);
     EXPECT_EQ(CoreHandleTable().size(), 3);
 
-    MageHandle first_interface_remote_handle = handler.GetFirstInterfaceHandle();
+    MessagePipe first_interface_remote_handle = handler.GetFirstInterfaceHandle();
     mage::Remote<magen::FirstInterface> remote;
     remote.Bind(first_interface_remote_handle);
     remote->SendString("This is my test");
@@ -933,16 +933,16 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface,
                                   public magen::SecondInterface,
                                   public magen::ThirdInterface {
  public:
-  ChildPassTwoPipesToParent(MageHandle receiver) {
+  ChildPassTwoPipesToParent(MessagePipe receiver) {
     first_receiver_.Bind(receiver, this);
   }
 
   // FirstInterface overrides.
   void SendString(std::string) override { NOTREACHED(); }
-  void SendSecondInterfaceReceiver(MageHandle receiver) override { NOTREACHED(); }
+  void SendSecondInterfaceReceiver(MessagePipe receiver) override { NOTREACHED(); }
   void SendHandles(
-      MageHandle remote_to_second_interface,
-      MageHandle receiver_for_second_interface) override {
+      MessagePipe remote_to_second_interface,
+      MessagePipe receiver_for_second_interface) override {
     remote_to_second_interface_ = remote_to_second_interface;
     second_receiver_.Bind(receiver_for_second_interface, this);
     base::GetCurrentThreadTaskLoop()->Quit();
@@ -958,7 +958,7 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface,
   }
   // Duplicate of the `ThirdInterface` method.
   // void NotifyDoneViaCallback() override { NOTREACHED(); }
-  void SendReceiverForThirdInterface(MageHandle receiver) override {
+  void SendReceiverForThirdInterface(MessagePipe receiver) override {
     third_receiver_.Bind(receiver, this);
     base::GetCurrentThreadTaskLoop()->Quit();
   }
@@ -970,9 +970,9 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface,
   void NotifyDoneViaCallback() override {
     base::GetCurrentThreadTaskLoop()->Quit();
   }
-  void SendReceiverForFourthInterface(MageHandle) override { NOTREACHED(); }
+  void SendReceiverForFourthInterface(MessagePipe) override { NOTREACHED(); }
 
-  MageHandle GetSecondInterfaceRemoteHandle() {
+  MessagePipe GetSecondInterfaceRemoteHandle() {
     CHECK_NE(remote_to_second_interface_, kInvalidHandle);
     return remote_to_second_interface_;
   }
@@ -982,7 +982,7 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface,
   mage::Receiver<magen::SecondInterface> second_receiver_;
   mage::Receiver<magen::ThirdInterface> third_receiver_;
   // The child process gives us remote and receiver handles for `magen::SecondInterface`.
-  MageHandle remote_to_second_interface_;
+  MessagePipe remote_to_second_interface_;
 };
 // This test exercises behavior where a child process creates two entangled
 // message pipes and sends both of them to the parent process. The two endpoints
@@ -992,7 +992,7 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface,
 TEST_F(MageTest, ChildPassRemoteAndReceiverToParent) {
   launcher->Launch(kChildSendsTwoPipesToParent);
 
-  MageHandle invitation_pipe =
+  MessagePipe invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
@@ -1028,7 +1028,7 @@ TEST_F(MageTest, ChildPassRemoteAndReceiverToParent) {
 TEST_F(MageTest, ChildPassRemoteAndReceiverToParentToSendEndpointBaringMessageOver) {
   launcher->Launch(kChildSendsTwoPipesToParent);
 
-  MageHandle invitation_pipe =
+  MessagePipe invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
@@ -1053,7 +1053,7 @@ TEST_F(MageTest, ChildPassRemoteAndReceiverToParentToSendEndpointBaringMessageOv
   // `SecondInterface`. It should make it back to `handler` which is the
   // `SecondInterface` implementation, and bind itself to the `ThirdInterface`
   // receiver too.
-  std::vector<MageHandle> third_interface_handles = mage::Core::CreateMessagePipes();
+  std::vector<MessagePipe> third_interface_handles = mage::Core::CreateMessagePipes();
   remote->SendReceiverForThirdInterface(third_interface_handles[1]);
 
   EXPECT_EQ(CoreHandleTable().size(), 6);
@@ -1079,13 +1079,13 @@ TEST_F(MageTest, ChildPassRemoteAndReceiverToParentToSendEndpointBaringMessageOv
 
 class HandleAccepterImpl2 : public magen::HandleAccepter, public magen::CallbackInterface {
  public:
-  HandleAccepterImpl2(MageHandle handle_accepter_remote, MageHandle callback_receiver) {
+  HandleAccepterImpl2(MessagePipe handle_accepter_remote, MessagePipe callback_receiver) {
     remote_.Bind(handle_accepter_remote);
     // At this point, we can send handles to the child. We need the child to be
     // able to send handles to us though. So we'll set up another
     // `magen::HandleAccepter` connection going the other way.
 
-    std::vector<MageHandle> child_to_parent_accepter_pipes = mage::Core::CreateMessagePipes();
+    std::vector<MessagePipe> child_to_parent_accepter_pipes = mage::Core::CreateMessagePipes();
     handle_accepter_receiver_.Bind(child_to_parent_accepter_pipes[0], this);
     remote_->PassHandle(child_to_parent_accepter_pipes[1]);
 
@@ -1097,7 +1097,7 @@ class HandleAccepterImpl2 : public magen::HandleAccepter, public magen::Callback
   }
 
   // magen::HandleAccepter implementation.
-  void PassHandle(MageHandle callback_receiver) override {
+  void PassHandle(MessagePipe callback_receiver) override {
     if (pass_count_ < 10) {
       remote_->PassHandle(callback_receiver);
       pass_count_++;
@@ -1140,7 +1140,7 @@ class HandleAccepterImpl2 : public magen::HandleAccepter, public magen::Callback
 // This test is exercising the following logic:
 //   1.) Several independent calls to the endpoint sending and recovery logic
 //   (`Node::SendMessagesAndRecursiveDependents()` and
-//   `Core::RecoverNewMageHandleFromEndpointDescriptor()`) between processes: As
+//   `Core::RecoverNewMessagePipeFromEndpointDescriptor()`) between processes: As
 //   user code receives a message with a handle, it manually sends it back to the
 //   other process, so we rely on this code continually sending and recovering
 //   the same endpoint over and over again with unique cross-node endpoint name.
@@ -1149,12 +1149,12 @@ class HandleAccepterImpl2 : public magen::HandleAccepter, public magen::Callback
 TEST_F(MageTest, PassHandleBackAndForthBetweenProcesses) {
   launcher->Launch(kPassPipeBackAndForth);
 
-  MageHandle invitation_pipe =
+  MessagePipe invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
 
-  std::vector<MageHandle> callback_pipes = mage::Core::CreateMessagePipes();
+  std::vector<MessagePipe> callback_pipes = mage::Core::CreateMessagePipes();
   mage::Remote<magen::CallbackInterface> callback_remote;
   callback_remote.Bind(callback_pipes[0]);
 
@@ -1172,7 +1172,7 @@ TEST_F(MageTest, PassHandleBackAndForthBetweenProcesses) {
 
 class HandleAccepterImpl3 : public magen::HandleAccepter, public magen::CallbackInterface {
  public:
-  HandleAccepterImpl3(MageHandle handle_accepter_remote, MageHandle callback_receiver_handle) {
+  HandleAccepterImpl3(MessagePipe handle_accepter_remote, MessagePipe callback_receiver_handle) {
     // Save this for later. See documentation above member.
     callback_receiver_handle_ = callback_receiver_handle;
 
@@ -1181,7 +1181,7 @@ class HandleAccepterImpl3 : public magen::HandleAccepter, public magen::Callback
     // able to send handles to us though. So we'll set up another
     // `magen::HandleAccepter` connection going the other way.
 
-    std::vector<MageHandle> child_to_parent_accepter_pipes = mage::Core::CreateMessagePipes();
+    std::vector<MessagePipe> child_to_parent_accepter_pipes = mage::Core::CreateMessagePipes();
     handle_accepter_receiver_.Bind(child_to_parent_accepter_pipes[0], this);
     remote_->PassHandle(child_to_parent_accepter_pipes[1]);
 
@@ -1189,13 +1189,13 @@ class HandleAccepterImpl3 : public magen::HandleAccepter, public magen::Callback
     // establish *another* `magen::HandleAccepter` connection between us and the
     // child. This one will not be a direct connection however, it will have
     // many cross-process proxies, that ultimately end up back to `this`.
-    std::vector<MageHandle> pass_handle_over_proxy = mage::Core::CreateMessagePipes();
+    std::vector<MessagePipe> pass_handle_over_proxy = mage::Core::CreateMessagePipes();
     remote_through_proxies_.Bind(pass_handle_over_proxy[0]);
     remote_->PassHandle(pass_handle_over_proxy[1]);
   }
 
   // magen::HandleAccepter implementation.
-  void PassHandle(MageHandle receiver) override {
+  void PassHandle(MessagePipe receiver) override {
     // Stage 1:
     //
     // In this case, `receiver` is the handle accepter receiver that is going
@@ -1245,7 +1245,7 @@ class HandleAccepterImpl3 : public magen::HandleAccepter, public magen::Callback
   mage::Receiver<magen::HandleAccepter> handle_accepter_receiver_;
 
   // This will ultimately get bound to `callback_receiver_` in "Stage 2" above.
-  mage::MageHandle callback_receiver_handle_;
+  mage::MessagePipe callback_receiver_handle_;
   mage::Receiver<magen::CallbackInterface> callback_receiver_;
 
   mage::Remote<magen::HandleAccepter> remote_through_proxies_;
@@ -1289,12 +1289,12 @@ class HandleAccepterImpl3 : public magen::HandleAccepter, public magen::Callback
 TEST_F(MageTest, PassEndpointBearingHandleBackAndForthBetweenProcesses) {
   launcher->Launch(kPassPipeBackAndForth);
 
-  MageHandle invitation_pipe =
+  MessagePipe invitation_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(
       launcher->GetLocalFd()
     );
 
-  std::vector<MageHandle> callback_pipes = mage::Core::CreateMessagePipes();
+  std::vector<MessagePipe> callback_pipes = mage::Core::CreateMessagePipes();
   mage::Remote<magen::CallbackInterface> callback_remote;
   callback_remote.Bind(callback_pipes[0]);
 
@@ -1313,10 +1313,10 @@ TEST_F(MageTest, PassEndpointBearingHandleBackAndForthBetweenProcesses) {
 
 /////////////////////////////// IN-PROCESS TESTS ///////////////////////////////
 TEST_F(MageTest, InProcessQueuedMessagesAfterReceiverBound) {
-  std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
+  std::vector<MessagePipe> mage_handles = mage::Core::CreateMessagePipes();
   EXPECT_EQ(mage_handles.size(), 2);
 
-  MageHandle local_handle = mage_handles[0],
+  MessagePipe local_handle = mage_handles[0],
              remote_handle = mage_handles[1];
   mage::Remote<magen::TestInterface> remote;
   remote.Bind(local_handle);
@@ -1354,10 +1354,10 @@ TEST_F(MageTest, InProcessQueuedMessagesAfterReceiverBound) {
   EXPECT_EQ(impl.received_currency, "USD");
 }
 TEST_F(MageTest, InProcessQueuedMessagesBeforeReceiverBound) {
-  std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
+  std::vector<MessagePipe> mage_handles = mage::Core::CreateMessagePipes();
   EXPECT_EQ(mage_handles.size(), 2);
 
-  MageHandle local_handle = mage_handles[0],
+  MessagePipe local_handle = mage_handles[0],
              remote_handle = mage_handles[1];
   mage::Remote<magen::TestInterface> remote;
   remote.Bind(local_handle);
@@ -1393,7 +1393,7 @@ class SecondInterfaceImpl final : public magen::SecondInterface {
  public:
   // Called asynchronously by `FirstInterfaceImpl`, or synchronously by
   // `MageTest.OrderingNotPreservedBetweenPipes_Simple`.
-  void Bind(MageHandle receiver) {
+  void Bind(MessagePipe receiver) {
     receiver_.Bind(receiver, this);
   }
 
@@ -1409,7 +1409,7 @@ class SecondInterfaceImpl final : public magen::SecondInterface {
   }
   void NotifyDoneViaCallback() override { NOTREACHED(); }
   // Not used for this test.
-  void SendReceiverForThirdInterface(MageHandle) override { NOTREACHED(); }
+  void SendReceiverForThirdInterface(MessagePipe) override { NOTREACHED(); }
 
   bool send_string_and_notify_done_called = false;
 
@@ -1418,7 +1418,7 @@ class SecondInterfaceImpl final : public magen::SecondInterface {
 };
 class FirstInterfaceImpl final : public magen::FirstInterface {
  public:
-  FirstInterfaceImpl(MageHandle handle, SecondInterfaceImpl& second_impl) :
+  FirstInterfaceImpl(MessagePipe handle, SecondInterfaceImpl& second_impl) :
       second_impl_(second_impl) {
     receiver_.Bind(handle, this);
   }
@@ -1427,12 +1427,12 @@ class FirstInterfaceImpl final : public magen::FirstInterface {
     send_string_called = true;
     base::GetCurrentThreadTaskLoop()->Quit();
   }
-  void SendSecondInterfaceReceiver(MageHandle receiver) override {
+  void SendSecondInterfaceReceiver(MessagePipe receiver) override {
     send_second_interface_receiver_called = true;
     second_impl_.Bind(receiver);
     base::GetCurrentThreadTaskLoop()->Quit();
   }
-  void SendHandles(MageHandle, MageHandle) override { NOTREACHED(); }
+  void SendHandles(MessagePipe, MessagePipe) override { NOTREACHED(); }
 
   bool send_string_called = false;
   bool send_second_interface_receiver_called = false;
@@ -1459,14 +1459,14 @@ class FirstInterfaceImpl final : public magen::FirstInterface {
 //  2.) FirstInterface
 //  3.) SecondInterface
 TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendBeforeReceiverBound) {
-  std::vector<MageHandle> first_interface_handles = mage::Core::CreateMessagePipes();
-  MageHandle first_remote_handle = first_interface_handles[0],
+  std::vector<MessagePipe> first_interface_handles = mage::Core::CreateMessagePipes();
+  MessagePipe first_remote_handle = first_interface_handles[0],
              first_receiver_handle = first_interface_handles[1];
   mage::Remote<magen::FirstInterface> first_remote;
   first_remote.Bind(first_remote_handle);
 
-  std::vector<MageHandle> second_interface_handles = mage::Core::CreateMessagePipes();
-  MageHandle second_remote_handle = second_interface_handles[0],
+  std::vector<MessagePipe> second_interface_handles = mage::Core::CreateMessagePipes();
+  MessagePipe second_remote_handle = second_interface_handles[0],
              second_receiver_handle = second_interface_handles[1];
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_remote_handle);
@@ -1507,14 +1507,14 @@ TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendBeforeReceiverBound) {
   EXPECT_TRUE(second_impl.send_string_and_notify_done_called);
 }
 TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendAfterReceiverBound) {
-  std::vector<MageHandle> first_interface_handles = mage::Core::CreateMessagePipes();
-  MageHandle first_remote_handle = first_interface_handles[0],
+  std::vector<MessagePipe> first_interface_handles = mage::Core::CreateMessagePipes();
+  MessagePipe first_remote_handle = first_interface_handles[0],
              first_receiver_handle = first_interface_handles[1];
   mage::Remote<magen::FirstInterface> first_remote;
   first_remote.Bind(first_remote_handle);
 
-  std::vector<MageHandle> second_interface_handles = mage::Core::CreateMessagePipes();
-  MageHandle second_remote_handle = second_interface_handles[0],
+  std::vector<MessagePipe> second_interface_handles = mage::Core::CreateMessagePipes();
+  MessagePipe second_remote_handle = second_interface_handles[0],
              second_receiver_handle = second_interface_handles[1];
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_remote_handle);
@@ -1562,14 +1562,14 @@ TEST_F(MageTest, OrderingNotPreservedBetweenPipes_SendAfterReceiverBound) {
 // upon. We demonstrate this by just having two interfaces and binding their
 // receivers in the opposite order from which messages were sent over them.
 TEST_F(MageTest, OrderingNotPreservedBetweenPipes_Simple) {
-  std::vector<MageHandle> first_interface_handles = mage::Core::CreateMessagePipes();
-  MageHandle first_remote_handle = first_interface_handles[0],
+  std::vector<MessagePipe> first_interface_handles = mage::Core::CreateMessagePipes();
+  MessagePipe first_remote_handle = first_interface_handles[0],
              first_receiver_handle = first_interface_handles[1];
   mage::Remote<magen::FirstInterface> first_remote;
   first_remote.Bind(first_remote_handle);
 
-  std::vector<MageHandle> second_interface_handles = mage::Core::CreateMessagePipes();
-  MageHandle second_remote_handle = second_interface_handles[0],
+  std::vector<MessagePipe> second_interface_handles = mage::Core::CreateMessagePipes();
+  MessagePipe second_remote_handle = second_interface_handles[0],
              second_receiver_handle = second_interface_handles[1];
   mage::Remote<magen::SecondInterface> second_remote;
   second_remote.Bind(second_remote_handle);
@@ -1600,7 +1600,7 @@ TEST_F(MageTest, OrderingNotPreservedBetweenPipes_Simple) {
 // thread.
 class TestInterfaceOnWorkerThread : public magen::TestInterface {
  public:
-  TestInterfaceOnWorkerThread(MageHandle message_pipe,
+  TestInterfaceOnWorkerThread(MessagePipe message_pipe,
                               std::function<void()> quit_closure)
       : quit_closure_(std::move(quit_closure)) {
     receiver_.Bind(message_pipe, this);
@@ -1630,10 +1630,10 @@ TEST_F(MageTest, InProcessCrossThread) {
   base::Thread worker_thread(base::ThreadType::WORKER);
   worker_thread.Start();
 
-  std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
+  std::vector<MessagePipe> mage_handles = mage::Core::CreateMessagePipes();
   EXPECT_EQ(mage_handles.size(), 2);
 
-  MageHandle local_handle = mage_handles[0],
+  MessagePipe local_handle = mage_handles[0],
              remote_handle = mage_handles[1];
   mage::Remote<magen::TestInterface> remote;
   remote.Bind(local_handle);
@@ -1661,10 +1661,10 @@ TEST_F(MageTest, InProcessCrossThread) {
 }
 
 TEST_F(MageTest, SendMessageToDeletedReceiver) {
-  std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
+  std::vector<MessagePipe> mage_handles = mage::Core::CreateMessagePipes();
   EXPECT_EQ(mage_handles.size(), 2);
 
-  MageHandle local_handle = mage_handles[0],
+  MessagePipe local_handle = mage_handles[0],
              remote_handle = mage_handles[1];
   mage::Remote<magen::TestInterface> remote;
   remote.Bind(local_handle);
@@ -1695,11 +1695,11 @@ TEST_F(MageTest, SendMessageToDeletedReceiver) {
 // This implementation is only used in the immediately following test.
 class HandleAccepterImpl : public magen::HandleAccepter {
  public:
-  HandleAccepterImpl(MageHandle receiver) {
+  HandleAccepterImpl(MessagePipe receiver) {
     receiver_.Bind(receiver, this);
   }
 
-  void PassHandle(MageHandle callback_receiver) override {
+  void PassHandle(MessagePipe callback_receiver) override {
     std::function<void()> quit_closure = std::bind(&base::TaskLoop::Quit, base::GetCurrentThreadTaskLoop().get());
     callback_impl_ = std::make_unique<CallbackInterfaceImpl>(callback_receiver, quit_closure);
   }
@@ -1709,17 +1709,17 @@ class HandleAccepterImpl : public magen::HandleAccepter {
   std::unique_ptr<CallbackInterfaceImpl> callback_impl_;
 };
 TEST_F(MageTest, SendHandleToBoundEndpoint) {
-  std::vector<MageHandle> mage_handles = mage::Core::CreateMessagePipes();
+  std::vector<MessagePipe> mage_handles = mage::Core::CreateMessagePipes();
   EXPECT_EQ(mage_handles.size(), 2);
 
-  MageHandle remote_handle = mage_handles[0],
+  MessagePipe remote_handle = mage_handles[0],
              receiver_handle = mage_handles[1];
   mage::Remote<magen::HandleAccepter> remote;
   remote.Bind(remote_handle);
   HandleAccepterImpl handle_accepter(receiver_handle);
 
-  std::vector<MageHandle> callback_handles = mage::Core::CreateMessagePipes();
-  MageHandle callback_remote_handle = callback_handles[0],
+  std::vector<MessagePipe> callback_handles = mage::Core::CreateMessagePipes();
+  MessagePipe callback_remote_handle = callback_handles[0],
              callback_receiver_handle = callback_handles[1];
 
   // Send the `callback_receiver_handle`

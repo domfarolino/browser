@@ -27,16 +27,16 @@ class Core {
 
   // TODO(domfarolino): This should not actually be used outside of mage/core.
   static Core* Get();
-  static std::vector<MageHandle> CreateMessagePipes();
-  static MageHandle SendInvitationAndGetMessagePipe(
+  static std::vector<MessagePipe> CreateMessagePipes();
+  static MessagePipe SendInvitationAndGetMessagePipe(
       int fd,
       base::OnceClosure callback = base::OnceClosure());
   static void AcceptInvitation(
       int fd,
-      std::function<void(MageHandle)> finished_accepting_invitation_callback);
-  static void SendMessage(MageHandle local_handle, Message message);
+      std::function<void(MessagePipe)> finished_accepting_invitation_callback);
+  static void SendMessage(MessagePipe local_handle, Message message);
   static void BindReceiverDelegateToEndpoint(
-      MageHandle local_handle,
+      MessagePipe local_handle,
       std::weak_ptr<Endpoint::ReceiverDelegate> delegate,
       std::shared_ptr<base::TaskRunner> delegate_task_runner);
 
@@ -52,18 +52,18 @@ class Core {
   // This happens if `handle_of_preexisting_endpoint` has a remote peer, or a
   // local peer that is proxying.
   static void PopulateEndpointDescriptor(
-      MageHandle handle_to_send,
-      MageHandle handle_of_preexisting_connection,
+      MessagePipe handle_to_send,
+      MessagePipe handle_of_preexisting_connection,
       EndpointDescriptor& endpoint_descriptor_to_populate);
-  static MageHandle RecoverExistingMageHandleFromEndpointDescriptor(
+  static MessagePipe RecoverExistingMessagePipeFromEndpointDescriptor(
       const EndpointDescriptor& endpoint_descriptor);
-  static MageHandle RecoverNewMageHandleFromEndpointDescriptor(
+  static MessagePipe RecoverNewMessagePipeFromEndpointDescriptor(
       const EndpointDescriptor& endpoint_descriptor);
 
-  MageHandle GetNextMageHandle();
+  MessagePipe GetNextMessagePipe();
   void OnReceivedAcceptInvitation();
   void OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint);
-  void RegisterLocalHandleAndEndpoint(MageHandle local_handle,
+  void RegisterLocalHandleAndEndpoint(MessagePipe local_handle,
                                       std::shared_ptr<Endpoint> local_endpoint);
 
  private:
@@ -80,20 +80,20 @@ class Core {
   // thread. That's what we use this handle for.
   std::shared_ptr<base::TaskRunner> origin_task_runner_;
 
-  // A map of endpoints registered with this process, keyed by MageHandle. This
+  // A map of endpoints registered with this process, keyed by MessagePipe. This
   // can be accessed on multiple threads accessed on multiple threads, so access
   // must be guarded by `handle_table_lock_`. For example, if we don't take the
   // lock before accessing, one thread might try and `find()` an existing entry
   // while another thread is writing a new entry, which can break the first
   // thread's `find()`.
-  std::map<MageHandle, std::shared_ptr<Endpoint>> handle_table_;
+  std::map<MessagePipe, std::shared_ptr<Endpoint>> handle_table_;
   // Used only by `this` for exclusive access to `handle_table_`.
   base::Mutex handle_table_lock_;
 
   // A map of all known endpoint channels, by node name.
   std::map<std::string, std::unique_ptr<Channel>> node_channel_map_;
 
-  MageHandle next_available_handle_ = 1;
+  MessagePipe next_available_handle_ = 1;
 
   // This is optionally supplied when sending an invitation. It reports back
   // when the remote process has accepted the invitation. Guaranteed to be
@@ -102,7 +102,7 @@ class Core {
   // This is mandatorily supplied by the invitee when attempting to accept an
   // invitation. Accepting an invitation is asynchronous since we have to wait
   // for the invitation to arrive. Guaranteed to be called asynchronously.
-  std::function<void(MageHandle)> finished_accepting_invitation_callback_;
+  std::function<void(MessagePipe)> finished_accepting_invitation_callback_;
 
   std::unique_ptr<Node> node_;
 };

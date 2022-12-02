@@ -15,14 +15,14 @@
 #include "mage/core/handles.h"
 #include "mage/test/magen/first_interface.magen.h"  // Generated.
 
-void OnInvitationAccepted(mage::MageHandle remote_handle) {
+void OnInvitationAccepted(mage::MessagePipe remote_handle) {
   CHECK_ON_THREAD(base::ThreadType::UI);
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(remote_handle);
 
   // Create a dummy message pipe pair and send one end to the parent as a dummy
   // `magen::SecondInterface`.
-  std::vector<mage::MageHandle> pipes = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> pipes = mage::Core::CreateMessagePipes();
   remote->SendSecondInterfaceReceiver(pipes[1]);
 
   // We could create a remote to `magen::SecondInterface` out of `pipes[0]` and

@@ -27,13 +27,13 @@ int main(int argc, char** argv) {
 
   CHECK_EQ(argc, 2);
   int fd = std::stoi(argv[1]);
-  mage::MageHandle message_pipe =
+  mage::MessagePipe message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(fd);
 
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(message_pipe);
 
-  std::vector<mage::MageHandle> pipes = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> pipes = mage::Core::CreateMessagePipes();
   remote->SendSecondInterfaceReceiver(pipes[1]);
 
   mage::Remote<magen::SecondInterface> second_remote;

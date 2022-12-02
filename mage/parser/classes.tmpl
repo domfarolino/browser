@@ -69,15 +69,15 @@ class {{Interface}}_{{Method.name}}_Params {
 // the serialized message is passed to the mage core internals for sending.
 class {{Interface}}Proxy {
  public:
-  void BindToHandle(mage::MageHandle local_handle) {
+  void BindToHandle(mage::MessagePipe local_handle) {
     CHECK(!bound_);
     bound_ = true;
     local_handle_ = local_handle;
   }
-  mage::MageHandle Unbind() {
+  mage::MessagePipe Unbind() {
     CHECK(bound_);
     bound_ = false;
-    mage::MageHandle return_handle = local_handle_;
+    mage::MessagePipe return_handle = local_handle_;
     local_handle_ = 0;
     return return_handle;
   }
@@ -162,14 +162,14 @@ class {{Interface}}Proxy {
 
  private:
   bool bound_;
-  mage::MageHandle local_handle_; // Only set when |bound_| is true.
+  mage::MessagePipe local_handle_; // Only set when |bound_| is true.
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 
 class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate, public std::enable_shared_from_this<{{Interface}}ReceiverStub> {
  public:
-  void BindToHandle(mage::MageHandle local_handle, {{Interface}}* impl, std::shared_ptr<base::TaskRunner> impl_task_runner) {
+  void BindToHandle(mage::MessagePipe local_handle, {{Interface}}* impl, std::shared_ptr<base::TaskRunner> impl_task_runner) {
     CHECK(!bound_);
     bound_ = true;
     local_handle_ = local_handle;
@@ -236,7 +236,7 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate, publi
   }
 
   bool bound_ = false;
-  mage::MageHandle local_handle_ = 0;
+  mage::MessagePipe local_handle_ = 0;
   // This is the concrete implementation that we'll invoke methods on after
   // message deserialization. For notes about the lifetime of `impl_` see the
   // documentation above `OnReceivedMessage()`.

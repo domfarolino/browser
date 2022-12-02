@@ -20,7 +20,7 @@
 
 class ChildProcessImpl2 : public magen::ChildProcess2 {
  public:
-  ChildProcessImpl2(mage::MageHandle message_pipe) {
+  ChildProcessImpl2(mage::MessagePipe message_pipe) {
     receiver_.Bind(message_pipe, this);
   }
 
@@ -37,7 +37,7 @@ std::unique_ptr<ChildProcessImpl2> global_child_process_impl_2;
 
 class ChildProcessImpl : public magen::ChildProcess {
  public:
-  ChildProcessImpl(mage::MageHandle message_pipe) {
+  ChildProcessImpl(mage::MessagePipe message_pipe) {
     receiver_.Bind(message_pipe, this);
   }
 
@@ -47,7 +47,7 @@ class ChildProcessImpl : public magen::ChildProcess {
     printf("\033[34;1m%s\033[0m\n", msg.c_str());
   }
 
-  void PassHandle(mage::MageHandle child_process_2_handle, mage::MageHandle parent_process_handle) override {
+  void PassHandle(mage::MessagePipe child_process_2_handle, mage::MessagePipe parent_process_handle) override {
     printf("\033[34;1mChildProcessImpl::PassHandle\033[0m\n");
     global_child_process_impl_2 = std::make_unique<ChildProcessImpl2>(child_process_2_handle);
     mage::Remote<magen::ParentProcess> remote;
@@ -60,7 +60,7 @@ class ChildProcessImpl : public magen::ChildProcess {
 };
 std::unique_ptr<ChildProcessImpl> global_child_process_impl;
 
-void OnInvitationAccepted(mage::MageHandle handle) {
+void OnInvitationAccepted(mage::MessagePipe handle) {
   // Bind the `ChildProcessImpl` as the backing implementation, and let the main
   // thread keep running until we asynchronously start receiving messages
   global_child_process_impl = std::make_unique<ChildProcessImpl>(handle);

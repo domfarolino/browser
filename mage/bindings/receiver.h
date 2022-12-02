@@ -17,7 +17,7 @@ class Receiver {
 
   Receiver() = default;
 
-  void Bind(MageHandle local_handle, Interface* impl) {
+  void Bind(MessagePipe local_handle, Interface* impl) {
     CHECK(thread_checker_.CalledOnConstructedThread());
     stub_ = std::make_shared<InterfaceStub>();
     // We pass in the current thread's `base::TaskRunner` so that mage knows
@@ -29,7 +29,7 @@ class Receiver {
   // to achieve however; see the design notes.
 
  private:
-  // This is the receiver stub that once bound to a |MageHandle|, associates
+  // This is the receiver stub that once bound to a |MessagePipe|, associates
   // itself with the underlying |mage::Endpoint| that receives messages bound
   // for |impl_|. It is a generated object that automatically deserializes the
   // message data and dispatches the correct method on |impl_|.

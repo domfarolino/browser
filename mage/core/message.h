@@ -240,7 +240,7 @@ struct ArrayHeader {
   int num_elements;
 };
 
-// When a message sends a `MageHandle` (representing an existing, local
+// When a message sends a `MessagePipe` (representing an existing, local
 // `Endpoint`) over an existing connection, the handle may very well end up in
 // another process which means we need a way to essentially send the local
 // `Endpoint` over to that process. The way we achieve this is not by actually
@@ -248,7 +248,7 @@ struct ArrayHeader {
 // the information about it that the receiver would need to know to create an
 // endpoint that looks just like it. All of that information is captured by
 // `EndpointDescriptor`, which is what we send over the wire in place of a given
-// `MageHandle` that gets sent.
+// `MessagePipe` that gets sent.
 struct EndpointDescriptor {
   // The endpoint that `this` describes in the node that `this` was created in.
   // It allows consumers of `this` to look up the endpoint that backs `this` in
@@ -309,11 +309,11 @@ struct MessageHeader {
   // it is targeting, which is described by this member.
   char target_endpoint[kIdentifierSize];
 
-  // Both user and control messages can carry `MageHandle`s to expand the number
+  // Both user and control messages can carry `MessagePipe`s to expand the number
   // of connections between two nodes/processes. User message deserialization
   // happens on the thread that the `Receiver` is bound to (typically this is
   // the UI thread) by interface-specific generated code.
-  // However, if a user message carries `MageHandle`s with it (which serialize
+  // However, if a user message carries `MessagePipe`s with it (which serialize
   // to `EndpointDescriptor`s in the actual message buffer), we must unpack these and
   // create concrete `Endpoint`s to represent these handles on the IO thread,
   // before we dispatch the message to the `Receiver`. These `Endpoint`s must be
@@ -382,7 +382,7 @@ class Message final {
     return endpoint_descriptors;
   }
 
-  void QueueHandle(MageHandle handle) {
+  void QueueHandle(MessagePipe handle) {
     handles_.push(handle);
   }
 
@@ -392,9 +392,9 @@ class Message final {
     return endpoints_pointer.Get() ? endpoints_pointer.Get()->num_elements : 0;
   }
 
-  MageHandle TakeNextHandle() {
+  MessagePipe TakeNextHandle() {
     CHECK(handles_.size());
-    MageHandle return_handle = handles_.front();
+    MessagePipe return_handle = handles_.front();
     handles_.pop();
     return return_handle;
   }
@@ -413,7 +413,7 @@ class Message final {
 
  private:
   // TODO(domfarolino): Document this.
-  std::queue<MageHandle> handles_;
+  std::queue<MessagePipe> handles_;
   std::vector<char> payload_buffer_;
 };
 

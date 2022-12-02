@@ -78,7 +78,7 @@ class Endpoint final {
   // documentation above `AcceptMessageOnDelegateThread()` for more information.
   //
   // This method looks at the `EndpointDescriptors` in `message`, but only to
-  // retrieve the existing `MageHandle`s from the local process that represent
+  // retrieve the existing `MessagePipe`s from the local process that represent
   // each descriptor in the message. We specifically do not try and register
   // each descriptor with the local process, since it is expected that they
   // already represent valid endpoints in the local process. That's because this

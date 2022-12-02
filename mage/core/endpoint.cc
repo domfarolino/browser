@@ -44,8 +44,8 @@ void Endpoint::AcceptMessageOnDelegateThread(Message message) {
   std::vector<EndpointDescriptor*> endpoints_in_message = message.GetEndpointDescriptors();
   printf("  endpoints_in_message.size()= %lu\n", endpoints_in_message.size());
   for (const EndpointDescriptor* const endpoint_descriptor : endpoints_in_message) {
-    MageHandle local_handle =
-        mage::Core::RecoverExistingMageHandleFromEndpointDescriptor(*endpoint_descriptor);
+    MessagePipe local_handle =
+        mage::Core::RecoverExistingMessagePipeFromEndpointDescriptor(*endpoint_descriptor);
     endpoint_descriptor->Print();
     printf("     Queueing handle to message after recovering endpoint\n");
     message.QueueHandle(local_handle);

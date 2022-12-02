@@ -2,5 +2,5 @@
 interface ChildProcess {
   // Tells the child to print `msg`.
   PrintMessage(string msg);
-  PassHandle(MageHandle child_process_2_handle, MageHandle parent_process_handle);
+  PassHandle(MessagePipe child_process_2_handle, MessagePipe parent_process_handle);
 }

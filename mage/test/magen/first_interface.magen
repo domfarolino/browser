@@ -1,5 +1,5 @@
 interface FirstInterface {
   SendString(string msg);
-  SendSecondInterfaceReceiver(MageHandle receiver);
-  SendHandles(MageHandle handle_to_send, MageHandle callback_handle);
+  SendSecondInterfaceReceiver(MessagePipe receiver);
+  SendHandles(MessagePipe handle_to_send, MessagePipe callback_handle);
 }

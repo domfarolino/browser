@@ -13,11 +13,11 @@ class Remote {
 
   Remote() : proxy_(std::make_unique<InterfaceProxy>()) {}
 
-  void Bind(MageHandle local_handle) {
+  void Bind(MessagePipe local_handle) {
     proxy_->BindToHandle(local_handle);
   }
 
-  MageHandle Unbind() {
+  MessagePipe Unbind() {
     return proxy_->Unbind();
   }
 

@@ -28,7 +28,7 @@ int main() {
   auto task_loop = base::TaskLoop::Create(base::ThreadType::IO);
   mage::Core::Init();
 
-  mage::MageHandle local_message_pipe =
+  mage::MessagePipe local_message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(fds[0]);
 
   mage::Remote<magen::Demo> remote;

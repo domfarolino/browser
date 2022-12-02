@@ -27,8 +27,8 @@ class Node : public Channel::Delegate {
   }
   ~Node() = default;
 
-  std::vector<MageHandle> CreateMessagePipes();
-  MageHandle SendInvitationAndGetMessagePipe(int fd);
+  std::vector<MessagePipe> CreateMessagePipes();
+  MessagePipe SendInvitationAndGetMessagePipe(int fd);
   void AcceptInvitation(int fd);
   void SendMessage(std::shared_ptr<Endpoint> local_endpoint, Message message);
 
@@ -45,7 +45,7 @@ class Node : public Channel::Delegate {
   friend class MageTest;
   FRIEND_TEST(MageTest, InitializeAndEntangleEndpointsUnitTest);
 
-  std::vector<std::pair<MageHandle, std::shared_ptr<Endpoint>>>
+  std::vector<std::pair<MessagePipe, std::shared_ptr<Endpoint>>>
       CreateMessagePipesAndGetEndpoints();
   std::pair<std::shared_ptr<Endpoint>, std::shared_ptr<Endpoint>> InitializeAndEntangleEndpoints() const;
   void SendMessagesAndRecursiveDependents(std::queue<Message> messages, std::string);

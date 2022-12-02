@@ -82,14 +82,14 @@ source.close()
 def GetNativeType(magen_type):
   if magen_type == "string":
     return "std::string"
-  elif magen_type == "MageHandle":
-    return "mage::MageHandle"
+  elif magen_type == "MessagePipe":
+    return "mage::MessagePipe"
   return magen_type
 
 def GetMagenParamsType(magen_type):
   if magen_type == "string":
     return "mage::Pointer<mage::ArrayHeader<char>>"
-  elif magen_type == "MageHandle":
+  elif magen_type == "MessagePipe":
     return "mage::EndpointDescriptor"
   return magen_type
 
@@ -104,7 +104,7 @@ def GetArrayPrimitiveType(magen_type):
   assert false
 
 def IsHandleType(magen_type):
-  if magen_type == "MageHandle":
+  if magen_type == "MessagePipe":
     return True
   return False
 

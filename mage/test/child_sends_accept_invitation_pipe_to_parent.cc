@@ -16,12 +16,12 @@
 #include "mage/test/magen/first_interface.magen.h"  // Generated.
 #include "mage/test/magen/second_interface.magen.h"  // Generated.
 
-void OnInvitationAccepted(mage::MageHandle remote_handle) {
+void OnInvitationAccepted(mage::MessagePipe remote_handle) {
   CHECK_ON_THREAD(base::ThreadType::UI);
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(remote_handle);
 
-  std::vector<mage::MageHandle> pipes = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> pipes = mage::Core::CreateMessagePipes();
   remote->SendSecondInterfaceReceiver(pipes[1]);
 
   mage::Remote<magen::SecondInterface> second_remote;

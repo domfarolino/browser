@@ -31,19 +31,19 @@ std::pair<std::shared_ptr<Endpoint>, std::shared_ptr<Endpoint>> Node::Initialize
   return std::make_pair(ep1, ep2);
 }
 
-std::vector<MageHandle> Node::CreateMessagePipes() {
+std::vector<MessagePipe> Node::CreateMessagePipes() {
   CHECK_ON_THREAD(base::ThreadType::UI);
-  std::vector<std::pair<MageHandle, std::shared_ptr<Endpoint>>>
+  std::vector<std::pair<MessagePipe, std::shared_ptr<Endpoint>>>
       pipes_and_endpoints = Node::CreateMessagePipesAndGetEndpoints();
   return {pipes_and_endpoints[0].first, pipes_and_endpoints[1].first};
 }
 
-std::vector<std::pair<MageHandle, std::shared_ptr<Endpoint>>>
+std::vector<std::pair<MessagePipe, std::shared_ptr<Endpoint>>>
 Node::CreateMessagePipesAndGetEndpoints() {
   CHECK_ON_THREAD(base::ThreadType::UI);
   const auto& [endpoint_1, endpoint_2] = InitializeAndEntangleEndpoints();
-  MageHandle handle_1 = Core::Get()->GetNextMageHandle(),
-             handle_2 = Core::Get()->GetNextMageHandle();
+  MessagePipe handle_1 = Core::Get()->GetNextMessagePipe(),
+             handle_2 = Core::Get()->GetNextMessagePipe();
   Core::Get()->RegisterLocalHandleAndEndpoint(handle_1, endpoint_1);
   Core::Get()->RegisterLocalHandleAndEndpoint(handle_2, endpoint_2);
   CHECK_NE(local_endpoints_.find(endpoint_1->name), local_endpoints_.end());
@@ -51,7 +51,7 @@ Node::CreateMessagePipesAndGetEndpoints() {
   return {std::make_pair(handle_1, endpoint_1), std::make_pair(handle_2, endpoint_2)};
 }
 
-MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
+MessagePipe Node::SendInvitationAndGetMessagePipe(int fd) {
   CHECK_ON_THREAD(base::ThreadType::UI);
   // This node wishes to invite another fresh peer node to the network of
   // processes. The sequence of events here looks like so:
@@ -82,13 +82,13 @@ MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
   //         expect acceptances for. Later we'll update all instances of
   //         |temporary_remote_node_name| to the actual remote node name that it
   //         makes us aware of as a part of invitation acceptance.
-  //   MageHandles:
-  //     1.) Return the |MageHandle| assocaited with |local_endpoint| so that
+  //   MessagePipes:
+  //     1.) Return the |MessagePipe| assocaited with |local_endpoint| so that
   //         this process can start immediately queueing messages on
   //         |local_endpoint| that will eventually be delivered to the remote
   //         process.
 
-  std::vector<std::pair<mage::MageHandle, std::shared_ptr<Endpoint>>>
+  std::vector<std::pair<mage::MessagePipe, std::shared_ptr<Endpoint>>>
       pipes = CreateMessagePipesAndGetEndpoints();
   std::shared_ptr<Endpoint> local_endpoint = pipes[0].second,
                             remote_endpoint = pipes[1].second;
@@ -105,7 +105,7 @@ MageHandle Node::SendInvitationAndGetMessagePipe(int fd) {
   node_channel_map_.insert({temporary_remote_node_name, std::move(channel)});
   pending_invitations_.insert({temporary_remote_node_name, remote_endpoint});
 
-  MageHandle local_endpoint_handle = pipes[0].first;
+  MessagePipe local_endpoint_handle = pipes[0].first;
   return local_endpoint_handle;
 }
 
@@ -473,8 +473,8 @@ void Node::OnReceivedUserMessage(Message message) {
   std::vector<EndpointDescriptor*> endpoints_in_message = message.GetEndpointDescriptors();
   printf("  endpoints_in_message.size()= %lu\n", endpoints_in_message.size());
   for (const EndpointDescriptor* const endpoint_descriptor : endpoints_in_message) {
-    MageHandle local_handle =
-        Core::RecoverNewMageHandleFromEndpointDescriptor(*endpoint_descriptor);
+    MessagePipe local_handle =
+        Core::RecoverNewMessagePipeFromEndpointDescriptor(*endpoint_descriptor);
     endpoint_descriptor->Print();
     printf("     Queueing handle to message after recovering new endpoint\n");
     message.QueueHandle(local_handle);

@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
   mage::Core::Init();
 
   int fd = std::stoi(argv[1]);
-  mage::MageHandle message_pipe =
+  mage::MessagePipe message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(fd, [&](){
       mage::Remote<magen::TestInterface> remote;
       remote.Bind(message_pipe);

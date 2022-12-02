@@ -22,15 +22,15 @@ lives in another process, thread, or even the same thread, without the sender
 having to know anything about where the target object actually is.
 
 To use Mage, you need to be familiar with three concepts from its public API:
- - `mage::MageHandle`
+ - `mage::MessagePipe`
  - `mage::Remote`
  - `mage::Receiver`
 
-Each end of a message pipe is represented by a `MageHandle`, which can be passed
-across processes. Ultimately, a `MageHandle` representing one end of a message
-pipe will get bound to a `Remote`, and the other end's `MageHandle` will get
-bound to a `Receiver`. It is through these objects that arbitrary messages get
-passed as IPCs.
+Each end of a message pipe is represented by a `MessagePipe`, which can be
+passed across processes. Ultimately, a `MessagePipe` representing one end of a
+message pipe will get bound to a `Remote`, and the other end's `MessagePipe`
+will get bound to a `Receiver`. It is through these objects that arbitrary
+messages get passed as IPCs.
 
 ### `mage::Remote`
 
@@ -42,7 +42,7 @@ object actually lives (even if it is moving around). See the next section for
 defining interfaces in Magen IDL.
 
 ```cpp
-MageHandle remote_handle = /* get handle from somewhere */;
+MessagePipe remote_handle = /* get handle from somewhere */;
 mage::Remote<magen::Foo> remote;
 remote.Bind();
 
@@ -53,7 +53,7 @@ remote->ArbitraryMessage("some payload");
 ### `mage::Receiver`
 
 Messages sent over a bound `mage::Remote<magen::Foo>` get queued on the other
-end of the pipe's `MageHandle`, until _it_ is bound to a corresponding
+end of the pipe's `MessagePipe`, until _it_ is bound to a corresponding
 `mage::Receiver<magen::Foo>`. A `Receiver<magen::Foo>` represents the concrete
 implementation of a Mage interface `magen::Foo`. The receiver itself does not
 handle messages that were dispatched by the corresponding remote, but rather it
@@ -67,7 +67,7 @@ Here's what a concrete implementation of a cross-process Mage object looks like:
 // Instances of this class can receive asynchronous IPCs from other processes.
 class FooImpl final : public magen::Foo {
  public:
-  Bind(mage::MageHandle foo_receiver) {
+  Bind(mage::MessagePipe foo_receiver) {
     // Tell `receiver_` that `this` is the concrete implementation of
     // `magen::Foo` that can handle IPCs.
     receiver_.Bind(foo_receiver, this);
@@ -76,7 +76,7 @@ class FooImpl final : public magen::Foo {
   // Implementation of magen::Foo. These methods get invoked by `receiver_` when
   // it reads messages from its corresponding `mage::Remote`.
   void ArbitraryMessage(string) { /* ... */ }
-  void AnotherIPC(MageHandle) { /* ... */ }
+  void AnotherIPC(MessagePipe) { /* ... */ }
 
  private:
   // The corresponding remote may live in another process.
@@ -103,10 +103,10 @@ parameter types:
  - `double`
  - `char`
  - `string`
- - `MageHandle`
+ - `MessagePipe`
 
-The types are self-explanatory, with the exception of `MageHandle`. A
-`MageHandle` that is not bound to a `Remote` or `Receiver` can be passed from
+The types are self-explanatory, with the exception of `MessagePipe`. A
+`MessagePipe` that is not bound to a `Remote` or `Receiver` can be passed from
 one process, over an existing IPC interface, to be bound to a
 `Remote`/`Receiver` in another process. This is the basic primitive with which
 it's possible to expand the number of connections that span two processes.
@@ -124,12 +124,12 @@ interface ParentProcess {
   // ...
   OpenFile(string name, bool truncate);
 
-  // Before calling this, the child will mint two entangled `MageHandle`s. It
+  // Before calling this, the child will mint two entangled `MessagePipe`s. It
   // binds one to its `ChildProcess` receiver, and passes the other to the
   // parent for use as a remote. The parent binds this to a
   // `mage::Remote<magen::ChildProcess>` so it can send commands back to its
   // child.
-  BindChildProcessRemote(MageHandle child_remote);
+  BindChildProcessRemote(MessagePipe child_remote);
 }
 ```
 
@@ -249,7 +249,7 @@ class NetworkProcess final : public magen::NetworkProcess {
  public:
   // Bind a receiver that we get from the parent, so `this` can start receiving
   // cross-process messages.
-  NetworkProcess(mage::MageHandle receiver) {
+  NetworkProcess(mage::MessagePipe receiver) {
     receiver_.Bind(receiver, this);
   }
 
@@ -262,7 +262,7 @@ class NetworkProcess final : public magen::NetworkProcess {
 // Network process binary.
 int main() {
   // Accept the mage invitation from the process.
-  mage::MageHandle network_receiver = /* ... */;
+  mage::MessagePipe network_receiver = /* ... */;
   NetworkProcess network_process_impl(network_receiver);
   // `network_process_impl` can start receiving asynchronous IPCs from the
   // parent process, directing it to fetch URLs.
@@ -285,7 +285,7 @@ The main application binary can communicate to the network process with a
 
 // Main binary that the user runs.
 int main() {
-  MageHandle network_remote = /* obtained from creating the network process */
+  MessagePipe network_remote = /* obtained from creating the network process */
   mage::Remote<magen::NetworkProcess> remote;
   remote.Bind(network_remote);
 

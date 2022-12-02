@@ -1,3 +1,3 @@
 interface HandleAccepter {
-  PassHandle(MageHandle handle_to_send);
+  PassHandle(MessagePipe handle_to_send);
 }

@@ -38,7 +38,7 @@ mage::Remote<magen::CallbackInterface> global_callback_remote;
 
 class FourthInterfaceImpl final : public magen::FourthInterface {
  public:
-  FourthInterfaceImpl(mage::MageHandle receiver) {
+  FourthInterfaceImpl(mage::MessagePipe receiver) {
     receiver_.Bind(receiver, this);
   }
 
@@ -60,12 +60,12 @@ std::unique_ptr<FourthInterfaceImpl> global_fourth_interface;
 
 class ThirdInterfaceImpl final : public magen::ThirdInterface {
  public:
-  ThirdInterfaceImpl(mage::MageHandle receiver) {
+  ThirdInterfaceImpl(mage::MessagePipe receiver) {
     receiver_.Bind(receiver, this);
   }
 
   void NotifyDoneViaCallback() override { NOTREACHED(); }
-  void SendReceiverForFourthInterface(mage::MageHandle receiver) override {
+  void SendReceiverForFourthInterface(mage::MessagePipe receiver) override {
     printf("\033[34;1mThirdInterfaceImpl got receiver to bootstrap magen::FourthInterface\033[0m\n");
     global_fourth_interface = std::make_unique<FourthInterfaceImpl>(receiver);
   }
@@ -78,7 +78,7 @@ std::unique_ptr<ThirdInterfaceImpl> global_third_interface;
 
 class SecondInterfaceImpl final : public magen::SecondInterface {
  public:
-  SecondInterfaceImpl(mage::MageHandle receiver) {
+  SecondInterfaceImpl(mage::MessagePipe receiver) {
     receiver_.Bind(receiver, this);
   }
 
@@ -98,7 +98,7 @@ class SecondInterfaceImpl final : public magen::SecondInterface {
     global_callback_remote->NotifyDone();
   }
 
-  void SendReceiverForThirdInterface(mage::MageHandle receiver) override {
+  void SendReceiverForThirdInterface(mage::MessagePipe receiver) override {
     global_third_interface = std::make_unique<ThirdInterfaceImpl>(receiver);
   }
 
@@ -109,7 +109,7 @@ std::unique_ptr<SecondInterfaceImpl> global_second_interface;
 
 class FirstInterfaceImpl final : public magen::FirstInterface {
  public:
-  FirstInterfaceImpl(mage::MageHandle handle) {
+  FirstInterfaceImpl(mage::MessagePipe handle) {
     receiver_.Bind(handle, this);
   }
 
@@ -121,10 +121,10 @@ class FirstInterfaceImpl final : public magen::FirstInterface {
   }
 
   // Not used for this test.
-  void SendSecondInterfaceReceiver(mage::MageHandle) override { NOTREACHED(); }
+  void SendSecondInterfaceReceiver(mage::MessagePipe) override { NOTREACHED(); }
 
-  void SendHandles(mage::MageHandle second_interface,
-                   mage::MageHandle callback_handle) override {
+  void SendHandles(mage::MessagePipe second_interface,
+                   mage::MessagePipe callback_handle) override {
     CHECK(first_interface_received_send_string);
     CHECK(!first_interface_received_send_handles);
     first_interface_received_send_handles = true;
@@ -142,7 +142,7 @@ class FirstInterfaceImpl final : public magen::FirstInterface {
 };
 std::unique_ptr<FirstInterfaceImpl> global_first_interface;
 
-void OnInvitationAccepted(mage::MageHandle receiver_handle) {
+void OnInvitationAccepted(mage::MessagePipe receiver_handle) {
   CHECK_ON_THREAD(base::ThreadType::UI);
   global_first_interface = std::make_unique<FirstInterfaceImpl>(receiver_handle);
 }

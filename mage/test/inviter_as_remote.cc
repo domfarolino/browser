@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
   mage::Core::Init();
 
   int fd = std::stoi(argv[1]);
-  mage::MageHandle message_pipe =
+  mage::MessagePipe message_pipe =
     mage::Core::SendInvitationAndGetMessagePipe(fd, [&](){
       CHECK_ON_THREAD(base::ThreadType::UI);
       // Asynchronously quit the test now that we know that below message, that

@@ -2,5 +2,5 @@ interface SecondInterface {
   SendStringAndNotifyDoneViaCallback(string msg);
   NotifyDoneViaCallback();
 
-  SendReceiverForThirdInterface(MageHandle receiver);
+  SendReceiverForThirdInterface(MessagePipe receiver);
 }

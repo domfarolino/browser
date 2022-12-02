@@ -15,7 +15,7 @@
 #include "mage/core/handles.h"
 #include "mage/test/magen/test.magen.h"  // Generated.
 
-void OnInvitationAccepted(mage::MageHandle handle) {
+void OnInvitationAccepted(mage::MessagePipe handle) {
   CHECK_ON_THREAD(base::ThreadType::UI);
   mage::Remote<magen::TestInterface> remote;
   remote.Bind(handle);

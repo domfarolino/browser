@@ -18,11 +18,11 @@
 
 class HandleAccepterImpl final : public magen::HandleAccepter {
  public:
-  HandleAccepterImpl(mage::MageHandle receiver) {
+  HandleAccepterImpl(mage::MessagePipe receiver) {
     receiver_.Bind(receiver, this);
   }
 
-  void PassHandle(mage::MageHandle handle) {
+  void PassHandle(mage::MessagePipe handle) {
     if (!pass_handle_has_been_called_once_) {
       // The first time `PassHandle()` is called, we're just receiving a remote
       // to the parent's `magen::HandleAccepter` instance.
@@ -44,7 +44,7 @@ class HandleAccepterImpl final : public magen::HandleAccepter {
 };
 std::unique_ptr<HandleAccepterImpl> global_handle_accepter;
 
-void OnInvitationAccepted(mage::MageHandle receiver_handle) {
+void OnInvitationAccepted(mage::MessagePipe receiver_handle) {
   CHECK_ON_THREAD(base::ThreadType::UI);
   global_handle_accepter = std::make_unique<HandleAccepterImpl>(receiver_handle);
 }

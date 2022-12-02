@@ -15,7 +15,7 @@
 
 class DemoImpl : public magen::Demo {
  public:
-  DemoImpl(mage::MageHandle handle) {
+  DemoImpl(mage::MessagePipe handle) {
     receiver_.Bind(handle, this);
     base::GetCurrentThreadTaskLoop()->Run();
   }
@@ -34,7 +34,7 @@ class DemoImpl : public magen::Demo {
   mage::Receiver<magen::Demo> receiver_;
 };
 
-void OnInvitationAccepted(mage::MageHandle message_pipe) {
+void OnInvitationAccepted(mage::MessagePipe message_pipe) {
   std::unique_ptr<DemoImpl> demo(new DemoImpl(message_pipe));
 }
 

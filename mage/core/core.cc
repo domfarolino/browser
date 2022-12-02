@@ -36,8 +36,8 @@ Core* Core::Get() {
 }
 
 // static
-std::vector<MageHandle> Core::CreateMessagePipes() {
-  std::vector<MageHandle> return_handles = Get()->node_->CreateMessagePipes();
+std::vector<MessagePipe> Core::CreateMessagePipes() {
+  std::vector<MessagePipe> return_handles = Get()->node_->CreateMessagePipes();
   CHECK_NE(Get()->handle_table_.find(return_handles[0]),
            Get()->handle_table_.end());
   CHECK_NE(Get()->handle_table_.find(return_handles[1]),
@@ -46,7 +46,7 @@ std::vector<MageHandle> Core::CreateMessagePipes() {
 }
 
 // static
-MageHandle Core::SendInvitationAndGetMessagePipe(int fd,
+MessagePipe Core::SendInvitationAndGetMessagePipe(int fd,
                                                  base::OnceClosure callback) {
   Get()->remote_has_accepted_invitation_callback_ = std::move(callback);
   return Get()->node_->SendInvitationAndGetMessagePipe(fd);
@@ -55,14 +55,14 @@ MageHandle Core::SendInvitationAndGetMessagePipe(int fd,
 // static
 void Core::AcceptInvitation(
     int fd,
-    std::function<void(MageHandle)> finished_accepting_invitation_callback) {
+    std::function<void(MessagePipe)> finished_accepting_invitation_callback) {
   Get()->finished_accepting_invitation_callback_ =
       std::move(finished_accepting_invitation_callback);
   Get()->node_->AcceptInvitation(fd);
 }
 
 // static
-void Core::SendMessage(MageHandle local_handle, Message message) {
+void Core::SendMessage(MessagePipe local_handle, Message message) {
   printf("Core::SendMessage\n");
   Get()->handle_table_lock_.lock();
   auto endpoint_it = Get()->handle_table_.find(local_handle);
@@ -73,7 +73,7 @@ void Core::SendMessage(MageHandle local_handle, Message message) {
 
 // static
 void Core::BindReceiverDelegateToEndpoint(
-    MageHandle local_handle,
+    MessagePipe local_handle,
     std::weak_ptr<Endpoint::ReceiverDelegate> delegate,
     std::shared_ptr<base::TaskRunner> delegate_task_runner) {
   Get()->handle_table_lock_.lock();
@@ -86,8 +86,8 @@ void Core::BindReceiverDelegateToEndpoint(
 
 // static
 void Core::PopulateEndpointDescriptor(
-    MageHandle handle_to_send,
-    MageHandle handle_of_preexisting_connection,
+    MessagePipe handle_to_send,
+    MessagePipe handle_of_preexisting_connection,
     EndpointDescriptor& endpoint_descriptor_to_populate) {
   Get()->handle_table_lock_.lock();
   std::shared_ptr<Endpoint> local_endpoint_of_preexisting_connection =
@@ -156,21 +156,21 @@ void Core::PopulateEndpointDescriptor(
 }
 
 // static
-MageHandle Core::RecoverExistingMageHandleFromEndpointDescriptor(
+MessagePipe Core::RecoverExistingMessagePipeFromEndpointDescriptor(
     const EndpointDescriptor& endpoint_descriptor) {
   printf(
-      "Core::RecoverExistingMageHandleFromEndpointDescriptor(endpoint_"
+      "Core::RecoverExistingMessagePipeFromEndpointDescriptor(endpoint_"
       "descriptor)\n");
   std::string endpoint_name(
       endpoint_descriptor.endpoint_name,
       endpoint_descriptor.endpoint_name + kIdentifierSize);
 
   Get()->handle_table_lock_.lock();
-  std::map<MageHandle, std::shared_ptr<Endpoint>>& handle_table =
+  std::map<MessagePipe, std::shared_ptr<Endpoint>>& handle_table =
       Core::Get()->handle_table_;
   // First see if the endpoint is already registered. If so, just early-return
   // the handle associated with it.
-  for (std::map<MageHandle, std::shared_ptr<Endpoint>>::const_iterator it =
+  for (std::map<MessagePipe, std::shared_ptr<Endpoint>>::const_iterator it =
            handle_table.begin();
        it != handle_table.end(); it++) {
     if (it->second->name == endpoint_name) {
@@ -183,10 +183,10 @@ MageHandle Core::RecoverExistingMageHandleFromEndpointDescriptor(
 }
 
 // static
-MageHandle Core::RecoverNewMageHandleFromEndpointDescriptor(
+MessagePipe Core::RecoverNewMessagePipeFromEndpointDescriptor(
     const EndpointDescriptor& endpoint_descriptor) {
   printf(
-      "Core::RecoverMageHandleFromEndpointDescriptor(endpoint_descriptor)\n");
+      "Core::RecoverMessagePipeFromEndpointDescriptor(endpoint_descriptor)\n");
   endpoint_descriptor.Print();
 
   std::string cross_node_endpoint_name(
@@ -203,13 +203,13 @@ MageHandle Core::RecoverNewMageHandleFromEndpointDescriptor(
       endpoint_descriptor.peer_node_name, kIdentifierSize);
   local_endpoint->peer_address.endpoint_name.assign(
       endpoint_descriptor.peer_endpoint_name, kIdentifierSize);
-  MageHandle local_handle = Core::Get()->GetNextMageHandle();
+  MessagePipe local_handle = Core::Get()->GetNextMessagePipe();
   Core::Get()->RegisterLocalHandleAndEndpoint(local_handle,
                                               std::move(local_endpoint));
   return local_handle;
 }
 
-MageHandle Core::GetNextMageHandle() {
+MessagePipe Core::GetNextMessagePipe() {
   return next_available_handle_++;
 }
 
@@ -221,7 +221,7 @@ void Core::OnReceivedAcceptInvitation() {
 }
 
 void Core::OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint) {
-  MageHandle local_handle = GetNextMageHandle();
+  MessagePipe local_handle = GetNextMessagePipe();
   handle_table_lock_.lock();
   handle_table_.insert({local_handle, std::move(local_endpoint)});
   handle_table_lock_.unlock();
@@ -231,7 +231,7 @@ void Core::OnReceivedInvitation(std::shared_ptr<Endpoint> local_endpoint) {
 }
 
 void Core::RegisterLocalHandleAndEndpoint(
-    MageHandle local_handle,
+    MessagePipe local_handle,
     std::shared_ptr<Endpoint> local_endpoint) {
   // First, we check that `local_handle` doesn't already point to an existing
   // endpoint.
