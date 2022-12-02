@@ -24,13 +24,12 @@ static bool VerboseLogging = false;
 //       `VerboseLogging` variable
 //   2.) In "debug" mode, we have the ability to turn on/off verbose logging as
 //       usual
-#define VA_ARGS(...) , ##__VA_ARGS__
 // Log a message on a single line with no newline appended.
 #define LOG_SL(str, ...) \
-    if (::mage::util::VerboseLogging) { printf(str VA_ARGS(__VA_ARGS__)); }
+    if (::mage::util::VerboseLogging) { printf(str, ##__VA_ARGS__ ); }
 // Log a message with a new line appended to the end.
 #define LOG(str, ...) \
-    if (::mage::util::VerboseLogging) { printf(str VA_ARGS(__VA_ARGS__));printf("\n"); }
+    if (::mage::util::VerboseLogging) { printf(str, ##__VA_ARGS__ );printf("\n"); }
 
 }; // namespace mage
 }; // namespace util

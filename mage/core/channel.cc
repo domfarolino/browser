@@ -49,7 +49,7 @@ void PrintFullMessageContents(Message& message) {
   for (size_t i = sizeof(MessageHeader); i < payload_buffer.size(); ++i) {
     LOG_SL("%02x ", payload_buffer[i]);
   }
-  LOG("");
+  LOG(" ");
 
   LOG("+-------- End Message --------+");
 }
