@@ -7,10 +7,10 @@ namespace mage {
 namespace util {
 
 static const char alphanum[] =
-  "0123456789"
-  "!@#$%^&*"
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-  "abcdefghijklmnopqrstuvwxyz";
+    "0123456789"
+    "!@#$%^&*"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "abcdefghijklmnopqrstuvwxyz";
 
 std::string RandomIdentifier();
 
@@ -25,13 +25,18 @@ static bool VerboseLogging = false;
 //   2.) In "debug" mode, we have the ability to turn on/off verbose logging as
 //       usual
 // Log a message on a single line with no newline appended.
-#define LOG_SL(str, ...) \
-    if (::mage::util::VerboseLogging) { printf(str, ##__VA_ARGS__ ); }
+#define LOG_SL(str, ...)              \
+  if (::mage::util::VerboseLogging) { \
+    printf(str, ##__VA_ARGS__);       \
+  }
 // Log a message with a new line appended to the end.
-#define LOG(str, ...) \
-    if (::mage::util::VerboseLogging) { printf(str, ##__VA_ARGS__ );printf("\n"); }
+#define LOG(str, ...)                 \
+  if (::mage::util::VerboseLogging) { \
+    printf(str, ##__VA_ARGS__);       \
+    printf("\n");                     \
+  }
 
-}; // namespace mage
-}; // namespace util
+};  // namespace util
+};  // namespace mage
 
-#endif // MAGE_CORE_UTIL_H_
+#endif  // MAGE_CORE_UTIL_H_

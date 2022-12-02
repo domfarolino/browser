@@ -7,15 +7,15 @@
 namespace mage {
 
 namespace {
-  // `Endpoint` occassionally wants to verify whether a `std::weak_ptr` has been
-  // assigned to some object without asserting anything about the object's
-  // lifetime. This helper from https://stackoverflow.com/a/45507610/3947332
-  // enables this.
-  template <typename T>
-  bool is_weak_ptr_assigned(std::weak_ptr<T> const& weak) {
-      using wt = std::weak_ptr<T>;
-      return weak.owner_before(wt{}) || wt{}.owner_before(weak);
-  }
+// `Endpoint` occassionally wants to verify whether a `std::weak_ptr` has been
+// assigned to some object without asserting anything about the object's
+// lifetime. This helper from https://stackoverflow.com/a/45507610/3947332
+// enables this.
+template <typename T>
+bool is_weak_ptr_assigned(std::weak_ptr<T> const& weak) {
+  using wt = std::weak_ptr<T>;
+  return weak.owner_before(wt{}) || wt{}.owner_before(weak);
+}
 }  // namespace
 
 // Guarded by `lock_`.
@@ -33,7 +33,8 @@ void Endpoint::AcceptMessageOnIOThread(Message message) {
 // Guarded by `lock_`.
 void Endpoint::AcceptMessageOnDelegateThread(Message message) {
   CHECK(state != State::kUnboundAndProxying);
-  LOG("Endpoint::AcceptMessageOnDelegateThread [this=%p] [pid=%d]", this, getpid());
+  LOG("Endpoint::AcceptMessageOnDelegateThread [this=%p] [pid=%d]", this,
+      getpid());
   LOG("  name: %s", name.c_str());
   LOG("  state: %d", (int)state);
   LOG("  peer_address.node_name: %s", peer_address.node_name.c_str());
@@ -41,11 +42,14 @@ void Endpoint::AcceptMessageOnDelegateThread(Message message) {
 
   // Process and register all of the endpoints that `message` is carrying before
   // we either queue or dispatch it.
-  std::vector<EndpointDescriptor*> endpoints_in_message = message.GetEndpointDescriptors();
+  std::vector<EndpointDescriptor*> endpoints_in_message =
+      message.GetEndpointDescriptors();
   LOG("  endpoints_in_message.size()= %lu", endpoints_in_message.size());
-  for (const EndpointDescriptor* const endpoint_descriptor : endpoints_in_message) {
+  for (const EndpointDescriptor* const endpoint_descriptor :
+       endpoints_in_message) {
     MessagePipe local_pipe =
-        mage::Core::RecoverExistingMessagePipeFromEndpointDescriptor(*endpoint_descriptor);
+        mage::Core::RecoverExistingMessagePipeFromEndpointDescriptor(
+            *endpoint_descriptor);
     endpoint_descriptor->Print();
     LOG("     Queueing pipe to message after recovering endpoint");
     message.QueuePipe(local_pipe);
@@ -72,7 +76,8 @@ void Endpoint::AcceptMessage(Message message) {
       break;
     case State::kBound:
       CHECK(is_weak_ptr_assigned(delegate_));
-      LOG("  Endpoint has accepted a message. Now forwarding it to `delegate_` on the delegate's task runner");
+      LOG("  Endpoint has accepted a message. Now forwarding it to `delegate_` "
+          "on the delegate's task runner");
       PostMessageToDelegate(std::move(message));
       break;
     case State::kUnboundAndProxying:
@@ -121,10 +126,12 @@ void Endpoint::RegisterDelegate(
   CHECK(!delegate_task_runner_);
   delegate_task_runner_ = delegate_task_runner;
 
-  LOG("  Endpoint::RegisterDelegate() seeing if we have queued messages to deliver");
+  LOG("  Endpoint::RegisterDelegate() seeing if we have queued messages to "
+      "deliver");
   // We may have messages queued up for our `delegate_` already .
   while (!incoming_message_queue_.empty()) {
-    LOG("    >> Found a message; calling PostMessageToDelegate() to forward the queued message to delegate");
+    LOG("    >> Found a message; calling PostMessageToDelegate() to forward "
+        "the queued message to delegate");
     PostMessageToDelegate(std::move(incoming_message_queue_.front()));
     incoming_message_queue_.pop();
   }
@@ -141,12 +148,14 @@ void Endpoint::UnregisterDelegate() {
   CHECK(delegate_task_runner_);
 }
 
-void Endpoint::SetProxying(std::string in_node_name, std::string in_endpoint_name) {
+void Endpoint::SetProxying(std::string in_node_name,
+                           std::string in_endpoint_name) {
   CHECK_EQ(state, State::kUnboundAndQueueing);
   state = State::kUnboundAndProxying;
   proxy_target.node_name = in_node_name;
   proxy_target.endpoint_name = in_endpoint_name;
-  LOG("Endpoint::SetProxying() proxy_target: (%s, %s):", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
+  LOG("Endpoint::SetProxying() proxy_target: (%s, %s):",
+      proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
 }
 
-}; // namspace mage
+};  // namespace mage

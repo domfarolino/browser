@@ -12,26 +12,18 @@ class Remote {
   using InterfaceProxy = typename Interface::Proxy;
 
   Remote() : proxy_(std::make_unique<InterfaceProxy>()) {}
-  explicit Remote(MessagePipe local_handle) : Remote() {
-    Bind(local_handle);
-  }
+  explicit Remote(MessagePipe local_handle) : Remote() { Bind(local_handle); }
 
-  void Bind(MessagePipe local_pipe) {
-    proxy_->BindToPipe(local_pipe);
-  }
+  void Bind(MessagePipe local_pipe) { proxy_->BindToPipe(local_pipe); }
 
-  MessagePipe Unbind() {
-    return proxy_->Unbind();
-  }
+  MessagePipe Unbind() { return proxy_->Unbind(); }
 
-  InterfaceProxy* operator-> () {
-    return proxy_.get();
-  }
+  InterfaceProxy* operator->() { return proxy_.get(); }
 
  private:
   std::unique_ptr<InterfaceProxy> proxy_;
 };
 
-}; // namspace mage
+};  // namespace mage
 
-#endif // MAGE_BINDINGS_REMOTE_H_
+#endif  // MAGE_BINDINGS_REMOTE_H_

@@ -9,7 +9,7 @@
 #include "base/check.h"
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop_for_io.h"
-#include "base/threading/thread_checker.h" // for CHECK_ON_THREAD().
+#include "base/threading/thread_checker.h"  // for CHECK_ON_THREAD().
 #include "mage/core/core.h"
 #include "mage/core/endpoint.h"
 
@@ -23,7 +23,8 @@ void PrintFullMessageContents(Message& message) {
 
   std::vector<char>& payload_buffer = message.payload_buffer();
 
-  MessageHeader* header = reinterpret_cast<MessageHeader*>(payload_buffer.data());
+  MessageHeader* header =
+      reinterpret_cast<MessageHeader*>(payload_buffer.data());
   LOG("+------- Message Header -------+");
   LOG("| int size = %d", header->size);
   switch (header->type) {
@@ -42,7 +43,9 @@ void PrintFullMessageContents(Message& message) {
   memcpy(target_endpoint_buffer, header->target_endpoint, kIdentifierSize);
   target_endpoint_buffer[kIdentifierSize] = '\0';
   LOG("| str target_endpoint = %s", target_endpoint_buffer);
-  LOG("| Pointer<ArrayHeader<EndpointDescriptor>>->num_endpoints_in_message = %d", message.NumberOfPipes());
+  LOG("| Pointer<ArrayHeader<EndpointDescriptor>>->num_endpoints_in_message = "
+      "%d",
+      message.NumberOfPipes());
   LOG("+-------- Message Body --------+");
 
   LOG_SL("|");
@@ -54,13 +57,13 @@ void PrintFullMessageContents(Message& message) {
   LOG("+-------- End Message --------+");
 }
 
-}; // namespace
+};  // namespace
 
-Channel::Channel(int fd, Delegate* delegate) :
-    SocketReader(fd),
-    delegate_(delegate),
-    io_task_loop_(*std::static_pointer_cast<base::TaskLoopForIO>(
-      base::GetIOThreadTaskLoop())) {
+Channel::Channel(int fd, Delegate* delegate)
+    : SocketReader(fd),
+      delegate_(delegate),
+      io_task_loop_(*std::static_pointer_cast<base::TaskLoopForIO>(
+          base::GetIOThreadTaskLoop())) {
   CHECK_ON_THREAD(base::ThreadType::UI);
 }
 
@@ -103,9 +106,10 @@ void Channel::SendInvitation(std::string inviter_name,
   SendMessage(std::move(message));
 }
 
-void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
-                                   std::string actual_node_name,
-                                   std::string accept_invitation_endpoint_name) {
+void Channel::SendAcceptInvitation(
+    std::string temporary_remote_node_name,
+    std::string actual_node_name,
+    std::string accept_invitation_endpoint_name) {
   // CHECK(IsOnIOThread());
   Message message(MessageType::ACCEPT_INVITATION);
   MessageFragment<SendAcceptInvitationParams> params(message);
@@ -120,7 +124,8 @@ void Channel::SendAcceptInvitation(std::string temporary_remote_node_name,
          actual_node_name.size());
 
   // Serialize actual node name.
-  memcpy(params.data()->accept_invitation_endpoint_name, accept_invitation_endpoint_name.c_str(),
+  memcpy(params.data()->accept_invitation_endpoint_name,
+         accept_invitation_endpoint_name.c_str(),
          accept_invitation_endpoint_name.size());
 
   message.FinalizeSize();
@@ -155,16 +160,18 @@ void Channel::OnCanReadFromSocket() {
     msg.msg_control = cmsg_buffer;
     msg.msg_controllen = sizeof(cmsg_buffer);
 
-    size_t rv = recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
+    size_t rv = recvmsg(fd_, &msg, /*non blocking*/ MSG_DONTWAIT);
     CHECK_EQ(rv, header_size);
     full_message_buffer = std::move(buffer);
   }
 
   // Pull out the message header.
-  int total_message_size = reinterpret_cast<MessageHeader*>(full_message_buffer.data())->size;
+  int total_message_size =
+      reinterpret_cast<MessageHeader*>(full_message_buffer.data())->size;
   full_message_buffer.resize(total_message_size);
 
-  MessageHeader* header = reinterpret_cast<MessageHeader*>(full_message_buffer.data());
+  MessageHeader* header =
+      reinterpret_cast<MessageHeader*>(full_message_buffer.data());
   CHECK_EQ(header->size, (int)full_message_buffer.size());
 
   // Read the message body.
@@ -179,19 +186,21 @@ void Channel::OnCanReadFromSocket() {
     msg.msg_control = cmsg_buffer;
     msg.msg_controllen = sizeof(cmsg_buffer);
 
-    size_t rv = recvmsg(fd_, &msg, /*non blocking*/MSG_DONTWAIT);
+    size_t rv = recvmsg(fd_, &msg, /*non blocking*/ MSG_DONTWAIT);
     CHECK_EQ(rv, body_size);
-    memcpy(full_message_buffer.data() + sizeof(MessageHeader), buffer.data(), body_size);
+    memcpy(full_message_buffer.data() + sizeof(MessageHeader), buffer.data(),
+           body_size);
   }
 
   Message message(header->type);
   message.ConsumeBuffer(std::move(full_message_buffer));
 
-  LOG("Channel::OnCanReadFromSocket() [getpid(): %d] message contents:", getpid());
+  LOG("Channel::OnCanReadFromSocket() [getpid(): %d] message contents:",
+      getpid());
   PrintFullMessageContents(message);
 
   CHECK(delegate_);
   delegate_->OnReceivedMessage(std::move(message));
 }
 
-}; // namespace mage
+};  // namespace mage

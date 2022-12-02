@@ -4,9 +4,9 @@
 #include <cstdlib>
 #include <map>
 #include <memory>
+#include <queue>
 #include <set>
 #include <string>
-#include <queue>
 
 #include "gtest/gtest_prod.h"
 #include "mage/core/channel.h"
@@ -48,10 +48,13 @@ class Node : public Channel::Delegate {
   FRIEND_TEST(MageTest, InitializeAndEntangleEndpointsUnitTest);
 
   std::vector<std::pair<MessagePipe, std::shared_ptr<Endpoint>>>
-      CreateMessagePipesAndGetEndpoints();
-  std::pair<std::shared_ptr<Endpoint>, std::shared_ptr<Endpoint>> InitializeAndEntangleEndpoints() const;
-  void SendMessagesAndRecursiveDependents(std::queue<Message> messages, std::string);
-  void PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint, Message& message);
+  CreateMessagePipesAndGetEndpoints();
+  std::pair<std::shared_ptr<Endpoint>, std::shared_ptr<Endpoint>>
+  InitializeAndEntangleEndpoints() const;
+  void SendMessagesAndRecursiveDependents(std::queue<Message> messages,
+                                          std::string);
+  void PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint,
+                                   Message& message);
 
   std::string name_;
 
@@ -84,6 +87,6 @@ class Node : public Channel::Delegate {
   std::map<NodeName, std::shared_ptr<Endpoint>> pending_invitations_;
 };
 
-}; // namespace mage
+};  // namespace mage
 
-#endif // MAGE_CORE_NODE_H_
+#endif  // MAGE_CORE_NODE_H_

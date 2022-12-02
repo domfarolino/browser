@@ -52,6 +52,6 @@ class Channel : public base::TaskLoopForIO::SocketReader {
   base::TaskLoopForIO& io_task_loop_;
 };
 
-}; // namespace mage
+};  // namespace mage
 
-#endif // MAGE_CORE_CHANNEL_H_
+#endif  // MAGE_CORE_CHANNEL_H_

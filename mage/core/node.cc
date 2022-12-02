@@ -3,17 +3,20 @@
 #include <memory>
 
 #include "base/check.h"
-#include "base/threading/thread_checker.h" // for CHECK_ON_THREAD().
+#include "base/threading/thread_checker.h"  // for CHECK_ON_THREAD().
 #include "mage/core/core.h"
 #include "mage/core/endpoint.h"
 #include "mage/core/message.h"
 
 namespace mage {
 
-std::pair<std::shared_ptr<Endpoint>, std::shared_ptr<Endpoint>> Node::InitializeAndEntangleEndpoints() const {
+std::pair<std::shared_ptr<Endpoint>, std::shared_ptr<Endpoint>>
+Node::InitializeAndEntangleEndpoints() const {
   CHECK_ON_THREAD(base::ThreadType::UI);
-  std::shared_ptr<Endpoint> ep1(new Endpoint(/*name=*/util::RandomIdentifier())),
-                            ep2(new Endpoint(/*name=*/util::RandomIdentifier()));
+  std::shared_ptr<Endpoint> ep1(
+      new Endpoint(/*name=*/util::RandomIdentifier()));
+  std::shared_ptr<Endpoint> ep2(
+      new Endpoint(/*name=*/util::RandomIdentifier()));
 
   // Both endpoints are local initially.
   ep1->peer_address.node_name = name_;
@@ -25,8 +28,8 @@ std::pair<std::shared_ptr<Endpoint>, std::shared_ptr<Endpoint>> Node::Initialize
 
   LOG("Initialized and entangled the following endpoints:\n"
       "  endpoint1: (%s, %s)\n"
-      "  endpoint2: (%s, %s)", name_.c_str(), ep1->name.c_str(),
-      name_.c_str(), ep2->name.c_str());
+      "  endpoint2: (%s, %s)",
+      name_.c_str(), ep1->name.c_str(), name_.c_str(), ep2->name.c_str());
 
   return std::make_pair(ep1, ep2);
 }
@@ -59,12 +62,13 @@ Node::CreateMessagePipesAndGetEndpoints() {
   CHECK_ON_THREAD(base::ThreadType::UI);
   const auto& [endpoint_1, endpoint_2] = InitializeAndEntangleEndpoints();
   MessagePipe handle_1 = Core::Get()->GetNextMessagePipe(),
-             handle_2 = Core::Get()->GetNextMessagePipe();
+              handle_2 = Core::Get()->GetNextMessagePipe();
   Core::Get()->RegisterLocalHandleAndEndpoint(handle_1, endpoint_1);
   Core::Get()->RegisterLocalHandleAndEndpoint(handle_2, endpoint_2);
   CHECK_NE(local_endpoints_.find(endpoint_1->name), local_endpoints_.end());
   CHECK_NE(local_endpoints_.find(endpoint_2->name), local_endpoints_.end());
-  return {std::make_pair(handle_1, endpoint_1), std::make_pair(handle_2, endpoint_2)};
+  return {std::make_pair(handle_1, endpoint_1),
+          std::make_pair(handle_2, endpoint_2)};
 }
 
 MessagePipe Node::SendInvitationAndGetMessagePipe(int fd) {
@@ -77,7 +81,8 @@ MessagePipe Node::SendInvitationAndGetMessagePipe(int fd) {
   //         endpoints are technically local to |this| at this point. Eventually
   //         only one endpoint, |local_endpoint| below will be local to |this|
   //         while |remote_endpoint| will eventually be replaced with an
-  //         endpoint with the same name as |remote_endpoint| on the target node.
+  //         endpoint with the same name as |remote_endpoint| on the target
+  //         node.
   //     3.) Insert |remote_endpoint| into |reserved_endpoints| which maps
   //         temporary node names to endpoints that will eventually be replaced
   //         with a truly remote endpoint.
@@ -104,8 +109,8 @@ MessagePipe Node::SendInvitationAndGetMessagePipe(int fd) {
   //         |local_endpoint| that will eventually be delivered to the remote
   //         process.
 
-  std::vector<std::pair<mage::MessagePipe, std::shared_ptr<Endpoint>>>
-      pipes = CreateMessagePipesAndGetEndpoints();
+  std::vector<std::pair<mage::MessagePipe, std::shared_ptr<Endpoint>>> pipes =
+      CreateMessagePipesAndGetEndpoints();
   std::shared_ptr<Endpoint> local_endpoint = pipes[0].second,
                             remote_endpoint = pipes[1].second;
 
@@ -116,7 +121,7 @@ MessagePipe Node::SendInvitationAndGetMessagePipe(int fd) {
   channel->SetRemoteNodeName(temporary_remote_node_name);
   channel->SendInvitation(/*inviter_name=*/name_,
                           /*intended_endpoint_peer_name=*/
-                            remote_endpoint->peer_address.endpoint_name);
+                          remote_endpoint->peer_address.endpoint_name);
 
   node_channel_map_.insert({temporary_remote_node_name, std::move(channel)});
   pending_invitations_.insert({temporary_remote_node_name, remote_endpoint});
@@ -151,7 +156,8 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
   //
   // This would be a good thing to gate behind a "debug-only" build check, so
   // that we don't waste the time it takes to do this in "production".
-  for (const EndpointDescriptor* const descriptor : message.GetEndpointDescriptors()) {
+  for (const EndpointDescriptor* const descriptor :
+       message.GetEndpointDescriptors()) {
     std::string endpoint_name(descriptor->endpoint_name, kIdentifierSize);
     auto it = local_endpoints_.find(endpoint_name);
     std::shared_ptr<Endpoint> endpoint = it->second;
@@ -179,14 +185,16 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
   // We have to write the `peer_endpoint_name` to the message, so that the
   // ultimate recipient can dispatch it correctly.
   CHECK_EQ(peer_endpoint_name.size(), kIdentifierSize);
-  memcpy(message.GetMutableMessageHeader().target_endpoint, peer_endpoint_name.c_str(), kIdentifierSize);
+  memcpy(message.GetMutableMessageHeader().target_endpoint,
+         peer_endpoint_name.c_str(), kIdentifierSize);
 
   bool peer_is_local = (endpoint_it != local_endpoints_.end());
   LOG(" peer_is_local: %d, [getpid=%d]", peer_is_local, getpid());
   if (!peer_is_local) {
     std::queue<Message> messages_to_send;
     messages_to_send.push(std::move(message));
-    SendMessagesAndRecursiveDependents(std::move(messages_to_send), peer_node_name);
+    SendMessagesAndRecursiveDependents(std::move(messages_to_send),
+                                       peer_node_name);
     return;
   }
 
@@ -200,25 +208,32 @@ void Node::SendMessage(std::shared_ptr<Endpoint> local_endpoint,
 
   switch (local_peer_endpoint->state) {
     case Endpoint::State::kUnboundAndProxying: {
-      std::string actual_node_name = local_peer_endpoint->proxy_target.node_name;
-      std::string actual_endpoint_name = local_peer_endpoint->proxy_target.endpoint_name;
-      LOG("  local_peer is in proxying state. forwarding message to remote endpoint (%s : %s)",
+      std::string actual_node_name =
+          local_peer_endpoint->proxy_target.node_name;
+      std::string actual_endpoint_name =
+          local_peer_endpoint->proxy_target.endpoint_name;
+      LOG("  local_peer is in proxying state. forwarding message to remote "
+          "endpoint (%s : %s)",
           actual_node_name.c_str(), actual_endpoint_name.c_str());
 
       // If we know that this message is supposed to be proxied to another node,
       // we have to rewrite its target endpoint to be the proxy target. We do
       // the same for dependent endpoint descriptors in
       // `SendMessagesAndRecursiveDependents()`.
-      memcpy(message.GetMutableMessageHeader().target_endpoint, actual_endpoint_name.c_str(), kIdentifierSize);
+      memcpy(message.GetMutableMessageHeader().target_endpoint,
+             actual_endpoint_name.c_str(), kIdentifierSize);
 
       std::queue<Message> messages_to_send;
       messages_to_send.push(std::move(message));
-      SendMessagesAndRecursiveDependents(std::move(messages_to_send), local_peer_endpoint->proxy_target.node_name);
+      SendMessagesAndRecursiveDependents(
+          std::move(messages_to_send),
+          local_peer_endpoint->proxy_target.node_name);
       break;
     }
     case Endpoint::State::kBound:
     case Endpoint::State::kUnboundAndQueueing:
-      LOG("  local_peer is not proxying state, going to deliver the message right there");
+      LOG("  local_peer is not proxying state, going to deliver the message "
+          "right there");
       // We can just pass this single message to the peer without recursively
       // looking at dependent messages. That's because if we *did* recursively
       // look through all of the dependent messages and try and forward them,
@@ -280,13 +295,16 @@ void Node::OnReceivedInvitation(Message message) {
   // peer that we just learned about from the inviter's message.
   // Choose a random name for this endpoint. We send this name back to the
   // inviter when we accept the invitation.
-  std::shared_ptr<Endpoint> local_endpoint(new Endpoint(/*name=*/util::RandomIdentifier()));
+  std::shared_ptr<Endpoint> local_endpoint(
+      new Endpoint(/*name=*/util::RandomIdentifier()));
   local_endpoint->peer_address.node_name = inviter_name;
   local_endpoint->peer_address.endpoint_name = intended_endpoint_peer_name;
   local_endpoints_.insert({local_endpoint->name, local_endpoint});
   LOG("  local_endpoint->name: %s", local_endpoint->name.c_str());
-  LOG("  local_endpoint->peer_address.node_name: %s", local_endpoint->peer_address.node_name.c_str());
-  LOG("  local_endpoint->peer_address.endpoint_name: %s", local_endpoint->peer_address.endpoint_name.c_str());
+  LOG("  local_endpoint->peer_address.node_name: %s",
+      local_endpoint->peer_address.node_name.c_str());
+  LOG("  local_endpoint->peer_address.endpoint_name: %s",
+      local_endpoint->peer_address.endpoint_name.c_str());
 
   node_channel_map_[inviter_name]->SendAcceptInvitation(
       temporary_remote_node_name, name_, local_endpoint->name);
@@ -317,7 +335,7 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   // We should only get ACCEPT_INVITATION messages from nodes that we have a
   // pending invitation for.
   auto remote_endpoint_it =
-    pending_invitations_.find(temporary_remote_node_name);
+      pending_invitations_.find(temporary_remote_node_name);
   CHECK_NE(remote_endpoint_it, pending_invitations_.end());
   std::shared_ptr<Endpoint> remote_endpoint = remote_endpoint_it->second;
 
@@ -333,7 +351,9 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   // new proxy target, and we can't do this while another thread is possibly
   // trying to queue messages onto the endpoint.
   remote_endpoint->Lock();
-  remote_endpoint->SetProxying(/*in_node_name=*/actual_node_name, /*in_endpoint_name=*/accept_invitation_endpoint_name);
+  remote_endpoint->SetProxying(
+      /*in_node_name=*/actual_node_name,
+      /*in_endpoint_name=*/accept_invitation_endpoint_name);
 
   LOG("  Our `remote_endpoint` now recognizes its proxy target as: (%s:%s)",
       remote_endpoint->proxy_target.node_name.c_str(),
@@ -361,7 +381,8 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   //             maybe just delete it? Figure this out....)
   std::queue<Message> messages_to_forward =
       remote_endpoint->TakeQueuedMessages();
-  LOG("    Node has %lu messages queued up in the remote invitation endpoint", messages_to_forward.size());
+  LOG("    Node has %lu messages queued up in the remote invitation endpoint",
+      messages_to_forward.size());
 
   // TODO(domfarolino): This is a stupid artifact of the fact that we let the
   // recipient of the invitation choose its own name. Ultimately we should not
@@ -380,17 +401,22 @@ void Node::OnReceivedAcceptInvitation(Message message) {
   std::queue<Message> final_messages_to_forward;
   while (!messages_to_forward.empty()) {
     Message message_to_forward = std::move(messages_to_forward.front());
-    memcpy(message_to_forward.GetMutableMessageHeader().target_endpoint, remote_endpoint->proxy_target.endpoint_name.c_str(), kIdentifierSize);
+    memcpy(message_to_forward.GetMutableMessageHeader().target_endpoint,
+           remote_endpoint->proxy_target.endpoint_name.c_str(),
+           kIdentifierSize);
     final_messages_to_forward.push(std::move(message_to_forward));
     messages_to_forward.pop();
   }
 
-  SendMessagesAndRecursiveDependents(std::move(final_messages_to_forward), remote_endpoint->proxy_target.node_name);
+  SendMessagesAndRecursiveDependents(std::move(final_messages_to_forward),
+                                     remote_endpoint->proxy_target.node_name);
   remote_endpoint->Unlock();
   Core::Get()->OnReceivedAcceptInvitation();
 }
 
-void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_send, std::string target_node_name) {
+void Node::SendMessagesAndRecursiveDependents(
+    std::queue<Message> messages_to_send,
+    std::string target_node_name) {
   // All messages sent from this method are bound for the same node
   // `target_node_name`, but each is going to a cross-node endpoint whose name
   // is `EndpointDescriptor::cross_node_endpoint_name`. It's this name that
@@ -402,8 +428,10 @@ void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_se
     Message message_to_send = std::move(messages_to_send.front());
 
     // Push possibly many more messages to `message_to_send`.
-    LOG("      Forwarding a message NumberOfPipes(): %d", message_to_send.NumberOfPipes());
-    std::vector<EndpointDescriptor*> descriptors = message_to_send.GetEndpointDescriptors();
+    LOG("      Forwarding a message NumberOfPipes(): %d",
+        message_to_send.NumberOfPipes());
+    std::vector<EndpointDescriptor*> descriptors =
+        message_to_send.GetEndpointDescriptors();
 
     // As we process each dependent endpoint of `message_to_send`, we have to
     // lock them. The meat of what we do below is:
@@ -421,7 +449,8 @@ void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_se
 
     for (const EndpointDescriptor* const descriptor : descriptors) {
       std::string endpoint_name(descriptor->endpoint_name, kIdentifierSize);
-      std::string cross_node_endpoint_name(descriptor->cross_node_endpoint_name, kIdentifierSize);
+      std::string cross_node_endpoint_name(descriptor->cross_node_endpoint_name,
+                                           kIdentifierSize);
       LOG("        An EndpointDescriptor in this message:");
       descriptor->Print();
 
@@ -434,7 +463,8 @@ void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_se
       // this endpoint.
       locked_dependent_endpoints.push_back(endpoint_from_info);
 
-      std::queue<Message> sub_messages = endpoint_from_info->TakeQueuedMessages();
+      std::queue<Message> sub_messages =
+          endpoint_from_info->TakeQueuedMessages();
       while (!sub_messages.empty()) {
         Message sub_message = std::move(sub_messages.front());
         // See `Core::PopulateEndpointDescriptor()`; when an
@@ -445,7 +475,8 @@ void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_se
         // going to another process, so we have to take all of the messages
         // queued on it and change their target endpoint names to the name that
         // `endpoint_from_info` will have in the remote node.
-        memcpy(sub_message.GetMutableMessageHeader().target_endpoint, cross_node_endpoint_name.c_str(), kIdentifierSize);
+        memcpy(sub_message.GetMutableMessageHeader().target_endpoint,
+               cross_node_endpoint_name.c_str(), kIdentifierSize);
         messages_to_send.push(std::move(sub_message));
         sub_messages.pop();
       }
@@ -456,14 +487,17 @@ void Node::SendMessagesAndRecursiveDependents(std::queue<Message> messages_to_se
       // place it went was `target_node_name` which is either the ultimate
       // destination, or the node with the next closest proxy. We'll send the
       // message to that node and let it figure out what to do from there.
-      endpoint_from_info->SetProxying(/*in_node_name=*/target_node_name, /*in_endpoint_name=*/cross_node_endpoint_name);
+      endpoint_from_info->SetProxying(
+          /*in_node_name=*/target_node_name,
+          /*in_endpoint_name=*/cross_node_endpoint_name);
     }
 
     // Forward the message and remove it from the queue.
-    node_channel_map_[target_node_name]->SendMessage(std::move(message_to_send));
+    node_channel_map_[target_node_name]->SendMessage(
+        std::move(message_to_send));
 
     // See the documentation above `locked_dependent_endpoints`.
-    for (const std::shared_ptr<Endpoint>& endpoint: locked_dependent_endpoints)
+    for (const std::shared_ptr<Endpoint>& endpoint : locked_dependent_endpoints)
       endpoint->Unlock();
 
     messages_to_send.pop();
@@ -474,11 +508,13 @@ void Node::OnReceivedUserMessage(Message message) {
   CHECK_ON_THREAD(base::ThreadType::IO);
   LOG("Node::OnReceivedUserMessage getpid(): %d", getpid());
   // 1. Extract the endpoint that the message is bound for.
-  char* target_endpoint_buffer = message.GetMutableMessageHeader().target_endpoint;
+  char* target_endpoint_buffer =
+      message.GetMutableMessageHeader().target_endpoint;
   std::string local_target_endpoint_name(
-      target_endpoint_buffer,
-      target_endpoint_buffer + kIdentifierSize);
-  LOG("    OnReceivedUserMessage() looking for local_target_endpoint_name: %s to dispatch message to", local_target_endpoint_name.c_str());
+      target_endpoint_buffer, target_endpoint_buffer + kIdentifierSize);
+  LOG("    OnReceivedUserMessage() looking for local_target_endpoint_name: %s "
+      "to dispatch message to",
+      local_target_endpoint_name.c_str());
   auto endpoint_it = local_endpoints_.find(local_target_endpoint_name);
   CHECK_NE(endpoint_it, local_endpoints_.end());
 
@@ -489,9 +525,11 @@ void Node::OnReceivedUserMessage(Message message) {
 
   // Process and register all of the endpoints that `message` is carrying before
   // we either queue or dispatch it.
-  std::vector<EndpointDescriptor*> endpoints_in_message = message.GetEndpointDescriptors();
+  std::vector<EndpointDescriptor*> endpoints_in_message =
+      message.GetEndpointDescriptors();
   LOG("  endpoints_in_message.size()= %lu", endpoints_in_message.size());
-  for (const EndpointDescriptor* const endpoint_descriptor : endpoints_in_message) {
+  for (const EndpointDescriptor* const endpoint_descriptor :
+       endpoints_in_message) {
     MessagePipe local_pipe =
         Core::RecoverNewMessagePipeFromEndpointDescriptor(*endpoint_descriptor);
     endpoint_descriptor->Print();
@@ -505,10 +543,14 @@ void Node::OnReceivedUserMessage(Message message) {
       Address& proxy_target = endpoint->proxy_target;
       CHECK_NE(proxy_target.node_name, name_);
 
-      LOG("  Node::OnReceivedUserMessage() received a message when in the proxying state. Forwarding message to proxy_target=(%s : %s)", proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
-      memcpy(message.GetMutableMessageHeader().target_endpoint, proxy_target.endpoint_name.c_str(), kIdentifierSize);
+      LOG("  Node::OnReceivedUserMessage() received a message when in the "
+          "proxying state. Forwarding message to proxy_target=(%s : %s)",
+          proxy_target.node_name.c_str(), proxy_target.endpoint_name.c_str());
+      memcpy(message.GetMutableMessageHeader().target_endpoint,
+             proxy_target.endpoint_name.c_str(), kIdentifierSize);
       PrepareToForwardUserMessage(endpoint, message);
-      node_channel_map_[endpoint->proxy_target.node_name]->SendMessage(std::move(message));
+      node_channel_map_[endpoint->proxy_target.node_name]->SendMessage(
+          std::move(message));
       break;
     }
     case Endpoint::State::kBound:
@@ -519,15 +561,19 @@ void Node::OnReceivedUserMessage(Message message) {
   endpoint->Unlock();
 }
 
-void Node::PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint, Message& message) {
+void Node::PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint,
+                                       Message& message) {
   CHECK_ON_THREAD(base::ThreadType::IO);
   CHECK_EQ(endpoint->state, Endpoint::State::kUnboundAndProxying);
 
   std::vector<EndpointDescriptor*> descriptors_to_forward =
       message.GetEndpointDescriptors();
   for (EndpointDescriptor* descriptor : descriptors_to_forward) {
-    std::string endpoint_name(descriptor->cross_node_endpoint_name, kIdentifierSize);
-    LOG("Looking for a local endpoint by the name of: %s to put into a proxying state", endpoint_name.c_str());
+    std::string endpoint_name(descriptor->cross_node_endpoint_name,
+                              kIdentifierSize);
+    LOG("Looking for a local endpoint by the name of: %s to put into a "
+        "proxying state",
+        endpoint_name.c_str());
     // Endpoints being sent in this message should be "recovered" by
     // `Node::OnReceivedUserMessage()`.
     auto it = local_endpoints_.find(endpoint_name);
@@ -551,11 +597,13 @@ void Node::PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint, Messa
     //   2.) Change the descriptor *as it lives on the message* (not a copy) to
     //       inchworm forward in the proxying process:
     //       `endpoint_name = cross_node_endpoint_name`
-    memcpy(descriptor->endpoint_name, descriptor->cross_node_endpoint_name, kIdentifierSize);
+    memcpy(descriptor->endpoint_name, descriptor->cross_node_endpoint_name,
+           kIdentifierSize);
     //   3.) Inchworm the `cross_node_endpoint_name` forwrad too, with the new
     //       one we generated:
     //       `cross_node_endpoint_name = new_cross_node_endpoint_name`
-    memcpy(descriptor->cross_node_endpoint_name, new_cross_node_endpoint_name.c_str(), kIdentifierSize);
+    memcpy(descriptor->cross_node_endpoint_name,
+           new_cross_node_endpoint_name.c_str(), kIdentifierSize);
     //   3.) Set `backing_endpoint` to proxy to the *new*
     //       `cross_node_endpoint_name` since that will be the name of this
     //       endpoint in the proxy target node:
@@ -563,8 +611,10 @@ void Node::PrepareToForwardUserMessage(std::shared_ptr<Endpoint> endpoint, Messa
     // We don't need to acquire a lock here, since no other thread should know
     // about these dependent endpoints inside `message`, since they were just
     // created during this flow and not exported anywhere.
-    backing_endpoint->SetProxying(/*in_node_name=*/endpoint->proxy_target.node_name, /*in_endpoint_name=*/new_cross_node_endpoint_name);
+    backing_endpoint->SetProxying(
+        /*in_node_name=*/endpoint->proxy_target.node_name,
+        /*in_endpoint_name=*/new_cross_node_endpoint_name);
   }
 }
 
-}; // namespace mage
+};  // namespace mage

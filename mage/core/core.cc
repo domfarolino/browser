@@ -48,7 +48,7 @@ std::vector<MessagePipe> Core::CreateMessagePipes() {
 
 // static
 MessagePipe Core::SendInvitationAndGetMessagePipe(int fd,
-                                                 base::OnceClosure callback) {
+                                                  base::OnceClosure callback) {
   Get()->remote_has_accepted_invitation_callback_ = std::move(callback);
   return Get()->node_->SendInvitationAndGetMessagePipe(fd);
 }
@@ -105,12 +105,12 @@ void Core::PopulateEndpointDescriptor(
   std::string peer_endpoint_name =
       local_endpoint_of_preexisting_connection->peer_address.endpoint_name;
 
-  LOG(
-      "**************PopulateEndpointDescriptor() populating "
+  LOG("**************PopulateEndpointDescriptor() populating "
       "EndpointDescriptor:");
   LOG("    'carrier/host' endpoint name: %s",
-         local_endpoint_of_preexisting_connection->name.c_str());
-  LOG("    'carrier/host' peer address [%s:%s]", peer_node_name.c_str(), peer_endpoint_name.c_str());
+      local_endpoint_of_preexisting_connection->name.c_str());
+  LOG("    'carrier/host' peer address [%s:%s]", peer_node_name.c_str(),
+      peer_endpoint_name.c_str());
 
   // Populating an `EndpointDescriptor` is easy regardless of whether it is
   // being sent same-process or cross-process.
@@ -143,12 +143,13 @@ void Core::PopulateEndpointDescriptor(
   memcpy(endpoint_descriptor_to_populate.peer_endpoint_name,
          endpoint_being_sent->peer_address.endpoint_name.c_str(),
          kIdentifierSize);
-  LOG("endpoint_descriptor_to_populate.endpoint_name: %.*s",
-      kIdentifierSize, endpoint_descriptor_to_populate.endpoint_name);
+  LOG("endpoint_descriptor_to_populate.endpoint_name: %.*s", kIdentifierSize,
+      endpoint_descriptor_to_populate.endpoint_name);
   LOG("endpoint_descriptor_to_populate.cross_node_endpoint_name: %.*s",
-      kIdentifierSize, endpoint_descriptor_to_populate.cross_node_endpoint_name);
-  LOG("endpoint_descriptor_to_populate.peer_node_name: %.*s",
-      kIdentifierSize, endpoint_descriptor_to_populate.peer_node_name);
+      kIdentifierSize,
+      endpoint_descriptor_to_populate.cross_node_endpoint_name);
+  LOG("endpoint_descriptor_to_populate.peer_node_name: %.*s", kIdentifierSize,
+      endpoint_descriptor_to_populate.peer_node_name);
   LOG("endpoint_descriptor_to_populate.peer_endpoint_name: %.*s",
       kIdentifierSize, endpoint_descriptor_to_populate.peer_endpoint_name);
 }
@@ -156,8 +157,7 @@ void Core::PopulateEndpointDescriptor(
 // static
 MessagePipe Core::RecoverExistingMessagePipeFromEndpointDescriptor(
     const EndpointDescriptor& endpoint_descriptor) {
-  LOG(
-      "Core::RecoverExistingMessagePipeFromEndpointDescriptor(endpoint_"
+  LOG("Core::RecoverExistingMessagePipeFromEndpointDescriptor(endpoint_"
       "descriptor)");
   std::string endpoint_name(
       endpoint_descriptor.endpoint_name,
@@ -183,8 +183,7 @@ MessagePipe Core::RecoverExistingMessagePipeFromEndpointDescriptor(
 // static
 MessagePipe Core::RecoverNewMessagePipeFromEndpointDescriptor(
     const EndpointDescriptor& endpoint_descriptor) {
-  LOG(
-      "Core::RecoverMessagePipeFromEndpointDescriptor(endpoint_descriptor)");
+  LOG("Core::RecoverMessagePipeFromEndpointDescriptor(endpoint_descriptor)");
   endpoint_descriptor.Print();
 
   std::string cross_node_endpoint_name(
@@ -242,12 +241,15 @@ void Core::RegisterLocalHandleAndEndpoint(
 
   // Next, we check that `local_endpoint` doesn't already exist in this node.
   {
-    std::shared_ptr<Endpoint> null_endpoint = node_->GetEndpoint(local_endpoint->name);
+    std::shared_ptr<Endpoint> null_endpoint =
+        node_->GetEndpoint(local_endpoint->name);
     CHECK(!null_endpoint);
   }
 
   // Finally, we can register the endpoint with `this` and `node_`.
-  LOG("Core::RegisterLocalHandle registering local_handle (%d) and endpoint with name: %s", local_handle, local_endpoint->name.c_str());
+  LOG("Core::RegisterLocalHandle registering local_handle (%d) and endpoint "
+      "with name: %s",
+      local_handle, local_endpoint->name.c_str());
   handle_table_lock_.lock();
   handle_table_.insert({local_handle, local_endpoint});
   handle_table_lock_.unlock();

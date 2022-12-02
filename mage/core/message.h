@@ -4,8 +4,8 @@
 #include <inttypes.h>
 
 #include <cstring>
-#include <string>
 #include <queue>
+#include <string>
 #include <vector>
 
 #include "base/check.h"
@@ -54,7 +54,8 @@ inline const void* DecodePointer(const uint64_t* offset) {
   if (!*offset)
     return nullptr;
 
-  const char* address_of_offset_placeholder = reinterpret_cast<const char*>(offset);
+  const char* address_of_offset_placeholder =
+      reinterpret_cast<const char*>(offset);
   return address_of_offset_placeholder + *offset;
 }
 
@@ -175,12 +176,14 @@ enum MessageType : int {
 // |     a4     |/
 // +------------+
 //
-// When the serialization code attempts to encode the contents of `str`, it will:
+// When the serialization code attempts to encode the contents of `str`, it
+// will:
 //   1. Expand the dynamically-sized backing payload buffer by the number of
 //      characters needed to support the actual value of `str`.
 //   2. Grab the address of the first available slot at the end of the payload
 //      buffer
-//   3. Find the *difference* (an integer) between the addresses of the following:
+//   3. Find the *difference* (an integer) between the addresses of the
+//      following:
 //        a. The first available slot at the end of the buffer
 //        b. Where `str`'s `offset` variable is stored (i.e., `str_offset1`)
 //   4. Set the value of `str`'s `offset` variable to the integer difference
@@ -204,13 +207,9 @@ enum MessageType : int {
 // `offset` where the data that `Pointer` represents is stored.
 template <typename T>
 struct Pointer {
-  void Set(T* ptr) {
-    EncodePointer(ptr, &offset);
-  }
+  void Set(T* ptr) { EncodePointer(ptr, &offset); }
 
-  const T* Get() const {
-    return static_cast<const T*>(DecodePointer(&offset));
-  }
+  const T* Get() const { return static_cast<const T*>(DecodePointer(&offset)); }
 
   T* Get() {
     return static_cast<T*>(const_cast<void*>(DecodePointer(&offset)));
@@ -273,7 +272,8 @@ struct EndpointDescriptor {
 
   void Print() const {
     LOG("  endpoint_name: %.*s", kIdentifierSize, endpoint_name);
-    LOG("  cross_node_endpoint_name: %.*s", kIdentifierSize, cross_node_endpoint_name);
+    LOG("  cross_node_endpoint_name: %.*s", kIdentifierSize,
+        cross_node_endpoint_name);
     LOG("  peer_node_name: %.*s", kIdentifierSize, peer_node_name);
     LOG("  peer_endpoint_name: %.*s", kIdentifierSize, peer_endpoint_name);
   }
@@ -282,7 +282,8 @@ struct EndpointDescriptor {
 
   EndpointDescriptor(const EndpointDescriptor& other) {
     memcpy(endpoint_name, other.endpoint_name, kIdentifierSize);
-    memcpy(cross_node_endpoint_name, other.cross_node_endpoint_name, kIdentifierSize);
+    memcpy(cross_node_endpoint_name, other.cross_node_endpoint_name,
+           kIdentifierSize);
     memcpy(peer_node_name, other.peer_node_name, kIdentifierSize);
     memcpy(peer_endpoint_name, other.peer_endpoint_name, kIdentifierSize);
   }
@@ -376,16 +377,15 @@ class Message final {
 
     std::vector<EndpointDescriptor*> endpoint_descriptors;
     for (int i = 0; i < endpoints_pointer.Get()->num_elements; ++i) {
-      EndpointDescriptor* descriptor = (endpoints_pointer.Get()->array_storage() + i);
+      EndpointDescriptor* descriptor =
+          (endpoints_pointer.Get()->array_storage() + i);
       endpoint_descriptors.push_back(descriptor);
     }
 
     return endpoint_descriptors;
   }
 
-  void QueuePipe(MessagePipe handle) {
-    pipes_.push(handle);
-  }
+  void QueuePipe(MessagePipe pipe) { pipes_.push(pipe); }
 
   int NumberOfPipes() {
     Pointer<ArrayHeader<EndpointDescriptor>>& endpoints_pointer =
@@ -400,17 +400,11 @@ class Message final {
     return return_pipe;
   }
 
-  std::vector<char>& payload_buffer() {
-    return payload_buffer_;
-  }
+  std::vector<char>& payload_buffer() { return payload_buffer_; }
 
-  int Size() {
-    return GetMutableMessageHeader().size;
-  }
+  int Size() { return GetMutableMessageHeader().size; }
 
-  MessageType Type() {
-    return GetMutableMessageHeader().type;
-  }
+  MessageType Type() { return GetMutableMessageHeader().type; }
 
  private:
   // Messages can carry a number of message pipes on them, queryable by
@@ -426,7 +420,8 @@ class Message final {
 template <typename T>
 class MessageFragment {
  public:
-  MessageFragment(Message& message) : message_(message), starting_index_(kInvalidFragmentStartingIndex) {}
+  MessageFragment(Message& message)
+      : message_(message), starting_index_(kInvalidFragmentStartingIndex) {}
 
   void Allocate() {
     // Cache the starting index of the block of data that we'll allocate. Note
@@ -437,7 +432,8 @@ class MessageFragment {
 
     // Allocate enough bytes in the underlying message buffer for T.
     int num_bytes_to_allocate = sizeof(T);
-    message_.payload_buffer().resize(message_.payload_buffer().size() + num_bytes_to_allocate);
+    message_.payload_buffer().resize(message_.payload_buffer().size() +
+                                     num_bytes_to_allocate);
   }
 
   T* data() {
@@ -453,15 +449,18 @@ class MessageFragment {
 template <typename T>
 class MessageFragment<ArrayHeader<T>> {
  public:
-  MessageFragment(Message& message) : message_(message), starting_index_(kInvalidFragmentStartingIndex) {}
+  MessageFragment(Message& message)
+      : message_(message), starting_index_(kInvalidFragmentStartingIndex) {}
 
   void AllocateArray(int num_elements) {
     // See comment in |MessageFragment<T>::Allocate()|.
     starting_index_ = message_.payload_buffer().size();
 
     // Allocate enough bytes for the ArrayHeader + the actual array data.
-    int num_bytes_to_allocate = sizeof(ArrayHeader<T>) + (sizeof(T) * num_elements);
-    message_.payload_buffer().resize(message_.payload_buffer().size() + num_bytes_to_allocate);
+    int num_bytes_to_allocate =
+        sizeof(ArrayHeader<T>) + (sizeof(T) * num_elements);
+    message_.payload_buffer().resize(message_.payload_buffer().size() +
+                                     num_bytes_to_allocate);
 
     // Get a pointer to the ArrayHeader<T>* that we just allocated above, and
     // set its |num_elements| member. This writes that number to the underlying
@@ -520,6 +519,6 @@ struct SendAcceptInvitationParams {
   char accept_invitation_endpoint_name[kIdentifierSize];
 };
 
-}; // namspace mage
+};  // namespace mage
 
-#endif // MAGE_CORE_MESSAGE_H_
+#endif  // MAGE_CORE_MESSAGE_H_

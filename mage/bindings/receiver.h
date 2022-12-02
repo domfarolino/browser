@@ -48,6 +48,6 @@ class Receiver {
   base::ThreadChecker thread_checker_;
 };
 
-}; // namspace mage
+};  // namespace mage
 
-#endif // MAGE_BINDINGS_RECEIVER_H_
+#endif  // MAGE_BINDINGS_RECEIVER_H_

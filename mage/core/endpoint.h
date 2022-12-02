@@ -2,14 +2,14 @@
 #define MAGE_CORE_ENDPOINT_H_
 
 #include <memory>
-#include <string>
 #include <queue>
+#include <string>
 
 #include "base/synchronization/mutex.h"
 #include "mage/core/message.h"
 
 namespace base {
-  class TaskRunner;
+class TaskRunner;
 }
 
 namespace mage {
@@ -30,10 +30,14 @@ class Endpoint final {
     // `weak_delegate` was bound on in `Endpoint`. First check if
     // `weak_delegate` is still alive; if so, we can dispatch the message.
     // Otherwise, the message must be dropped because the delegate is dead.
-    static void DispatchMessageIfStillAlive(std::weak_ptr<ReceiverDelegate> weak_delegate, mage::Message message) {
+    static void DispatchMessageIfStillAlive(
+        std::weak_ptr<ReceiverDelegate> weak_delegate,
+        mage::Message message) {
       std::shared_ptr<ReceiverDelegate> receiver = weak_delegate.lock();
       if (!receiver) {
-        LOG("\033[31;1m[static] ReceiverDelegate::DispatchMessageIfStillAlive() received a message for a destroyed delegate. Dropping the message.\033[0m");
+        LOG("\033[31;1m[static] "
+            "ReceiverDelegate::DispatchMessageIfStillAlive() received a "
+            "message for a destroyed delegate. Dropping the message.\033[0m");
         return;
       }
 
@@ -50,7 +54,8 @@ class Endpoint final {
     kUnboundAndProxying,
   };
 
-  explicit Endpoint(std::string name) : name(name), state(State::kUnboundAndQueueing) {}
+  explicit Endpoint(std::string name)
+      : name(name), state(State::kUnboundAndQueueing) {}
   Endpoint() = delete;
   Endpoint(const Endpoint&) = delete;
   Endpoint& operator=(const Endpoint&) = delete;
@@ -206,6 +211,6 @@ class Endpoint final {
   base::Mutex lock_;
 };
 
-}; // namspace mage
+};  // namespace mage
 
-#endif // MAGE_CORE_ENDPOINT_H_
+#endif  // MAGE_CORE_ENDPOINT_H_

@@ -25,4 +25,4 @@ Message::Message(Message&& other) {
 
 //////////////////// END MESSAGE ////////////////////
 
-}; // namspace mage
+};  // namespace mage

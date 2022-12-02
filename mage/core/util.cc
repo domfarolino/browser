@@ -19,5 +19,5 @@ std::string RandomIdentifier() {
   return return_id;
 }
 
-}; // namespace util
-}; // namespace mage
+};  // namespace util
+};  // namespace mage
