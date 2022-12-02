@@ -1,4 +1,7 @@
-# mage
+# mage 🧙‍♂️
+
+![ci-shield](https://github.com/domfarolino/browser/actions/workflows/workflow.yml/badge.svg)
+![license-shield](https://img.shields.io/badge/license-MIT-success)
 
 A simple cross-platform[^1] interprocess communication (IPC) library written in
 C++. Mage is heavily inspired by Chromium's [Mojo IPC library], and written by
@@ -374,7 +377,14 @@ messages, and even expand the number of connections that span the two processes.
 But **how do you establish the initial connection**? This section introduces the
 Mage "invitation" concep, which helps you do this.
 
-TODO: Document this.
+There are two public APIs for establishing the initial message pipe connection
+across two processes:
+ - From the parent process:
+   `mage::Core::SendInvitationAndGetMessagePipe(int file_descriptor)`
+ - From the child process:
+   `mage::Core::AcceptInvitation(int file_descriptor, std::function<void(MessagePipe)> callback)`
+
+TODO: Finish
 
 
 ## Design limitations
