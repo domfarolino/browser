@@ -116,15 +116,25 @@ MessagePipe Node::SendInvitationAndGetMessagePipe(int fd) {
 
   NodeName temporary_remote_node_name = util::RandomIdentifier();
 
-  std::unique_ptr<Channel> channel(new Channel(fd, /*delegate=*/this));
+  auto it = node_channel_map_.insert(
+      {temporary_remote_node_name,
+       std::make_unique<Channel>(fd, /*delegate=*/this)});
+  pending_invitations_.insert({temporary_remote_node_name, remote_endpoint});
+
+  // Similar to `AcceptInvitation()` below, only start the channel after it and
+  // `remote_endpoint` have been inserted into their maps. Right when we the
+  // channel starts it can receive message on the IO thread, which might include
+  // the accept invitation message, which on the IO thread checks the
+  // `pending_invitations_` map, which of course better contain the pending
+  // invitation that some other node apparently accepted. We could also lock the
+  // map accordingly and not have to worry about ordering, but that is more
+  // expensive, and we can avoid it with one-time proper ordering.
+  std::unique_ptr<Channel>& channel = it.first->second;
   channel->Start();
   channel->SetRemoteNodeName(temporary_remote_node_name);
   channel->SendInvitation(/*inviter_name=*/name_,
                           /*intended_endpoint_peer_name=*/
                           remote_endpoint->peer_address.endpoint_name);
-
-  node_channel_map_.insert({temporary_remote_node_name, std::move(channel)});
-  pending_invitations_.insert({temporary_remote_node_name, remote_endpoint});
 
   MessagePipe local_endpoint_handle = pipes[0].first;
   return local_endpoint_handle;
