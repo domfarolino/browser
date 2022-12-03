@@ -1,8 +1,8 @@
 #ifndef MAGE_BINDINGS_REMOTE_H_
 #define MAGE_BINDINGS_REMOTE_H_
 
-#include "mage/core/handles.h"
-#include "mage/core/message.h"
+#include "mage/public/handles.h"
+#include "mage/public/message.h"
 
 namespace mage {
 

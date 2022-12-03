@@ -10,9 +10,9 @@
 
 #include "gtest/gtest_prod.h"
 #include "mage/core/channel.h"
-#include "mage/core/handles.h"
-#include "mage/core/message.h"
-#include "mage/core/util.h"
+#include "mage/public/handles.h"
+#include "mage/public/message.h"
+#include "mage/public/util.h"
 
 namespace mage {
 

@@ -8,7 +8,7 @@ cc_binary(
   deps = [
     "//base:base",
     "//mage/demo/magen:include",
-    "//mage:mage",
+    "//mage/public",
   ],
 )
 cc_binary(
@@ -17,6 +17,6 @@ cc_binary(
   deps = [
     "//base:base",
     "//mage/demo/magen:include",
-    "//mage:mage",
+    "//mage/public",
   ],
 )

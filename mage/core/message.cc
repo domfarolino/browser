@@ -1,4 +1,4 @@
-#include "mage/core/message.h"
+#include "mage/public/message.h"
 
 #include <memory>
 #include <vector>

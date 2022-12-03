@@ -10,7 +10,7 @@
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop_for_io.h"
 #include "base/threading/thread_checker.h"  // for CHECK_ON_THREAD().
-#include "mage/core/core.h"
+#include "mage/public/core.h"
 #include "mage/core/endpoint.h"
 
 namespace mage {

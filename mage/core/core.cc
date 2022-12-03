@@ -1,12 +1,14 @@
-#include "mage/core/core.h"
+#include "mage/public/core.h"
 
 #include <unistd.h>
 #include <cstdlib>
 
 #include "base/scheduling/task_loop_for_io.h"
+// TODO(domfarolino): Can you get rid of this include??
+#include "mage/public/receiver_delegate.h"
 #include "mage/core/endpoint.h"
 #include "mage/core/node.h"
-#include "mage/core/util.h"
+#include "mage/public/util.h"
 
 namespace mage {
 
@@ -75,7 +77,7 @@ void Core::SendMessage(MessagePipe local_handle, Message message) {
 // static
 void Core::BindReceiverDelegateToEndpoint(
     MessagePipe local_handle,
-    std::weak_ptr<Endpoint::ReceiverDelegate> delegate,
+    std::weak_ptr<ReceiverDelegate> delegate,
     std::shared_ptr<base::TaskRunner> delegate_task_runner) {
   Get()->handle_table_lock_.lock();
   auto endpoint_it = Get()->handle_table_.find(local_handle);

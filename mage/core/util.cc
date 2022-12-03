@@ -1,7 +1,7 @@
 #include <string>
 
-#include "mage/core/message.h"
-#include "mage/core/util.h"
+#include "mage/public/message.h"
+#include "mage/public/util.h"
 
 namespace mage {
 namespace util {

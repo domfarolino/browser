@@ -6,14 +6,16 @@
 
 #include "base/callback.h"
 #include "base/scheduling/scheduling_handles.h"
-#include "mage/core/endpoint.h"
-#include "mage/core/handles.h"
-#include "mage/core/message.h"
+#include "base/synchronization/mutex.h"
+#include "mage/public/handles.h"
+#include "mage/public/message.h"
 
 namespace mage {
 
 class Channel;
+class Endpoint;
 class Node;
+class ReceiverDelegate;
 
 // A global singleton for processes that initializes mage.
 class Core {
@@ -37,7 +39,7 @@ class Core {
   static void SendMessage(MessagePipe local_handle, Message message);
   static void BindReceiverDelegateToEndpoint(
       MessagePipe local_handle,
-      std::weak_ptr<Endpoint::ReceiverDelegate> delegate,
+      std::weak_ptr<ReceiverDelegate> delegate,
       std::shared_ptr<base::TaskRunner> delegate_task_runner);
 
   // More obscure helpers.

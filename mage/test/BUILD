@@ -7,7 +7,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage:mage",
+    "//mage/public",
     "//mage/test/magen:include",
   ],
   visibility = ["//visibility:public"],
@@ -19,7 +19,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage:mage",
+    "//mage/public",
     "//mage/test/magen:include",
   ],
   visibility = ["//visibility:public"],
@@ -31,7 +31,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage:mage",
+    "//mage/public",
     "//mage/test/magen:include",
   ],
   visibility = ["//visibility:public"],
@@ -43,7 +43,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage:mage",
+    "//mage/public",
     "//mage/test/magen:include",
   ],
   visibility = ["//visibility:public"],
@@ -55,7 +55,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage:mage",
+    "//mage/public",
     "//mage/test/magen:include",
   ],
   visibility = ["//visibility:public"],
@@ -67,7 +67,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage:mage",
+    "//mage/public",
     "//mage/test/magen:include",
   ],
   visibility = ["//visibility:public"],
@@ -79,7 +79,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage:mage",
+    "//mage/public",
     "//mage/test/magen:include",
   ],
   visibility = ["//visibility:public"],
@@ -91,7 +91,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage:mage",
+    "//mage/public",
     "//mage/test/magen:include",
   ],
   visibility = ["//visibility:public"],
@@ -103,7 +103,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage:mage",
+    "//mage/public",
     "//mage/test/magen:include",
   ],
   visibility = ["//visibility:public"],
@@ -115,7 +115,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage:mage",
+    "//mage/public",
     "//mage/test/magen:include",
   ],
   visibility = ["//visibility:public"],

@@ -8,9 +8,9 @@
 
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop_for_io.h"
-#include "mage/bindings/receiver.h"
-#include "mage/core/core.h"
-#include "mage/core/handles.h"
+#include "mage/public/receiver.h"
+#include "mage/public/core.h"
+#include "mage/public/handles.h"
 #include "mage/demo/magen/demo.magen.h"  // Generated.
 
 class DemoImpl : public magen::Demo {

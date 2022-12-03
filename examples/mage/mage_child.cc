@@ -10,9 +10,9 @@
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop.h"
 #include "base/threading/thread.h"
-#include "mage/bindings/receiver.h"
-#include "mage/bindings/remote.h"
-#include "mage/core/core.h"
+#include "mage/public/receiver.h"
+#include "mage/public/remote.h"
+#include "mage/public/core.h"
 
 #include "examples/mage/magen/child_process.magen.h"  // Generated.
 #include "examples/mage/magen/child_process_2.magen.h"  // Generated.

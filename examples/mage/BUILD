@@ -6,8 +6,10 @@ cc_binary(
     "mage_parent.cc",
   ],
   deps = [
-    "//mage:mage",
+    "//base:base",
+    "//mage/public",
     "//examples/mage/magen:include",
+    "@gtest//:gtest_prod",
   ],
   visibility = ["//visibility:public"],
 )
@@ -17,8 +19,10 @@ cc_binary(
     "mage_child.cc",
   ],
   deps = [
-    "//mage:mage",
+    "//base:base",
+    "//mage/public",
     "//examples/mage/magen:include",
+    "@gtest//:gtest_prod",
   ],
   visibility = ["//visibility:public"],
 )

@@ -5,9 +5,9 @@
 #include <vector>
 
 #include "base/check.h"
-#include "mage/core/endpoint.h"
-#include "mage/core/handles.h"
-#include "mage/core/message.h"
+#include "mage/public/handles.h"
+#include "mage/public/message.h"
+#include "mage/public/receiver_delegate.h"
 
 namespace magen {
 
@@ -167,7 +167,7 @@ class {{Interface}}Proxy {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate, public std::enable_shared_from_this<{{Interface}}ReceiverStub> {
+class {{Interface}}ReceiverStub : public mage::ReceiverDelegate, public std::enable_shared_from_this<{{Interface}}ReceiverStub> {
  public:
   void BindToPipe(mage::MessagePipe local_handle, {{Interface}}* impl, std::shared_ptr<base::TaskRunner> impl_task_runner) {
     CHECK(!bound_);
@@ -182,7 +182,7 @@ class {{Interface}}ReceiverStub : public mage::Endpoint::ReceiverDelegate, publi
   }
 
  private:
-  // mage::Endpoint::ReceiverDelegate implementation.
+  // mage::ReceiverDelegate implementation.
   // This is what deserializes the message and dispatches the correct method to
   // the interface implementation. If this message is called, then `impl_`
   // should be alive. If it has already been destroyed, that is considered a bug

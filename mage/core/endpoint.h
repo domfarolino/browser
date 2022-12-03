@@ -6,13 +6,15 @@
 #include <string>
 
 #include "base/synchronization/mutex.h"
-#include "mage/core/message.h"
+#include "mage/public/message.h"
 
 namespace base {
 class TaskRunner;
 }
 
 namespace mage {
+
+class ReceiverDelegate;
 
 struct Address {
   std::string node_name;
@@ -21,33 +23,6 @@ struct Address {
 
 class Endpoint final {
  public:
-  class ReceiverDelegate {
-   public:
-    virtual ~ReceiverDelegate() = default;
-    // This is the only public method in this class, because it is the
-    // gatekeeper for dispatching a message to a delegate. This method receives
-    // `message` bound for `weak_delegate`, and runs on the task loop that
-    // `weak_delegate` was bound on in `Endpoint`. First check if
-    // `weak_delegate` is still alive; if so, we can dispatch the message.
-    // Otherwise, the message must be dropped because the delegate is dead.
-    static void DispatchMessageIfStillAlive(
-        std::weak_ptr<ReceiverDelegate> weak_delegate,
-        mage::Message message) {
-      std::shared_ptr<ReceiverDelegate> receiver = weak_delegate.lock();
-      if (!receiver) {
-        LOG("\033[31;1m[static] "
-            "ReceiverDelegate::DispatchMessageIfStillAlive() received a "
-            "message for a destroyed delegate. Dropping the message.\033[0m");
-        return;
-      }
-
-      receiver->OnReceivedMessage(std::move(message));
-    }
-
-   private:
-    virtual void OnReceivedMessage(Message) = 0;
-  };
-
   enum class State {
     kBound,
     kUnboundAndQueueing,

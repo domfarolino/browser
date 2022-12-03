@@ -9,8 +9,8 @@
 #include <vector>
 
 #include "base/check.h"
-#include "mage/core/handles.h"
-#include "mage/core/util.h"
+#include "mage/public/handles.h"
+#include "mage/public/util.h"
 
 namespace mage {
 

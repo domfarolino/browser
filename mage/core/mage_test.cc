@@ -10,11 +10,12 @@
 #include "base/scheduling/task_loop_for_io.h"
 #include "base/threading/thread_checker.h" // for CHECK_ON_THREAD().
 #include "gtest/gtest.h"
-#include "mage/bindings/receiver.h"
-#include "mage/bindings/remote.h"
-#include "mage/core/core.h"
-#include "mage/core/handles.h"
+#include "mage/public/receiver.h"
+#include "mage/public/remote.h"
+#include "mage/public/core.h"
+#include "mage/public/handles.h"
 #include "mage/core/node.h"
+#include "mage/core/endpoint.h"
 #include "mage/test/magen/callback_interface.magen.h" // Generated.
 #include "mage/test/magen/first_interface.magen.h"    // Generated.
 #include "mage/test/magen/handle_accepter.magen.h"    // Generated.
@@ -335,7 +336,7 @@ TEST_F(MageTest, SendInvitationUnitTest) {
       launcher->GetLocalFd()
     );
 
-  EXPECT_NE(message_pipe, kInvalidHandle);
+  EXPECT_NE(message_pipe, kInvalidPipe);
   EXPECT_EQ(CoreHandleTable().size(), 2);
   EXPECT_EQ(NodeLocalEndpoints().size(), 2);
 
@@ -385,7 +386,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiver) {
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MessagePipe message_pipe){
-    EXPECT_NE(message_pipe, kInvalidHandle);
+    EXPECT_NE(message_pipe, kInvalidPipe);
     EXPECT_EQ(CoreHandleTable().size(), 1);
     EXPECT_EQ(NodeLocalEndpoints().size(), 1);
 
@@ -429,7 +430,7 @@ TEST_F(MageTest, ParentIsAcceptorAndReceiverButChildBlocksOnAcceptance) {
 
   mage::Core::AcceptInvitation(launcher->GetLocalFd(),
                                std::bind([&](MessagePipe message_pipe){
-    EXPECT_NE(message_pipe, kInvalidHandle);
+    EXPECT_NE(message_pipe, kInvalidPipe);
     EXPECT_EQ(CoreHandleTable().size(), 1);
     EXPECT_EQ(NodeLocalEndpoints().size(), 1);
 
@@ -737,7 +738,7 @@ class FirstInterfaceImplDummy1 final : public magen::FirstInterface {
   void SendHandles(MessagePipe, MessagePipe) override { NOTREACHED(); }
 
   MessagePipe GetSecondInterfaceReceiverHandle() {
-    CHECK_NE(second_interface_receiver_handle_, kInvalidHandle);
+    CHECK_NE(second_interface_receiver_handle_, kInvalidPipe);
     return second_interface_receiver_handle_;
   }
 
@@ -855,7 +856,7 @@ class ChildPassInvitationPipeBackToParentMessagePiper :
   void NotifyDoneViaCallback() override { NOTREACHED(); }
 
   MessagePipe GetFirstInterfaceHandle() {
-    CHECK_NE(remote_to_first_interface_, kInvalidHandle);
+    CHECK_NE(remote_to_first_interface_, kInvalidPipe);
     return remote_to_first_interface_;
   }
 
@@ -968,7 +969,7 @@ class ChildPassTwoPipesToParent : public magen::FirstInterface,
   void SendReceiverForFourthInterface(MessagePipe) override { NOTREACHED(); }
 
   MessagePipe GetSecondInterfaceRemoteHandle() {
-    CHECK_NE(remote_to_second_interface_, kInvalidHandle);
+    CHECK_NE(remote_to_second_interface_, kInvalidPipe);
     return remote_to_second_interface_;
   }
 

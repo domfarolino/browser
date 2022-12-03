@@ -7,7 +7,7 @@ namespace mage {
 // `Endpoint`, whose peer's address may be local or remote.
 typedef uint32_t MessagePipe;
 
-static const MessagePipe kInvalidHandle = 0;
+static const MessagePipe kInvalidPipe = 0;
 
 }; // namspace mage
 
