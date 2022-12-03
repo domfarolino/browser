@@ -9,12 +9,12 @@ def magen_idl(name, srcs):
   for src in srcs:
     output = src + ".h"
     outputs.append(output)
-    cmds.append("python3 $(location //mage/parser:gen) $(location %s) $(location %s)" % (src, output))
+    cmds.append("python3 $(location //mage/public/parser:gen) $(location %s) $(location %s)" % (src, output))
 
   native.genrule(
     name = "gen_headers",
     outs = outputs,
-    tools = ["//mage/parser:gen"] + srcs,
+    tools = ["//mage/public/parser:gen"] + srcs,
     cmd = " && ".join(cmds)
   )
 

@@ -7,7 +7,7 @@
 #include "base/callback.h"
 #include "base/scheduling/scheduling_handles.h"
 #include "base/synchronization/mutex.h"
-#include "mage/public/handles.h"
+#include "mage/public/bindings/message_pipe.h"
 #include "mage/public/message.h"
 
 namespace mage {

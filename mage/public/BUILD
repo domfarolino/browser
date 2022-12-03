@@ -15,11 +15,11 @@ cc_library(
 cc_library(
   name = "include",
   hdrs = [
-    "receiver.h",
-    "remote.h",
+    "bindings/message_pipe.h",
+    "bindings/receiver_delegate.h",
+    "bindings/receiver.h",
+    "bindings/remote.h",
     "message.h",
-    "handles.h",
-    "receiver_delegate.h",
     "core.h",
     "util.h",
   ],

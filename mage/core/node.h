@@ -10,7 +10,7 @@
 
 #include "gtest/gtest_prod.h"
 #include "mage/core/channel.h"
-#include "mage/public/handles.h"
+#include "mage/public/bindings/message_pipe.h"
 #include "mage/public/message.h"
 #include "mage/public/util.h"
 

@@ -1,3 +1,6 @@
+# DO NOT USE ANY OF THESE RULES DIRECTLY.
+# They are only to be used by the macro in `magen_idl.bzl`, and as such
+# unfortunately have to be marked as publicly visible.
 package(default_visibility = ["//visibility:public"])
 
 # A dumb rule just to expose `gen.py` to other targets.

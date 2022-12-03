@@ -10,10 +10,10 @@
 #include "base/scheduling/task_loop_for_io.h"
 #include "base/threading/thread_checker.h" // for CHECK_ON_THREAD().
 #include "gtest/gtest.h"
-#include "mage/public/receiver.h"
-#include "mage/public/remote.h"
+#include "mage/public/bindings/receiver.h"
+#include "mage/public/bindings/remote.h"
 #include "mage/public/core.h"
-#include "mage/public/handles.h"
+#include "mage/public/bindings/message_pipe.h"
 #include "mage/core/node.h"
 #include "mage/core/endpoint.h"
 #include "mage/test/magen/callback_interface.magen.h" // Generated.

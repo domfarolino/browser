@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "base/check.h"
-#include "mage/public/handles.h"
+#include "mage/public/bindings/message_pipe.h"
 #include "mage/public/util.h"
 
 namespace mage {

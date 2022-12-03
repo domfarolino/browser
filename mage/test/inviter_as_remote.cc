@@ -9,9 +9,9 @@
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop_for_io.h"
 #include "base/threading/thread_checker.h"
-#include "mage/public/remote.h"
+#include "mage/public/bindings/remote.h"
 #include "mage/public/core.h"
-#include "mage/public/handles.h"
+#include "mage/public/bindings/message_pipe.h"
 #include "mage/test/magen/test.magen.h"  // Generated.
 
 int main(int argc, char** argv) {

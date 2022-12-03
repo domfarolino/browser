@@ -8,8 +8,8 @@
 #include "base/scheduling/task_loop.h"
 #include "base/threading/thread.h"
 #include "mage/public/core.h"
-#include "mage/public/remote.h"
-#include "mage/public/receiver.h"
+#include "mage/public/bindings/remote.h"
+#include "mage/public/bindings/receiver.h"
 
 #include "examples/mage/magen/child_process.magen.h" // Generated
 #include "examples/mage/magen/child_process_2.magen.h" // Generated
