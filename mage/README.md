@@ -19,7 +19,7 @@ is being considered, to make Mage even more standalone. Mage is also built with
 
 <details><summary>History!</summary>
 
-The user-facing IDL portion of mojo was based on Darin Fisher's [ipc_idl]
+The user-facing IDL portion of Mojo was based on Darin Fisher's [ipc_idl]
 prototype, which describes a very similar IDL that python generates C++ bindings
 from, with the jinja2 templating engine.
 
@@ -46,25 +46,25 @@ Mage IPC allows you to seamlessly send asynchronous messages to an object that
 lives in another process, thread, or even the same thread, without the sender
 having to know anything about where the target object actually is.
 
-To use Mage, you need to be familiar with three concepts from its public API:
+To get started, you need to be familiar with three concepts from its public API:
  - `mage::MessagePipe`
  - `mage::Remote`
  - `mage::Receiver`
 
-Each end of a message pipe is represented by a `MessagePipe`, which can be
-passed across processes. Ultimately, a `MessagePipe` representing one end of a
-message pipe will get bound to a `Remote`, and the other end's `MessagePipe`
-will get bound to a `Receiver`. It is through these objects that arbitrary
-messages get passed as IPCs.
+Messages are passed over bidirectional message pipes, each end of which is
+represented by a `MessagePipe`, which can be passed across processes.
+Ultimately, one `MessagePipe` will get bound to a `Remote` and its corresponding
+pipe will get bound to a `Receiver`. It is through these objects that arbitrary
+user messages get passed as IPCs.
 
 ### `mage::Remote`
 
 Once bound, a `Remote<magen::Foo>` represents a local "proxy" for a `magen::Foo`
-object that may be implemented in another process. You can synchronously invoke
-any of `magen::Foo` interface's methods on a `Remote<magen::Foo>`, and the
-remote proxy will forward the message to the right place, wherever the target
-object actually lives (even if it is moving around). See the next section for
-defining interfaces in Magen IDL.
+interface, whose concrete implementation may live in another process. You can
+synchronously invoke any of `magen::Foo` interface's methods on a
+`Remote<magen::Foo>`, and the remote proxy will forward the message to the right
+place, wherever the target object actually lives, even if it is moving around.
+See the next section for defining interfaces in Magen IDL.
 
 ```cpp
 MessagePipe remote_pipe = /* get pipe from somewhere */;
@@ -77,15 +77,15 @@ remote->ArbitraryMessage("some payload");
 ### `mage::Receiver`
 
 Messages sent over a bound `mage::Remote<magen::Foo>` get queued on the other
-end of the pipe's `MessagePipe`, until _it_ is bound to a corresponding
+end's `MessagePipe`, until _it_ is bound to a corresponding
 `mage::Receiver<magen::Foo>`. A `Receiver<magen::Foo>` represents the concrete
 implementation of a Mage interface `magen::Foo`. The receiver itself does not
-handle messages that were dispatched by the corresponding remote, but rather it
-has as a reference to a C++ object that implements the `magen::Foo` interface,
-and it forwards messages to that user-provided implementation. A receiver for a
-Mage interface is typically owned by the implementation of that interface.
+handle messages sent by the remote, but rather it has a reference to a
+user-provided C++ object that implements the `magen::Foo` interface, and it
+forwards messages to it. A receiver for a Mage interface is typically owned by
+the concrete implementation of that interface.
 
-Here's what a concrete implementation of a cross-process Mage object looks like:
+Here's an example:
 
 ```cpp
 // Instances of this class can receive asynchronous IPCs from other processes.
@@ -98,7 +98,7 @@ class FooImpl final : public magen::Foo {
   }
 
   // Implementation of magen::Foo. These methods get invoked by `receiver_` when
-  // it reads messages from its corresponding `mage::Remote`.
+  // it reads messages from its corresponding remote.
   void ArbitraryMessage(string) { /* ... */ }
   void AnotherIPC(MessagePipe) { /* ... */ }
 
@@ -112,12 +112,12 @@ class FooImpl final : public magen::Foo {
 ## Magen Interface Definition Language (IDL)
 
 Magen is the [IDL] that describes Mage interfaces. Interfaces are written in
-`.magen` files and are understood by the `magen(...)` Bazel rule, which
+`.magen` files and are understood by the `magen_idl(...)` Bazel rule, which
 generates C++ bindings code based on your interface.
 
-The magen IDL is quite simple. Each `.magen` file describes a single interface
-with the `interface` keyword, which can have any number of methods described by
-their names and parameters.
+The magen IDL is quite simple (and much less feature-rich than Mojo's IDL). Each
+`.magen` file describes a single interface with the `interface` keyword, which
+can have any number of methods described by their names and parameters.
 
 Single line C-style comments are supported. Here are a list of supported
 parameter types:
@@ -133,13 +133,13 @@ The types are self-explanatory, with the exception of `MessagePipe`. A
 `MessagePipe` that is not bound to a `Remote` or `Receiver` can be passed from
 one process, over an existing IPC interface, to be bound to a
 `Remote`/`Receiver` in another process. This is the basic primitive with which
-it's possible to expand the number of connections that span two processes.
+it's possible to expand the number of connections spanning two processes.
 
 Here's an example of an interface:
 
 ```cpp
 // This interface is implemented by the parent process. It is used by its child
-// processes to communicate commands to the parent process.
+// processes to communicate commands to the parent.
 interface ParentProcess {
   // Child tells parent process to navigate to `url`, with an arbitrary delay of
   // `delay` seconds.
@@ -148,11 +148,8 @@ interface ParentProcess {
   // ...
   OpenFile(string name, bool truncate);
 
-  // Before calling this, the child will mint two entangled `MessagePipe`s. It
-  // binds one to its `ChildProcess` receiver, and passes the other to the
-  // parent for use as a remote. The parent binds this to a
-  // `mage::Remote<magen::ChildProcess>` so it can send commands back to its
-  // child.
+  // The parent binds this to a local `mage::Remote<magen::ChildProcess>` so it
+  // can send messages *back* to its child.
   BindChildProcessRemote(MessagePipe child_remote);
 }
 ```
@@ -163,12 +160,15 @@ interface ParentProcess {
 Using Mage to provide IPC support in an application is pretty simple; there are
 only a few steps:
 
- 1. Create your interface in a `.magen` file (covered by the previous section)
- 1. Add the `.magen` file to your project's Bazel `BUILD` file
+ 1. Create your interface in a `.magen` file (previous section)
+ 1. Add the `.magen` file to your `BUILD` file
  1. Implement your interface in C++
  1. Use a `Remote` to send IPCs to your cross-process interface (or any thread)
 
-Let's assume you have a project structure like:
+Let's assume you have a networking application (`main.cc`) that takes URLs from
+user input and fetches them, but you want to do the fetching in separate process
+(`network_process.cc`). Specifically, `main.cc` will spin up the network process
+and tell it what URLs to fetch and when. Consider the project structure:
 
 ```
 my_project/
@@ -179,20 +179,14 @@ my_project/
 │  ├─ BUILD
 │  ├─ socket.h
 │  ├─ network_process.cc
-├─ .gitignore
+├─ WORKSPACE
 ```
-
-You have an application (`main.cc`) that takes URLs from user input and fetches
-them, but you want to do the fetching in separate process
-(`network_process.cc`). Specifically, `main.cc` will spin up the network process
-and tell it what URLs to fetch and when.
 
 ### 1. Write the Magen interface for the network process
 
 The first thing you need to do is write the Magen interface that `main.cc` will
-use to communicate to the network process. This includes a `FetchURL` IPC
-message that contains a URL. Magen interfaces are typically defined in a
-`magen/ directory`:
+use to send messages to the network process. This includes a `FetchURL` IPC that
+contains a URL. Magen interfaces are typically defined in a `magen/ directory`:
 
 ```cpp
 // network_process/magen/network_process.magen
@@ -204,14 +198,14 @@ interface NetworkProcess {
 
 ### 2. Add the `.magen` file to a BUILD file
 
-Next, you need to tell your BUILD file about the interface in your `.magen`
-file, so it can "build" it. `magen/` directories get their own `BUILD` files
-that invoke the Mage build process.
+Next, you need to tell your `BUILD` file about the interface in your `.magen`
+file, so it can "build" it (generate the requisite C++ code). `magen/`
+directories get their own `BUILD` files that invoke the Mage build process.
 
 ```starlark
 # network_process/magen/BUILD
 
-load("//mage/parser:magen_idl.bzl", "magen_idl")
+load("//mage/public/parser:magen_idl.bzl", "magen_idl")
 
 # Generates `network_process.magen.h`, which can be included by depending on the
 # ":include" target below.
@@ -229,17 +223,13 @@ on the supplied interface. Both `main.cc` and `network_process.cc` can
 example, you'd modify `src/BUILD` like so:
 
 ```diff
-# src/BUILD
-
-load("@rules_cc//cc:defs.bzl", "cc_binary")
-
 cc_binary(
   name = "main",
   srcs = [
     "main.cc",
   ],
 +  deps = [
-+    "//mage:mage",
++    "//mage/public",
 +    # Allows `main.cc` to `include` the generated interface header.
 +    "//network_process/magen:include",
 +  ],
@@ -248,19 +238,17 @@ cc_binary(
 ```
 
 You'll need to do the same for `//network_process/BUILD`, so that the
-`network_process.cc` binary can also `#include` the generated interface code.
+`network_process.cc` binary can include the same header.
 
 ### 3. Implement your interface in C++
 
-The C++ object that will _back_ the `magen::NetworkProcess` interface that you
-designed will of course live in the `network_process.cc` binary, since that's
-where we'll accept URLs from the main process to fetch. We'll need to implement
-this interface now:
+The C++ object that will _back_ the `magen::NetworkProcess` interface will of
+course live in the `network_process.cc` binary, since that's where we'll accept
+URLs from the main process to fetch. We'll need to implement this interface now:
 
 ```cpp
 // network_process/network_process.cc
 
-#include "mage/bindings/receiver.h"
 #include "network_process/magen/network_process.magen.h" // Generated.
 
 // The network process's concrete implementation of the `magen::NetworkProcess`
@@ -300,7 +288,6 @@ The main application binary can communicate to the network process with a
 ```cpp
 // src/main.cc
 
-#include "mage/bindings/remote.h"
 #include "network_process/magen/network_process.magen.h" // Generated.
 
 // Main binary that the user runs.
@@ -308,8 +295,10 @@ int main() {
   MessagePipe network_pipe = /* obtained from creating the network process */
   mage::Remote<magen::NetworkProcess> remote(network_pipe);
 
-  remote->FetchURL("https://google.com");
-  RunApplicationLoopForever();
+  while (true) {
+    std::string url /* get user input */;
+    remote->FetchURL(url);
+  }
   return 0;
 }
 ```
@@ -319,9 +308,9 @@ int main() {
 
 The previous section illustrates sending a message over a bound message pipe to
 another process, using a single remote/receiver pair that spans the two
-processes. But usually you don't want to have a single interface responsible for
-every single message that spans two processes. That leads to bad layering and
-design. Rather, you often want something like:
+processes. But usually you don't want just a single interface responsible for
+every single message sent between two processes. That leads to bad layering and
+design. Rather, you often want tightly scoped interfaces like the following:
 
 ```
 ┌─────────────────────────┐             ┌──────────────────────────┐
@@ -349,44 +338,44 @@ design. Rather, you often want something like:
 ```
 
 As long as you have a single interface spanning two processes, you can use it to
-indefinitely expand the number of interfaces between them, by passing
+indefinitely expand the number of interfaces between them, by passing unbound
 `MessagePipe`s over an existing interface:
 
 ```cpp
 mage::Remote<magen::BoostrapInterface> remote = /* ... */;
 
-// Create two entangled message pipes, and send one (intended for use as a
-// receiver) to the remote process.
+// Create two entangled message pipes, and send one (for use as a receiver) to
+// the remote process.
 std::vector<mage::MessagePipe> new_pipes = mage::Core::CreateMessagePipes();
 
 remote->SendCompositorReceiver(new_pipes[1]);
 mage::Remote<magen::Compositor> compositor_remote(new_pipes[0]);
 
 // Now you can start invoking methods on the remote compositor, and they'll
-// arrive in the remote process once the receiver (new_pipes[1]) gets bound.
+// arrive in the remote process once the receiver gets bound.
 compositor_remote->StartCompositing();
 ```
 
 ## Mage invitations
 
-The above sections are great primers on how to use Mage in an existing
-application, but they only cover the basics. Every example assumes you already
-have a connection between two processes in your system. From there, you can send
-messages, and even expand the number of connections that span the two processes.
-But **how do you establish the initial connection**? This section introduces the
-Mage "invitation" concept, which helps you do this.
+The above sections are great primers on how to get started with Mage, but they
+assume you already have an initial connection spanning two processes in your
+system. From there, you can send messages, and even expand the number of
+connections that span the two processes. But **how do you establish the initial
+connection**? This section introduces the Mage "invitation" concept, which helps
+you do this.
 
 There are three public APIs for establishing the initial message pipe connection
 across two processes:
- - Called in every process that uses Mage: `mage::Core::Init()`. Performs
+ - **Called in every process using Mage**: `mage::Core::Init()`. Performs
    routine setup, and must be called before any other Mage APIs are called
- - Called from the parent process[^2]:
+ - **Called from the parent process[^2]**:
    `mage::Core::SendInvitationAndGetMessagePipe(int socket)`
- - Called from the child process:
+ - **Called from the child process**:
    `mage::Core::AcceptInvitation(int socket, std::function<void(MessagePipe)> callback)`
 
 First, the parent process must create a native socket pair that the child
-process inherits upon creation. The parent passes the pipe into the
+process will inherit upon creation. The parent passes the pipe into the
 `mage::SendInvitationAndGetMessagePipe()` API in exchange for a
 `mage::MessagePipe` that's wired up with the Mage internals. This pipe can
 immediately be bound to a remote and the parent can start sending messages that
@@ -407,7 +396,7 @@ binary when the parent launches it.
 
 When the child recovers the native socket, from any thread it can call
 `mage::Core::AcceptInvitation(socket, callback)` to accept an invitation on the
-socket. This API takes a callback that runs on the same thread that invoked
+socket. This API takes a callback that runs on the same thread that called
 `AccceptInvitation()`, after the invitation gets processed on the IO thread. The
 callback gives the child a `mage::MessagePipe` that's connected to the parent
 process and ready for immediate use. Here's the typical flow:
@@ -423,7 +412,7 @@ int main(int argc, char** argv) {
   base::Thread io_thread(base::ThreadType::IO);
   io_thread.Start();
   io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
-  main_thread->Run();
+  main_thread->Run(); // Wait for the IO thread to get set up.
 
   mage::Core::Init();
 

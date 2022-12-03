@@ -1,9 +1,6 @@
 # Security considerations
 
-The process boundary is a critical security boundary for applications, and IPC
-implementations play an outsized role in defining it.
-
-The boundary between less-privileged processes and more-privileged ones is
+The boundary between less-privileged processes and more-privileged processes is
 crucial to audit when determining what capabilities or information is shared
 across processes. Since this boundary is largely defined by the IPC
 implementation being used[^1], IPC libraries tend to care a lot about security.
@@ -11,7 +8,7 @@ implementation being used[^1], IPC libraries tend to care a lot about security.
 This is particularly important because less-privileged processes might be
 compromised by some sort of application code, so the protection of
 more-privileged process depends on it being safe from whatever
-possibly-malicious content a less-privileged process might try and throw at it.
+possibly-malicious content a less-privileged one might try and throw at it.
 Some great documentation about protecting against this can be found in the
 Chromium source tree about [compromised renderer processes].
 
@@ -26,25 +23,26 @@ are:
  1. The library should validate deserialized data
     - A compromised process may write arbitrary data to a message that breaks
       the data serialization rules in hopes of triggering undefined behavior in
-      a more-privileged consumer of the message. The deserialization code in the
-      target process is responsible for validating the messages it receives
-      from other processes, before handing those messages to user code. When the
-      library catches invalid data in a received message, it should attempt to
-      kill the process that sent the data, and refuse to pass the message to the
-      user code that would normally handle it
+      a more-privileged receiver of the message. The deserialization code in the
+      target process is responsible for _safely_ validating messages it receives
+      before handing them to user code. When the library catches invalid data in
+      a received message, it should attempt to kill the process that sent the
+      message, and refuse to pass the message on to the usual receiving code
  1. IPC libraries often have the concept of a single "master" process that is
     responsible for brokering communication between other processes that don't
     otherwise have the ability to communicate on their own. In Chromium, this is
     literally called [the "Broker" process]. This is important especially in
-    sandboxed environments where less-privileged processes can't do many things,
-    and require the Broker to grant powerful capabilities
+    sandboxed environments where less-privileged processes can't do many things
+    (including spawn child process) and require the Broker to grant powerful 
+    capabilities
  1. Much more...
 
 As it stands right now, Mage is mostly written as a proof-of-concept, for use in
-basic applications, but not audited to uphold the security guarantees that might
-be required by major, critical applications in production (including the ones
-above). It would be great if Mage could get to this point, and it's certainly
-within reach, but right now Mage has not been designed for these purposes.
+applications  but not audited to uphold the security guarantees (including the
+ones above) that might be required by major, critical applications in
+production. It would be great if Mage could get to this point, and it's
+certainly within reach, but right now Mage has not been designed for these
+purposes.
 
 # Writing safe IPCs
 
