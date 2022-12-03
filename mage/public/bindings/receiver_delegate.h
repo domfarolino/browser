@@ -3,6 +3,8 @@
 
 #include <memory>
 
+#include "mage/public/message.h"
+
 namespace mage {
 
 class ReceiverDelegate {

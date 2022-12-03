@@ -10,9 +10,9 @@
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop_for_io.h"
 #include "base/threading/thread_checker.h"
+#include "mage/public/bindings/message_pipe.h"
 #include "mage/public/bindings/remote.h"
 #include "mage/public/core.h"
-#include "mage/public/bindings/message_pipe.h"
 #include "mage/test/magen/first_interface.magen.h"  // Generated.
 
 void OnInvitationAccepted(mage::MessagePipe remote_handle) {
@@ -25,7 +25,8 @@ void OnInvitationAccepted(mage::MessagePipe remote_handle) {
 }
 
 int main(int argc, char** argv) {
-  std::shared_ptr<base::TaskLoop> main_thread = base::TaskLoop::Create(base::ThreadType::UI);
+  std::shared_ptr<base::TaskLoop> main_thread =
+      base::TaskLoop::Create(base::ThreadType::UI);
   base::Thread io_thread(base::ThreadType::IO);
   io_thread.Start();
   io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());

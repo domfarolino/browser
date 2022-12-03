@@ -10,14 +10,15 @@
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop_for_io.h"
 #include "base/threading/thread_checker.h"
+#include "mage/public/bindings/message_pipe.h"
 #include "mage/public/bindings/remote.h"
 #include "mage/public/core.h"
-#include "mage/public/bindings/message_pipe.h"
-#include "mage/test/magen/first_interface.magen.h"  // Generated.
+#include "mage/test/magen/first_interface.magen.h"   // Generated.
 #include "mage/test/magen/second_interface.magen.h"  // Generated.
 
 int main(int argc, char** argv) {
-  std::shared_ptr<base::TaskLoop> main_thread = base::TaskLoop::Create(base::ThreadType::UI);
+  std::shared_ptr<base::TaskLoop> main_thread =
+      base::TaskLoop::Create(base::ThreadType::UI);
   base::Thread io_thread(base::ThreadType::IO);
   io_thread.Start();
   io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
@@ -28,7 +29,7 @@ int main(int argc, char** argv) {
   CHECK_EQ(argc, 2);
   int fd = std::stoi(argv[1]);
   mage::MessagePipe message_pipe =
-    mage::Core::SendInvitationAndGetMessagePipe(fd);
+      mage::Core::SendInvitationAndGetMessagePipe(fd);
 
   mage::Remote<magen::FirstInterface> remote;
   remote.Bind(message_pipe);

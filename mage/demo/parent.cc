@@ -3,14 +3,14 @@
 #include <unistd.h>
 
 #include <iostream>
-#include <string>
 #include <memory>
+#include <string>
 
 #include "base/scheduling/task_loop_for_io.h"
+#include "mage/demo/magen/demo.magen.h"  // Generated.
+#include "mage/public/bindings/message_pipe.h"
 #include "mage/public/bindings/remote.h"
 #include "mage/public/core.h"
-#include "mage/public/bindings/message_pipe.h"
-#include "mage/demo/magen/demo.magen.h" // Generated.
 
 int main() {
   printf("-------- Parent process --------\n");
@@ -21,15 +21,16 @@ int main() {
 
   // Spin up a new process, and have it access fds[1].
   pid_t rv = fork();
-  if (rv == 0) { // Child.
-    rv = execl("./bazel-bin/mage/demo/child", "--mage-socket=", std::to_string(fds[1]).c_str());
+  if (rv == 0) {  // Child.
+    rv = execl("./bazel-bin/mage/demo/child",
+               "--mage-socket=", std::to_string(fds[1]).c_str());
   }
 
   auto task_loop = base::TaskLoop::Create(base::ThreadType::IO);
   mage::Core::Init();
 
   mage::MessagePipe local_message_pipe =
-    mage::Core::SendInvitationAndGetMessagePipe(fds[0]);
+      mage::Core::SendInvitationAndGetMessagePipe(fds[0]);
 
   mage::Remote<magen::Demo> remote(local_message_pipe);
   remote->Method1(1, "dom", "farolino");

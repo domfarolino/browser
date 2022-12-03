@@ -9,6 +9,6 @@ typedef uint32_t MessagePipe;
 
 static const MessagePipe kInvalidPipe = 0;
 
-}; // namspace mage
+};  // namespace mage
 
-#endif // MAGE_CORE_HANDLES_H_
+#endif  // MAGE_CORE_HANDLES_H_

@@ -10,15 +10,15 @@
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop_for_io.h"
 #include "base/threading/thread_checker.h"
+#include "mage/public/bindings/message_pipe.h"
 #include "mage/public/bindings/receiver.h"
 #include "mage/public/bindings/remote.h"
 #include "mage/public/core.h"
-#include "mage/public/bindings/message_pipe.h"
 #include "mage/test/magen/callback_interface.magen.h"  // Generated.
-#include "mage/test/magen/first_interface.magen.h"  // Generated.
-#include "mage/test/magen/second_interface.magen.h"  // Generated.
-#include "mage/test/magen/third_interface.magen.h"  // Generated.
-#include "mage/test/magen/fourth_interface.magen.h"  // Generated.
+#include "mage/test/magen/first_interface.magen.h"     // Generated.
+#include "mage/test/magen/fourth_interface.magen.h"    // Generated.
+#include "mage/test/magen/second_interface.magen.h"    // Generated.
+#include "mage/test/magen/third_interface.magen.h"     // Generated.
 
 // The correct sequence of message that this binary will receive from the parent
 // process (test runner) is:
@@ -49,9 +49,7 @@ class FourthInterfaceImpl final : public magen::FourthInterface {
     global_callback_remote->NotifyDone();
   }
 
-  void NotifyDoneViaCallback() {
-    global_callback_remote->NotifyDone();
-  }
+  void NotifyDoneViaCallback() { global_callback_remote->NotifyDone(); }
 
  private:
   mage::Receiver<magen::FourthInterface> receiver_;
@@ -66,13 +64,13 @@ class ThirdInterfaceImpl final : public magen::ThirdInterface {
 
   void NotifyDoneViaCallback() override { NOTREACHED(); }
   void SendReceiverForFourthInterface(mage::MessagePipe receiver) override {
-    LOG("\033[34;1mThirdInterfaceImpl got receiver to bootstrap magen::FourthInterface\033[0m");
+    LOG("\033[34;1mThirdInterfaceImpl got receiver to bootstrap "
+        "magen::FourthInterface\033[0m");
     global_fourth_interface = std::make_unique<FourthInterfaceImpl>(receiver);
   }
 
  private:
   mage::Receiver<magen::ThirdInterface> receiver_;
-
 };
 std::unique_ptr<ThirdInterfaceImpl> global_third_interface;
 
@@ -109,9 +107,7 @@ std::unique_ptr<SecondInterfaceImpl> global_second_interface;
 
 class FirstInterfaceImpl final : public magen::FirstInterface {
  public:
-  FirstInterfaceImpl(mage::MessagePipe handle) {
-    receiver_.Bind(handle, this);
-  }
+  FirstInterfaceImpl(mage::MessagePipe handle) { receiver_.Bind(handle, this); }
 
   void SendString(std::string message) override {
     CHECK_EQ(message, "Message for FirstInterface");
@@ -132,8 +128,8 @@ class FirstInterfaceImpl final : public magen::FirstInterface {
     global_second_interface =
         std::make_unique<SecondInterfaceImpl>(second_interface);
 
-    // One-time initialization of the callback remote that we use to tell the parent that we
-    // received its messages.
+    // One-time initialization of the callback remote that we use to tell the
+    // parent that we received its messages.
     global_callback_remote.Bind(callback_handle);
   }
 
@@ -144,11 +140,13 @@ std::unique_ptr<FirstInterfaceImpl> global_first_interface;
 
 void OnInvitationAccepted(mage::MessagePipe receiver_handle) {
   CHECK_ON_THREAD(base::ThreadType::UI);
-  global_first_interface = std::make_unique<FirstInterfaceImpl>(receiver_handle);
+  global_first_interface =
+      std::make_unique<FirstInterfaceImpl>(receiver_handle);
 }
 
 int main(int argc, char** argv) {
-  std::shared_ptr<base::TaskLoop> main_thread = base::TaskLoop::Create(base::ThreadType::UI);
+  std::shared_ptr<base::TaskLoop> main_thread =
+      base::TaskLoop::Create(base::ThreadType::UI);
   base::Thread io_thread(base::ThreadType::IO);
   io_thread.Start();
   io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
