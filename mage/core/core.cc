@@ -4,8 +4,6 @@
 #include <cstdlib>
 
 #include "base/scheduling/task_loop_for_io.h"
-// TODO(domfarolino): Can you get rid of this include??
-#include "mage/public/bindings/receiver_delegate.h"
 #include "mage/core/endpoint.h"
 #include "mage/core/node.h"
 #include "mage/public/util.h"
