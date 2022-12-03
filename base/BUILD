@@ -46,6 +46,10 @@ cc_library(
   }),
 
   deps = [],
+  linkopts = select({
+    ":mac": [],
+    ":linux": ["-lpthread"],
+  }),
   visibility = ["//visibility:public"],
 )
 

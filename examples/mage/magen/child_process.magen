@@ -1,0 +1,6 @@
+// An interface representing a child process, for use by a parent process.
+interface ChildProcess {
+  // Tells the child to print `msg`.
+  PrintMessage(string msg);
+  PassHandle(MessagePipe child_process_2_handle, MessagePipe parent_process_handle);
+}

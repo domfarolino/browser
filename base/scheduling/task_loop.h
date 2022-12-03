@@ -32,6 +32,7 @@ class TaskLoop : public Thread::Delegate,
   TaskLoop& operator=(const TaskLoop&) = delete;
 
   static std::shared_ptr<TaskLoop> CreateUnbound(ThreadType type);
+  // TODO(domfarolino): Consider renaming this CreateBound() for extra clarity.
   static std::shared_ptr<TaskLoop> Create(ThreadType type);
 
   // Thread::Delegate implementation.

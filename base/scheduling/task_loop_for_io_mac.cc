@@ -28,7 +28,7 @@ TaskLoopForIOMac::TaskLoopForIOMac() : kqueue_(kqueue()) {
 }
 
 TaskLoopForIOMac::~TaskLoopForIOMac() {
-  CHECK(async_socket_readers_.empty());
+  // CHECK(async_socket_readers_.empty());
 }
 
 void TaskLoopForIOMac::Run() {
