@@ -11,7 +11,7 @@ http_archive(
 git_repository(
   name = "browser",
   remote = "https://github.com/domfarolino/browser.git",
-  commit = "ddd2ffb8dddb110be8a33c00fa579d4926b3cc5c",
+  commit = "77021f6caf785717024ca8d438455092c8d188d2",
 )
 
 git_repository(
