@@ -6,7 +6,7 @@ cc_binary(
     "mage_parent.cc",
   ],
   deps = [
-    "//base:base",
+    "@base//base",
     "@mage//mage/public",
     "//examples/mage/magen:include",
     "@gtest//:gtest_prod",
@@ -19,7 +19,7 @@ cc_binary(
     "mage_child.cc",
   ],
   deps = [
-    "//base:base",
+    "@base//base",
     "@mage//mage/public",
     "//examples/mage/magen:include",
     "@gtest//:gtest_prod",
