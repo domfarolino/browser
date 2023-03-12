@@ -1,5 +1,0 @@
-interface FirstInterface {
-  SendString(string msg);
-  SendSecondInterfaceReceiver(MessagePipe receiver);
-  SendHandles(MessagePipe handle_to_send, MessagePipe callback_handle);
-}

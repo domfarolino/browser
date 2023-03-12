@@ -7,7 +7,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage/public",
+    "@mage//mage/public",
     "//examples/mage/magen:include",
     "@gtest//:gtest_prod",
   ],
@@ -20,7 +20,7 @@ cc_binary(
   ],
   deps = [
     "//base:base",
-    "//mage/public",
+    "@mage//mage/public",
     "//examples/mage/magen:include",
     "@gtest//:gtest_prod",
   ],

@@ -1,4 +1,0 @@
-interface FourthInterface {
-  SendStringAndNotifyDoneViaCallback(string msg);
-  NotifyDoneViaCallback();
-}

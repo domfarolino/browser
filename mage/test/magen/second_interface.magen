@@ -1,6 +1,0 @@
-interface SecondInterface {
-  SendStringAndNotifyDoneViaCallback(string msg);
-  NotifyDoneViaCallback();
-
-  SendReceiverForThirdInterface(MessagePipe receiver);
-}

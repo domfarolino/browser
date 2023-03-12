@@ -7,7 +7,7 @@
 #include "base/check.h"
 #include "base/scheduling/task_loop.h"
 #include "base/threading/thread.h"
-#include "mage/public/core.h"
+#include "mage/public/api.h"
 #include "mage/public/bindings/remote.h"
 #include "mage/public/bindings/receiver.h"
 
@@ -61,19 +61,19 @@ int main() {
   }
 
   // The actual interesting stuff:
-  mage::Core::Init();
+  mage::Init();
   // Once we send the invitation, we synchronously get a handle that we can use
   // in a `mage::Remote`. We can synchronously start sending messages over the
   // remote and they'll magically end up on whatever receiver gets bound to the
   // other end.
   mage::MessagePipe message_pipe =
-      mage::Core::SendInvitationAndGetMessagePipe(sockets[0]);
+      mage::SendInvitationAndGetMessagePipe(sockets[0]);
   mage::Remote<magen::ChildProcess> remote;
   remote.Bind(message_pipe);
   remote->PrintMessage("Hello from the parent process!!!");
 
-  std::vector<mage::MessagePipe> child_process_2_handles = mage::Core::CreateMessagePipes();
-  std::vector<mage::MessagePipe> parent_process_handles = mage::Core::CreateMessagePipes();
+  std::vector<mage::MessagePipe> child_process_2_handles = mage::CreateMessagePipes();
+  std::vector<mage::MessagePipe> parent_process_handles = mage::CreateMessagePipes();
   remote->PassHandle(child_process_2_handles[1], parent_process_handles[1]);
 
   mage::Remote<magen::ChildProcess2> remote_2;
