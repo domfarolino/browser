@@ -37,7 +37,7 @@ jobs:
           ${{ runner.os }}-${{ env.cache-name }}-master
 
     - name: Build
-      run: bazel build base/base_tests
+      run: bazel build examples/producer_consumer examples/run_loop examples/task_posting examples/bind examples/mage/mage_parent examples/mage/mage_child
 
     - name: Run tests
-      run: bazel test base/base_tests --test_output=all
+      run: echo "No tests yet, since all hermetic dependencies have moved externally"

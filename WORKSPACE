@@ -9,9 +9,9 @@ http_archive(
 )
 
 git_repository(
-  name = "browser",
-  remote = "https://github.com/domfarolino/browser.git",
-  commit = "77021f6caf785717024ca8d438455092c8d188d2",
+  name = "base",
+  remote = "https://github.com/domfarolino/base.git",
+  commit = "b1b83638f2ae966516cd92db71e229ad6ee92031",
 )
 
 git_repository(
@@ -20,6 +20,5 @@ git_repository(
   commit = "930f3097ea235fba9c4773eb1a1757a341a5d62d",
   repo_mapping = {
     "@gtest": "@gtest",
-    "@base": "@browser",
   },
 )
