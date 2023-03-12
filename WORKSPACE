@@ -12,14 +12,12 @@ git_repository(
   name = "browser",
   remote = "https://github.com/domfarolino/browser.git",
   commit = "ddd2ffb8dddb110be8a33c00fa579d4926b3cc5c",
-  shallow_since = "1670085830 -0700",
 )
 
 git_repository(
   name = "mage",
   remote = "https://github.com/domfarolino/mage.git",
-  commit = "1d447682ed60d7dd2f5a7c50bd99d3bbb126f501",
-  shallow_since = "1670210963 -0500",
+  commit = "930f3097ea235fba9c4773eb1a1757a341a5d62d",
   repo_mapping = {
     "@gtest": "@gtest",
     "@base": "@browser",
