@@ -1,4 +1,0 @@
-interface ThirdInterface {
-  NotifyDoneViaCallback();
-  SendReceiverForFourthInterface(MessagePipe receiver);
-}

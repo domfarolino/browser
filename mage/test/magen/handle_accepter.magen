@@ -1,3 +1,0 @@
-interface HandleAccepter {
-  PassHandle(MessagePipe handle_to_send);
-}

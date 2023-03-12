@@ -10,9 +10,9 @@
 #include "base/scheduling/scheduling_handles.h"
 #include "base/scheduling/task_loop.h"
 #include "base/threading/thread.h"
+#include "mage/public/api.h"
 #include "mage/public/bindings/receiver.h"
 #include "mage/public/bindings/remote.h"
-#include "mage/public/core.h"
 
 #include "examples/mage/magen/child_process.magen.h"  // Generated.
 #include "examples/mage/magen/child_process_2.magen.h"  // Generated.
@@ -74,11 +74,11 @@ int main(int argc, char** argv) {
   io_thread.GetTaskRunner()->PostTask(main_thread->QuitClosure());
   main_thread->Run();
 
-  mage::Core::Init();
+  mage::Init();
 
   CHECK_EQ(argc, 2);
   int socket = std::stoi(argv[1]);
-  mage::Core::AcceptInvitation(socket, &OnInvitationAccepted);
+  mage::AcceptInvitation(socket, &OnInvitationAccepted);
 
   main_thread->Run();
   return 0;
